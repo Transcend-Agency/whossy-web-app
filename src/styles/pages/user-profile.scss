@@ -22,7 +22,7 @@
         }
     }
     &__update-profile-button {
-        @apply w-[4.8rem] h-[4.8rem] bg-white absolute -top-[0.8rem] right-0 rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition duration-200;
+        @apply w-[4.8rem] h-[4.8rem] bg-white absolute top-[1rem] right-[1.5rem] cursor-pointer rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition duration-200;
         img {
             @apply h-[1.6rem];
         }

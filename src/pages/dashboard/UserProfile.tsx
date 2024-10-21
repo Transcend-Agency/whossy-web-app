@@ -24,6 +24,8 @@ import UserInterestsDesktop from './UserInterestsDesktop';
 import { getYearFromFirebaseDate } from '@/utils/date';
 import SubscriptionPlans from './SubscriptionPlans';
 import Skeleton from 'react-loading-skeleton';
+import Circle from '@/components/dashboard/Circle';
+import { checkUserProfileCompletion } from '@/constants';
 
 
 // type UserProfileProps = {};
@@ -35,10 +37,16 @@ const UserProfile = () => {
     const [userData, setUserData] = useState<User>();
     const [userFilters, setUserFilters] = useState<UserFilters>();
     const [currentPlan, setCurrentPlan] = useState<'free' | 'premium'>('free');
+    const [completed, setCompleted] = useState<number>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
 
     const {auth} = useAuthStore();
 
-    const fetchUserData = async () => { const data = await getUserProfile("users", auth?.uid as string) as User; setUserData(data); }
+    const fetchUserData = async () => { 
+        const data = await getUserProfile("users", auth?.uid as string) as User; 
+        setUserData(data);
+        setCompleted(checkUserProfileCompletion(data))
+    }
     
     const fetchUserFilters = async () => {const data = await getUserProfile("filters", auth?.uid as string) as UserFilters; setUserFilters(data) }
 
@@ -50,30 +58,34 @@ const UserProfile = () => {
     const refetchUserFilters = async () => { await fetchUserFilters() }
 
     return <>
-        <DashboardPageContainer className="">
-            <motion.div animate={activePage == 'user-profile' ? { scale: 1, opacity: 1 } : { scale: 0.9, opacity: 0 }} transition={{ duration: 0.25 }} className='user-profile dashboard-layout__main-app__body__main-page'>
-                <div className='user-profile__container'>
+        <DashboardPageContainer>
+            <motion.div animate={activePage == 'user-profile' ? { scale: 1, opacity: 1 } : { scale: 0.9, opacity: 0 }} transition={{ duration: 0.25 }} className='user-profile h-full'>
+                <div className='user-profile__container flex flex-col'>
                     <div className='flex justify-end gap-x-4'>
                         <button onClick={() => setActivePage('profile-settings')} className='user-profile__settings-button'><img src="/assets/images/dashboard/settings.svg" /></button>
                         <button onClick={() => setActivePage('preferences')} className='user-profile__settings-button'><img src="/assets/icons/control.svg" /></button>
                     </div>
-                    <section className='user-profile__profile-picture-container'>
-                        <figure className='user-profile__profile-picture'>
-                            <img src="/assets/images/auth-bg/1.webp" />
-                        </figure>
-                        <button onClick={() => { setActivePage('edit-profile'); setActiveSubPage(0) }} className='user-profile__update-profile-button cursor-pointer'>
+                    <div className='self-center relative'>
+                        <Circle percentage={completed ? Math.ceil(completed / 19 * 100) : 0} imageUrl={userData?.photos && Array.isArray(userData.photos) && userData.photos.length > 0 ? userData.photos[0] : '/assets/images/auth-bg/1.webp'}/>
+                        <button onClick={() => { setActivePage('edit-profile'); setActiveSubPage(0) }} className='user-profile__update-profile-button '>
                             <img src="/assets/icons/update-profile.svg" />
                         </button>
-                    </section>
+                    </div>
+                    {/* <section className='user-profile__profile-picture-container'>
+                    </section> */}
                     <section className='user-profile__profile-details'>
                         <div className='user-profile__profile-details flex justify-center mt-2'>
                             {userData ? <p>{userData?.first_name}, <span className='user-profile__profile-details__age'>{userData?.date_of_birth ? (new Date()).getFullYear() - getYearFromFirebaseDate(userData.date_of_birth) : 'NIL'}</span>
                                 <img src="/assets/icons/verified-badge.svg" />
-                            </p> : <Skeleton width='150px' height='20px' />}
+                            </p> : <Skeleton width='21rem' height='2.9rem' />}
                         </div>
-                        <div className='user-profile__profile-details__completion-status'>
-                            20% Complete
-                        </div>
+                       {completed ?  
+                       <div className='user-profile__profile-details__completion-status'>
+                            {Math.ceil(completed / 19 * 100)}% Complete 
+                        </div> : 
+                        <div className='mt-[1.2rem] flex justify-center'>
+                            <Skeleton width='14rem' height='3.3rem' />
+                        </div>}
                     </section>
                     <div className='user-profile__banner user-profile__banner--info'>
                         <img src="/assets/icons/notification-alert.svg" />

@@ -133,7 +133,7 @@ const ChatPage = () => {
     return <>
        {/* <ImagesModalMobile show={true}/> */}
         <DashboardPageContainer className="block">
-            <motion.div animate={activePage == 'chats' ? { scale: 1, opacity: 1 } : { scale: 0.9, opacity: 0.3 }} transition={{ duration: 0.25 }} className='user-profile dashboard-layout__main-app__body__main-page  space-y-10'>
+            <motion.div animate={activePage == 'chats' ? { scale: 1, opacity: 1 } : { scale: 0.9, opacity: 0.3 }} transition={{ duration: 0.25 }} className='user-profile h-full space-y-10'>
                 <section className='space-y-[1.6rem] px-[1.6rem]'>
                   <h1 className='text-[1.6rem] font-medium '>New Likes and Matches</h1>
                   <div className='flex gap-x-4'>
@@ -153,7 +153,7 @@ const ChatPage = () => {
                 {/* <button className='bg-red-600 text-white rounded-lg p-4 cursor-pointer' onClick={() => {console.log(chats); }}>Chat With User</button> */}
                 <section>
 
-                  <h1 className='text-[1.6rem] font-medium mb-4 px-[1.6rem]'>Messages {JSON.stringify(activePage)}</h1>
+                  {allChats && allChats.length !==0 && <h1 className='text-[1.6rem] font-medium mb-4 px-[1.6rem]'>Messages</h1>}
                   {/* {chats?.map((item: any, i: number) => (
                     <ChatListItem key={i} contactName={item.user.first_name} message={item.lastMessage ? item.lastMessage : 'No messages'} profileImage={item.preferences.photos[0]} messageStatus={!item.isSeen} openChat={() => {setActivePage('selected-chat'); setSelectedChatData(item); setChatId(item.chatId); handleSelectedChat(item); navigate(`/dashboard/chat?user_id=${item.user.uid}`)}}/>
                   ))} */}

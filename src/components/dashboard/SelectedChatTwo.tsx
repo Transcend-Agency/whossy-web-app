@@ -344,6 +344,7 @@ useEffect(() => {
                             <div className="space-x-4">
                                 <button className="bg-black text-white py-4 font-semibold px-4 rounded-full cursor-pointer"
                                     onClick={handleSendMessage}
+                                    disabled={text === ''}
                                 >Send</button>
                             </div>
                         </footer>

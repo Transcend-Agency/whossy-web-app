@@ -1123,6 +1123,42 @@ const formatServerTimeStamps = (timestamp: number): string => {
   return `${formattedTime}, ${day}/${month}/${year}`;
 };
 
+
+const checkUserProfileCompletion = (userData: User) => {
+  const propertiesToCheck = [
+    userData.first_name,        // 1 First name
+    userData.last_name,         // 2 Last name
+    userData.gender,            // 3 Gender
+    userData.phone_number,      // 4 Phonenumber
+    userData.interests,         // 5 Interests
+    userData.education,         // 6 Education
+    userData.preference,        // 7 Relationship Goals (preference)
+    userData.love_language,     // 8 Love language
+    userData.zodiac,            // 9 Zodiac
+    userData.family_goal,       // 10 Future family plans (family_goal)
+    userData.height,            // 11 Height
+    userData.weight,            // 12 Weight
+    userData.religion,          // 13 Religion
+    userData.smoke,             // 14 Smoker (smoke)
+    userData.drink,             // 15 Drinking (drink)
+    userData.workout,           // 16 Workout
+    userData.pets,              // 17 Petowner (pets)
+    userData.marital_status,    // 18 Marital status
+    userData.bio,               // 19 About me (bio)
+  ];
+
+  // Function to check if a value is filled (non-null, non-empty)
+  const isFilled = (value: any) => {
+    if (Array.isArray(value)) return value.length > 0; // Check if array is not empty
+    return value !== null && value !== undefined && value !== ""; // Check for non-null, non-undefined, and non-empty string
+  };
+
+  // Count the number of filled properties
+  const filledCount = propertiesToCheck.filter(isFilled).length;
+
+  return filledCount;
+};
+
 export {
   alphabet,
   dietary,
@@ -1134,5 +1170,5 @@ export {
   workout,
   marital_status,
   family_goal, preference, formatServerTimeStamps,
-  religion, love_language, zodiac, communication_style, education, countries, getTime, getUserDetails, formatTime12Hour, formatDate
+  religion, love_language, zodiac, communication_style, education, countries, getTime, getUserDetails, formatTime12Hour, formatDate, checkUserProfileCompletion
 };
