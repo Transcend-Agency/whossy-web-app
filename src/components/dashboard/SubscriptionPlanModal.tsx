@@ -10,6 +10,9 @@ import { useGetCustomerInformation, useSubscribe, useUnsubscribe } from '@/hooks
 import { useNavigate } from 'react-router-dom';
 import { User } from '@/types/user';
 import { addCommasToNumber } from '@/constants';
+import { useObtainNombaAccessToken } from '@/hooks/useNombaAuth';
+import { useNombaRecurringPayment } from '@/hooks/useNomba';
+import { useNombaStore } from '@/store/Nomba';
 
 
 interface SubscriptionPlanModalProps {
@@ -24,11 +27,52 @@ export const SubscriptionPlanModal: React.FC<SubscriptionPlanModalProps & { setC
 
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'ngn' | 'kes' | 'usd'>('ngn');
 
+  const obtainAccessToken = useObtainNombaAccessToken();
+  const makeRecurringPayment = useNombaRecurringPayment();
+  const { setAuthResponse, auth_response } = useNombaStore();
+
+  const { user } = useAuthStore();
+
+  const [ isLoading, setIsLoading ] = useState(false);
 
   const handlePayment = async () => {
-    if (advance) {
+    if ( advance && (selectedPaymentMethod === 'ngn' || selectedPaymentMethod === 'kes') ) {
       setCurrency(selectedPaymentMethod);
-      advance((selectedPaymentMethod === 'ngn' || selectedPaymentMethod === 'kes') ? 'payment-detail' : 'stripe-payment');
+      advance( 'payment-detail' );
+    } else {
+      toast.success('This is a dollar payment');
+      setIsLoading(true);
+      // obtainAccessToken.mutate({ grant_type: "client_credentials", client_id: import.meta.env.VITE_NOMBA_CLIENT_ID, client_secret: import.meta.env.VITE_NOMBA_CLIENT_SECRET }, {
+      //   onSuccess: (res) => {
+      //     setAuthResponse(res.data);
+      //     makeRecurringPayment.mutate({
+      //       order: { amount: 30, callbackUrl: "http://localhost:5173/dashboard/user-profile", currency: "USD", customerEmail: user?.email as string }, 
+      //         }, {
+      //             onSuccess: (paymentRes) => {
+      //             window.open(paymentRes.data.checkoutLink);
+      //             setIsLoading(false);
+      //             },
+      //             onError: () => {
+      //               setIsLoading(false);
+      //             }
+      //     })
+      //   },
+      //   onError: () => {
+      //     setIsLoading(false);
+      //   }
+      // })
+      makeRecurringPayment.mutate({
+        order: { amount: 30, callbackUrl: "http://localhost:5173/dashboard/user-profile", currency: "USD", customerEmail: user?.email as string }, 
+          }, {
+              onSuccess: (paymentRes) => {
+              window.open(paymentRes.data.checkoutLink);
+              setIsLoading(false);
+              // window.open(paymentRes.data.checkoutLink, '_blank');
+              },
+              onError: () => {
+                setIsLoading(false);
+              }
+      })
     }
   }
 
@@ -48,13 +92,13 @@ export const SubscriptionPlanModal: React.FC<SubscriptionPlanModalProps & { setC
             <p className='text-center w-full text-[#8A8A8E]'>Pay using Kenyan Shellings (KES)</p>
         </div>
         <div className='cursor-pointer text-[1.8rem] font-medium bg-[#FFFFFF] px-[1.8rem] py-[1.8rem] flex items-center gap-x-2 rounded-[0.8rem] hover:bg-[#fafafa] transition duration-300 hover:scale-[1.01] ' style={{border: '1px solid', borderColor: selectedPaymentMethod === 'usd' ? '#f46a1afa' : '#ececec'}}
-          onClick={() => toast.error("Coming soon. Stay tuned!")}>
+          onClick={() => setSelectedPaymentMethod('usd')}>
             <div className={`size-[2rem] rounded-full transition-all duration-300 ${selectedPaymentMethod === 'usd' ? 'bg-[#f46a1afa]' : 'bg-white'}`} style={{border: '1px solid #ececec'}}/>
-            <p className='text-center w-full text-[#8A8A8E]'>Pay using Dollars (USD)</p>
+            <p className='text-center w-full text-[#8A8A8E]'>Pay using Dollars (USD) {auth_response?.data.access_token} </p>
         </div>
         <button className="bg-[#ff5e00f7] w-full py-[1.5rem] text-center flex justify-center rounded-[0.8rem] text-[1.8rem] text-white font-medium tracking-wide cursor-pointer hover:scale-[1.01] active:scale-[0.99] transition-all duration-300" onClick={
           handlePayment
-        }>Next</button>
+        }>{!isLoading ? 'Next' : <Oval color="#ffffff" secondaryColor="#fefefe" width={20} height={20} />}</button>
         {/* <Oval color="#FFFFFF" secondaryColor="#FFFFFF" width={20} height={20} /> */}
       </div>
     </DashboardSettingsModal>

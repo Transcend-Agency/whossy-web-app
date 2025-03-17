@@ -1,13 +1,53 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import ApiClient from "@/services/nombaApiClient";
+import { useNombaStore } from "@/store/Nomba";
+import { useAuthStore } from "@/store/UserId";
 import { useMutation } from "@tanstack/react-query";
+import axios from "axios";
 
-export const useObtainNombaAccessToken  = () => {
-    const apiClient = new ApiClient<any, {email: string, amount: number, plan: string}>("/v1/auth/token/issue");
-    return useMutation({
-        mutationFn: (data: {email: string, amount: number, plan: string}) => 
-        apiClient.post(data),
-    });
+export const useNombaPayment  = () => {
+  // const apiClient = new ApiClient<any, {email: string, amount: number, plan: string}>("/v1/auth/token/issue");
+  const { auth_response } = useNombaStore();
+  const { auth } = useAuthStore();
+  return useMutation({
+      mutationFn: (data: {
+        order: {
+          amount: number;
+          callbackUrl: string,
+          currency: string,
+          customerEmail: string,
+        }
+      }) => 
+      axios.post("https://api.nomba.com/v1/checkout/order", { ...data, merchantTxRef: auth?.uid as string }, {
+          headers: {
+              "Content-Type": "application/json",
+              "accountId": "5909f326-c021-4fa9-b1d4-f5e5e83936f3",
+              "Authorization": `Bearer ${auth_response?.data.access_token}`,
+          },
+      }),
+  });
+};
+
+export const useNombaRecurringPayment  = () => {
+  // const apiClient = new ApiClient<any, {email: string, amount: number, plan: string}>("/v1/auth/token/issue");
+  const { auth_response } = useNombaStore();
+  return useMutation({
+      mutationFn: (data: {
+        order: {
+          amount: number;
+          callbackUrl: string,
+          currency: string,
+          customerEmail: string,
+        }
+      }) => 
+      axios.post("https://api.nomba.com/v1/checkout/tokenized-card-payment", data, {
+          headers: {
+              "Content-Type": "application/json",
+              "accountId": "5909f326-c021-4fa9-b1d4-f5e5e83936f3",
+              "Authorization": `Bearer ${auth_response?.data.access_token}`,
+          },
+      }),
+  });
 };
 
 export const useVerify = () => {

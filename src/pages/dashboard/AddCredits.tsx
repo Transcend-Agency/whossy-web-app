@@ -1,9 +1,13 @@
 import { db } from "@/firebase";
+import { useNombaPayment } from "@/hooks/useNomba";
+import { useObtainNombaAccessToken } from "@/hooks/useNombaAuth";
+import { useNombaStore } from "@/store/Nomba";
 import { useAuthStore } from "@/store/UserId";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { motion } from "framer-motion"
 import { useState } from "react";
 import toast from "react-hot-toast";
+import { Oval } from "react-loader-spinner";
 import { PaystackButton } from 'react-paystack'
 
 type AddCreditProps = {
@@ -89,6 +93,32 @@ const AddCredits: React.FC<AddCreditProps> = ({ activePage, closePage, refetchUs
       onClose: () => toast.error("Payment cancelled"),
     }
 
+    const obtainAccessToken = useObtainNombaAccessToken();
+    const { setAuthResponse } = useNombaStore();
+
+    const makeNombaPayment = useNombaPayment();
+
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleUsdPayment = () => {
+      setIsLoading(true);
+      obtainAccessToken.mutate({ grant_type: "client_credentials", client_id: import.meta.env.VITE_NOMBA_CLIENT_ID, client_secret: import.meta.env.VITE_NOMBA_CLIENT_SECRET }, {
+        onSuccess: (res) => {
+          setAuthResponse(res.data);
+          makeNombaPayment.mutate({
+            order: { amount: selectedCreditOption?.price as number, callbackUrl: "http://localhost:5173/dashboard/user-profile", 
+            currency: "USD", customerEmail: user?.email as string }, 
+          }, {
+            onSuccess: (paymentRes) => {
+              // window.open(paymentRes.data.checkoutLink);
+              window.open(paymentRes.data.data.checkoutLink, '_self');
+            }
+          }
+        )
+        }
+      });
+    }
+
   return (
     <motion.div animate={activePage == 'add-credits' ? { x: "-100%", opacity: 1, transition: {duration: 0.25 , ease: 'easeInOut'} } : {x: "100%", opacity: 0}} className="dashboard-layout__main-app__body__secondary-page add-credits-page">
         <div className="settings-page__title">
@@ -152,8 +182,9 @@ const AddCredits: React.FC<AddCreditProps> = ({ activePage, closePage, refetchUs
 
         {selectedCreditOption && selectedCreditOption.currency === 'usd' && 
         <div className="flex justify-center mb-10">
-            <button className={` w-full bg-red text-white py-[1.6rem] rounded-[0.8rem] mx-6 text-[1.8rem] text-center`} onClick={() => toast.error("USD payment isn't available yet")}>Pay with Card</button>
-        </div>}
+            <button className={` w-full bg-red text-white py-[1.6rem] rounded-[0.8rem] mx-6 text-[1.8rem] text-center flex justify-center items-center`} onClick={handleUsdPayment}>{!isLoading ? 'Pay with card' : <Oval color="#ffffff" secondaryColor="#fefefe" width={20} height={20} />}</button>
+        </div>
+        }
         
     </motion.div>
   )

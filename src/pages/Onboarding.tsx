@@ -55,7 +55,7 @@ const Onboarding = () => {
           <RelationshipPreference key={"relationship-preferences"} advance={advance} />
         )}
         {pageOrder[currentPage] == "who-do-you-want-to-meet" && (
-          <WhoDoYouWantToMeet key={"who-do-you-want-to-meet"} advance={advance} goBack={goBack} />
+          <WhoDoYouW antToMeet key={"who-do-you-want-to-meet"} advance={advance} goBack={goBack} />
         )}
         {pageOrder[currentPage] == "how-old-are-you" && (
           <HowOldAreYou key={"how-old-are-you"} advance={advance} goBack={goBack} />
