@@ -6,6 +6,8 @@ import toast from "react-hot-toast";
 import {getDownloadURL, getStorage, ref, uploadBytes} from "firebase/storage";
 import {Oval} from "react-loader-spinner";
 import {User} from "@/types/user";
+import {doc, getDoc, setDoc} from "firebase/firestore";
+import {db} from "@/firebase";
 interface CardProps {
   photo?: string;
   colspan?: string;
@@ -52,13 +54,33 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
     setPhoto(data?.photos as string[] || [])
   }
 
-  const updateUserPhotos = (s: string[]) => {
-    updateUserProfile("users", auth?.uid as string, () => {
-      fetchUserPhotos().catch(e => console.error(e));
-      refetchUserData();
-      setIsUpdating(false)
-    }, {photos: s, is_approved: false}).catch(e => console.error(e))
-  }
+  const updateUserPhotos = async (s: string[]) => {
+    if (!auth?.uid) {
+      console.error("User is not authenticated");
+      return;
+    }
+
+    const userId = auth.uid;
+    const deletePicRef = doc(db, `deletePicQueue/${userId}`);
+
+    try {
+      await updateUserProfile("users", userId, async () => {
+        await fetchUserPhotos().catch(e => console.error(e));
+        refetchUserData();
+        setIsUpdating(false);
+      }, { photos: s, is_approved: false });
+
+      const existingDeleteRequest = await getDoc(deletePicRef);
+      if (!existingDeleteRequest.exists()) {
+        await setDoc(deletePicRef, { uid: userId });
+      } else {
+        console.log("Deletion request already exists, skipping duplicate request.");
+      }
+
+    } catch (error) {
+      console.error("Error updating photos or queuing deletion:", error);
+    }
+  };
 
   useEffect(() => { fetchUserPhotos().catch(err => console.log("Error occurred while fetching photos: ", err)) }, [])
   useEffect(() => { setPhoto(photo); setMutatedPhoto(photo) }, [photo])

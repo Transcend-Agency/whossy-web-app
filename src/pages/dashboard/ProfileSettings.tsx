@@ -13,6 +13,7 @@ import { deleteUser, EmailAuthProvider, getAuth, reauthenticateWithCredential } 
 import toast from "react-hot-toast";
 import { deleteDoc, doc, getFirestore } from "firebase/firestore";
 import DeleteAccountModal from "@/components/dashboard/DeleteAccountModal.tsx";
+import {FaceVerificationModal} from "@/components/dashboard/FaceVerificationModal.tsx";
 
 interface ProfileSettingsProps {
     activePage: boolean;
@@ -24,13 +25,15 @@ interface ProfileSettingsProps {
         online_status?: boolean;
     }
     prefetchUserData: () => void;
+    userShouldRetakePhoto: boolean;
 }
 
-const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, userSettings, prefetchUserData}) => {
+const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, userSettings, prefetchUserData, userShouldRetakePhoto}) => {
     const [profileSettings, setProfileSettings] = useState(userSettings);
     const [showBlockedContacts, setShowBlockedContacts] = useState(false);
     const [showModal, setShowModal] = useState<'hidden' | 'logout'>('hidden');
     const [openModal, setOpenModal] = useState(false);
+    const [openFaceVModal, setOpenFaceVModal] = useState(false);
     const [deleteModal, setDeleteModal] = useState(false);
     const { reset, auth: user, user: currentUser } = useAuthStore();
     const navigate = useNavigate();
@@ -144,7 +147,8 @@ const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, user
         <>
             <SettingsModal show={showModal == 'logout'} onCloseModal={() => setShowModal('hidden')} onLogout={logout}/>
             <HelpModal show={openModal} onCloseModal={() => setOpenModal(false)} />
-            <DeleteAccountModal show={deleteModal} onCloseModal={() => setDeleteModal(false)} onDeleteAccount={deleteAccount} />
+            <DeleteAccountModal show={deleteModal} onCloseModal={() => setDeleteModal(false)} onDeleteAccount={deleteAccount} passwordRequired={currentUser?.auth_provider === 'local'} />
+            <FaceVerificationModal show={openFaceVModal} onCloseModal={() => setOpenFaceVModal(false)} refetchUserData={prefetchUserData} />
 
             <motion.div animate={activePage ? { x: "-100%", opacity: 1 } : { x: 0 }} transition={{ duration: 0.25 }} className="dashboard-layout__main-app__body__secondary-page edit-profile settings-page z-20">
                 <div className="settings-page__container">
@@ -201,15 +205,20 @@ const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, user
                     </div>
 
                     <section className="mt-2 space-y-2 flex flex-col">
-                       <button onClick={() => setShowBlockedContacts(true)}>
-                           <ProfileSettingsGroup title="Blocked contacts" />
-                       </button>
-                       <button onClick={() => setOpenModal(true)} >
-                           <ProfileSettingsGroup title="Help and Support"/>
-                       </button>
+                        <button onClick={() => setShowBlockedContacts(true)}>
+                            <ProfileSettingsGroup title="Blocked contacts"/>
+                        </button>
+                        <button onClick={() => setOpenModal(true)}>
+                            <ProfileSettingsGroup title="Help and Support"/>
+                        </button>
+                        {userShouldRetakePhoto && <button onClick={() => setOpenFaceVModal(true)}>
+                            <ProfileSettingsGroup title="Take Verification Photo"/>
+                        </button>}
                     </section>
 
-                    <div className="flex mt-8 justify-center px-[2.8rem] gap-x-2 py-[1.6rem] cursor-pointer bg-[#F6F6F6] hover:bg-[#ececec]" onClick={() => setShowModal('logout')}>
+                    <div
+                        className="flex mt-8 justify-center px-[2.8rem] gap-x-2 py-[1.6rem] cursor-pointer bg-[#F6F6F6] hover:bg-[#ececec]"
+                        onClick={() => setShowModal('logout')}>
                         <img src="/assets/icons/logout.svg" alt="" />
                         <p>Logout</p>
                     </div>

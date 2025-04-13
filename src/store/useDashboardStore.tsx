@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import {AdvancedSearchPreferences, User} from '@/types/user.ts';
 import { filterOptions } from '@/constants';
-import {PopulatedLikeData} from "@/types/likingAndMatching.ts";
+import {PopulatedLikeData, PopulatedLikedByData} from "@/types/likingAndMatching.ts";
 
 interface DashboardState {
 	profiles: User[];
@@ -16,11 +16,17 @@ interface DashboardState {
 	setExploreDataLoading: (exploreDataLoading: boolean) => void;
 	peopleWhoLiked: PopulatedLikeData[]
 	setPeopleWhoLiked: (likes: PopulatedLikeData[]) => void;
+	peopleYouLiked: PopulatedLikedByData[];
+	setPeopleYouLiked: (likedByData: PopulatedLikedByData[]) => void;
 	previousLocation: string | null;
 	currentLocation: string;
 	setLocation: (newLocation: string) => void;
-	advancedSearchPreferences: AdvancedSearchPreferences
-	setAdvancedSearchPreferences: (preferences: AdvancedSearchPreferences) => void
+	advancedSearchPreferences: AdvancedSearchPreferences;
+	setAdvancedSearchPreferences: (preferences: AdvancedSearchPreferences) => void;
+	totalCurrentStep: number;
+	setTotalCurrentStep: (totalCurrentStep: number) => void;
+	tourIsOpen: boolean;
+	setTourIsOpen: (tourIsOpen: boolean) => void;
 }
 
 const useDashboardStore = create<DashboardState>((set) => ({
@@ -42,6 +48,9 @@ const useDashboardStore = create<DashboardState>((set) => ({
 	peopleWhoLiked: [],
 	setPeopleWhoLiked: (likes) => set({ peopleWhoLiked: likes }),
 
+	peopleYouLiked: [],
+	setPeopleYouLiked: (likedByData) => set({ peopleYouLiked: likedByData }),
+
 	previousLocation: null,
 	currentLocation: window.location.pathname,
 	setLocation: (newLocation) =>
@@ -57,7 +66,13 @@ const useDashboardStore = create<DashboardState>((set) => ({
 		relationship_preference: null,
 		religion: null
 	},
-	setAdvancedSearchPreferences: (preferences) => set({ advancedSearchPreferences: preferences })
+	setAdvancedSearchPreferences: (preferences) => set({ advancedSearchPreferences: preferences }),
+
+		totalCurrentStep: 0,
+		setTotalCurrentStep: (totalCurrentStep) => set({ totalCurrentStep: totalCurrentStep }),
+
+		tourIsOpen: false,
+		setTourIsOpen: (tourIsOpen) => set({ tourIsOpen: tourIsOpen }),
 
 }));
 

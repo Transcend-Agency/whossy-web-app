@@ -55,11 +55,11 @@ const premium_benefits = [
   {title: 'Explore Feature', desc: 'Limited Basic Filters (New Members, Popular, In My Area, Online Members)', isAvailable: true, cat: "Experience"},
   {title: 'Chat Initiation', desc: 'Cannot Chat', isAvailable: false, cat: "Chat"},
   {title: 'Advertisements', desc: 'Display Ads', isAvailable: false, cat: "Experience"},
-  {title: 'Rewind (Undo Accidental Swipes)', desc: 'Not Available', isAvailable: false, cat: "Experience"},
+  // {title: 'Rewind (Undo Accidental Swipes)', desc: 'Not Available', isAvailable: false, cat: "Experience"},
   {title: 'See who liked you', desc: 'Available', isAvailable: true, cat: "Likes"},
-  {title: 'Top Picks', desc: 'Not Available', isAvailable: false, cat: "Experience"},
-  {title: 'Profile boost visibility', desc: 'Limited Visibility', isAvailable: true, cat: "Visibility"},
-  {title: 'Profile boosts', desc: 'Available via credits', isAvailable:true, cat: "Visibility"},
+  // {title: 'Top Picks', desc: 'Not Available', isAvailable: false, cat: "Experience"},
+  // {title: 'Profile boost visibility', desc: 'Limited Visibility', isAvailable: true, cat: "Visibility"},
+  // {title: 'Profile boosts', desc: 'Available via credits', isAvailable:true, cat: "Visibility"},
 ]
 
 const free_benefits = [ 
@@ -67,10 +67,10 @@ const free_benefits = [
   {title: 'Explore Feature', desc: 'Limited Basic Filters (New Members, Popular, In My Area, Online Members)', cat: 'Experience'},
   {title: 'Chat Initiation', desc: 'Cannot Chat', cat: 'Chat'},
   {title: 'Advertisements', desc: 'Display Ads', cat: 'Experience'},
-  {title: 'Rewind (Undo Accidental Swipes)', desc: 'Not Available', cat: 'Experience'},
+  // {title: 'Rewind (Undo Accidental Swipes)', desc: 'Not Available', cat: 'Experience'},
   {title: 'See Who Liked You', desc: 'Available', cat: 'Likes'},
-  {title: 'Top Picks', desc: 'Not Available', cat: 'Experience'},
-  {title: 'Profile Boost Visibility', desc: 'Limited Visibility', cat: 'Visibility'},
-  {title: 'Profile Boosts', desc: 'Available via credits', cat: 'Visibility'},
-  {title: 'Dark Mode', desc: 'Available via credits', cat: 'Bonus'},
+  // {title: 'Top Picks', desc: 'Not Available', cat: 'Experience'},
+  // {title: 'Profile Boost Visibility', desc: 'Limited Visibility', cat: 'Visibility'},
+  // {title: 'Profile Boosts', desc: 'Available via credits', cat: 'Visibility'},
+  // {title: 'Dark Mode', desc: 'Available via credits', cat: 'Bonus'},
 ]

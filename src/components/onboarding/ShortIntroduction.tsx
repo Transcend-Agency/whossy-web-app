@@ -9,8 +9,20 @@ import toast from "react-hot-toast";
 
 const ShortIntroduction: React.FC<OnboardingProps> = ({ advance, goBack }) => {
   const [value, setValue] = useState("");
-  const { updateOnboardingData, "onboarding-data": data } =
-    useOnboardingStore();
+  const { updateOnboardingData, "onboarding-data": data } = useOnboardingStore();
+    const [hasError, setHasError] = useState(false);
+
+    const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const newValue = e.target.value;
+        if (newValue.length <= 500) {
+            setValue(newValue);
+            setHasError(false);
+        } else if (!hasError) {
+            toast.error("You have reached the max length");
+            setHasError(true);
+        }
+    };
+
   useEffect(() => {
     if (data["short-introduction"]) {
       setValue(data["short-introduction"]);
@@ -26,28 +38,26 @@ const ShortIntroduction: React.FC<OnboardingProps> = ({ advance, goBack }) => {
       <p className="onboarding-page__text">
         A short introduction about who you are.
       </p>
-      <div className="my-20 space-y-2">
-        <textarea
-          className="w-full border-b outline-none text-[1.6rem] resize-none" value={value}
-          onChange={(e) => {
-            if (value.length <= 500 ) setValue(e.target.value);
-            else{toast.error("You have reached the max lenght")}
-          }}
-          rows={5}
-        />
-        <p className="text-[1.6rem] text-[#8A8A8E]">{value.length}/500 characters</p>
-      </div>
+        <div className="my-20 space-y-2">
+            <textarea
+                className="w-full border-b outline-none text-[1.6rem] resize-none"
+                value={value}
+                onChange={handleChange}
+                rows={7}
+            />
+            <p className="text-[1.6rem] text-[#8A8A8E]">{value.length}/500 characters</p>
+        </div>
 
-      <div className="onboarding-page__section-one__buttons">
-        <OnboardingBackButton onClick={goBack} />
-        <Button
-          text="Continue"
-          onClick={() => {
-            advance();
-            updateOnboardingData({ "short-introduction": value });
-          }}
-        />
-      </div>
+        <div className="onboarding-page__section-one__buttons">
+            <OnboardingBackButton onClick={goBack}/>
+            <Button
+                text="Continue"
+                onClick={() => {
+                    advance();
+                    updateOnboardingData({"short-introduction": value});
+                }}
+            />
+        </div>
     </OnboardingPage>
   );
 };

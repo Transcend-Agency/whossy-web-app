@@ -475,12 +475,13 @@ export const BioSettingsModal: React.FC<DashboardSettingsModalProps & { bio: str
 
                 <textarea
                     className="w-full border outline-none text-[1.6rem] resize-none p-2"
-                    name=""
-                    id=""
                     value={value}
                     onChange={(e) => {
-                        if (value?.length <= 500) setValue(e.target.value);
-                        else { toast.error("You have reached the max length") }
+                        if (e.target.value.length <= 500) {
+                            setValue(e.target.value);
+                        } else {
+                            toast.error("You have reached the max length");
+                        }
                     }}
                     rows={5}
                 />

@@ -76,8 +76,10 @@ const ChatPage = () => {
     };
 
     useEffect(() => {
+        setSelectedProfile(null)
         setPage('user-profile')
         fetchLoggedUserData();
+        return () => setSelectedProfile(null)
     }, []);
 
     useEffect(() => {

@@ -44,7 +44,7 @@ const BigSnapshots = () => {
   };
 
   return (
-    <figure className="relative h-[35rem] mt-10">
+    <figure className="relative h-[35rem] mt-20">
       {photos.imageOne && (
         <img className="absolute -top-[2rem] size-[5rem] z-[50] cursor-pointer active:scale-[0.90] duration-200 ease-in-out" src="/assets/images/onboarding/menu.png" alt="show more" onClick={() => setOpenModal(true)}/>
       )}

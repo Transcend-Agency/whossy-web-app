@@ -58,18 +58,18 @@ const Dashboard: React.FC = () => {
             </AnimatePresence>
             <nav className='dashboard-layout__top-nav'>
                 <div className='dashboard-layout__top-nav__container'>
-                    <div className='dashboard-layout__top-nav__logo hidden lg:block'>
+                    <div className='dashboard-layout__top-nav__logo cursor-pointer hidden lg:block'
+                         onClick={() => navigate('/dashboard/explore')}>
                         <img src={'/assets/icons/whossy-logo.svg'} alt="Logo" className='w-[10rem]' />
-
                     </div>
                     <div className='dashboard-layout__top-nav__icons-container items-center'>
-                        <DashboardNavIcon active={pathname === '/dashboard/swipe-and-match'} icon='swipe-and-match' />
                         <DashboardNavIcon active={pathname === '/dashboard/explore'} icon='explore' />
+                        <DashboardNavIcon active={pathname === '/dashboard/swipe-and-match'} icon='swipe-and-match' />
                         <DashboardNavIcon active={pathname === '/dashboard/matches'} icon='matches' />
                         <DashboardNavIcon active={pathname === '/dashboard/chat'} icon='chat' />
                         <DashboardNavIcon active={pathname === '/dashboard/user-profile'} icon='user-profile' />
                     </div>
-                    <div className='dashboard-layout__top-nav__control-icons-container relative' onClick={() => navigate('/dashboard/notification')}>
+                    <div className='dashboard-layout__top-nav__control-icons-container relative nav-notification' onClick={() => navigate('/dashboard/notification')}>
                         <IoIosNotifications className={`size-[2.8rem] hover:scale-[1.02] active:scale-[0.95] cursor-pointer ${pathname === '/dashboard/notification' ? 'text-[#F2243E]' : 'text-[#8A8A8E]'}`} />
                         {unseenNotificationsCount > 0 &&
                             <div className='bg-[#ff0000]/70 absolute font-medium size-[1.6rem] text-[1.3rem] rounded-full right-[1px] text-white'>
@@ -86,8 +86,8 @@ const Dashboard: React.FC = () => {
         <div className="h-screen flex flex-col lg:hidden">
             <Outlet />
             <div className='dashboard-layout__mobile-nav'>
-                <DashboardNavIcon active={pathname === '/dashboard/swipe-and-match'} icon='swipe-and-match' />
                 <DashboardNavIcon active={pathname === '/dashboard/explore'} icon='explore' />
+                <DashboardNavIcon active={pathname === '/dashboard/swipe-and-match'} icon='swipe-and-match' />
                 <DashboardNavIcon active={pathname === '/dashboard/matches'} icon='matches' />
                 <DashboardNavIcon active={pathname === '/dashboard/chat'} icon='chat' />
                 <DashboardNavIcon active={pathname === '/dashboard/user-profile'} icon='user-profile' />

@@ -61,7 +61,7 @@ const Navbar = () => {
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className="fixed inset-0 bg-white text-black flex flex-col items-start pt-20 space-y-8 z-30"
             >
-              <button onClick={() => toggleMobileNav()} ref={buttonRef} className="absolute top-8 right-8"><img src={"/assets/icons/close-button.svg"} alt="close-button" /></button>
+              {/* <button onClick={() => toggleMobileNav()} ref={buttonRef} className="absolute top-8 right-8"><img src={"/assets/icons/close-button.svg"} alt="close-button" /></button> */}
 
 
 
@@ -92,16 +92,16 @@ const Navbar = () => {
       </header>
 
       {/* DESKTOP HEADER */}
-      <header className="relative z-50 bg-red text-white max-w-[60rem] m-[4rem] rounded-[0.8rem] hidden lg:block">
+      <header className="relative z-50 bg-red text-white max-w-[35rem] m-[4rem] rounded-[0.8rem] hidden lg:block">
         <div className="container flex justify-between items-center py-[1.2rem] px-[2.4rem]">
           <div onClick={handleLogoClick} className="flex items-center">
             <img src={"/assets/icons/logo.svg"} alt="Logo" className="mr-[0.8rem]" />
             <p className="text-[1.6rem] font-black">whossy</p>
           </div>
 
-          <div className="h-[3rem]" style={{ borderLeft: '1px solid #FFFFFF' }}></div>
+          {/* <div className="h-[3rem]" style={{ borderLeft: '1px solid #FFFFFF' }}></div> */}
 
-          <nav className="flex items-center space-x-[2.4rem]">
+          {/* <nav className="flex items-center space-x-[2.4rem]">
             <button onClick={() => navigate('/auth/login')} className="text-[1.6rem]">Login</button>
             <button
               onClick={() => navigate('/auth/create-account')}
@@ -109,9 +109,9 @@ const Navbar = () => {
             >
               Create account
             </button>
-          </nav>
+          </nav> */}
 
-          <div className="h-[3rem]" style={{ borderLeft: '1px solid #FFFFFF' }}></div>
+          {/* <div className="h-[3rem]" style={{ borderLeft: '1px solid #FFFFFF' }}></div> */}
 
           <div className="flex items-center text-[1.6rem] space-x-[1.6rem]">
             <p>Download on</p>

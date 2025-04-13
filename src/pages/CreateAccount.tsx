@@ -140,7 +140,7 @@ const CreateAccount = () => {
                 </form>
                 <AlternateSignupOptions google={() => signInWithGoogle(onGoogleSignIn)} phone={() => navigate('/auth/phone-number')} text='or sign up with' />
                 <div className="auth-page__modal__terms-and-conditions">
-                    By clicking on “Login” you agree to our <Link to="/terms-and-conditions">Terms and Conditions</Link>. Learn how we process your data in our <Link to="/privacy-policy">Privacy Policy</Link>.
+                    By clicking on “Login” you agree to our <Link to="/privacy-policy">Privacy Policy</Link>. Learn how we process your data in our <Link to="/privacy-policy">Privacy Policy</Link>.
                 </div>
             </div>
         </AuthPage>

@@ -13,6 +13,8 @@ import ShareASnapshot from "../components/onboarding/ShareASnapshot";
 import HowOldAreYou from "../components/onboarding/HowOldAreYou";
 import { AnimatePresence } from "framer-motion";
 import ProgressBarItem from "../components/onboarding/ProgressBarItem";
+import {GetPhotoVerified} from "@/components/onboarding/GetPhotoVerified.tsx";
+import {TakeASelfie} from "@/components/onboarding/TakeASelfie.tsx";
 
 const Onboarding = () => {
   const [currentPage, setCurrentPage] = useState(0);
@@ -28,6 +30,8 @@ const Onboarding = () => {
     "pets-and-workout",
     "short-introduction",
     "snapshot",
+      "get-photo-verified",
+      "take-a-selfie"
   ];
 
   const advance = () => {
@@ -82,8 +86,18 @@ const Onboarding = () => {
           <ShortIntroduction key={"short-introduction"} advance={advance} goBack={goBack} />
         )}
         {pageOrder[currentPage] == "snapshot" && (
-          <ShareASnapshot key={"snapshot"} advance={() => console.log("This is the last page")} goBack={goBack} />
+          <ShareASnapshot key={"snapshot"} advance={advance} goBack={goBack} />
         )}
+          {
+              pageOrder[currentPage] == "get-photo-verified" && (
+                  <GetPhotoVerified key={"get-photo-verified"} advance={advance} goBack={goBack} />
+              )
+          }
+          {
+              pageOrder[currentPage] == "take-a-selfie" && (
+                  <TakeASelfie key={"snapshot"} advance={() => console.log("This is the final page")} goBack={goBack} />
+              )
+          }
       </AnimatePresence>
     </>
   );

@@ -8,7 +8,7 @@ import {User} from "@/types/user.ts";
 
 function useSyncPeopleWhoLikedUser() {
     const { user } = useAuthStore()
-    const { peopleWhoLiked, setPeopleWhoLiked, blockedUsers } = useDashboardStore()
+    const { peopleWhoLiked, setPeopleWhoLiked, blockedUsers} = useDashboardStore()
     const [loading, setLoading] = useState<boolean>(true);
 
     useEffect(() => {

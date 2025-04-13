@@ -31,7 +31,7 @@
 
     &__buttons {
       // @apply flex space-x-[2rem] sticky bottom-0 bg-white pt-[2rem] pb-[4rem];
-      @apply flex space-x-[2rem] bg-white pt-[1rem] cursor-pointer;
+      @apply flex space-x-[2rem] bg-white pt-[1rem] cursor-pointer w-[320px];
 
       &__back-button {
         @apply bg-[#F6F6F6] px-[2.9rem] flex items-center rounded-lg cursor-pointer active:scale-[0.95] transition-all duration-200;

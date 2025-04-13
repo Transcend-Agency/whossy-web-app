@@ -6,6 +6,7 @@ interface DeleteAccountModalProps {
 	show: boolean;
 	onCloseModal: () => void;
 	onDeleteAccount: (password: string) => Promise<void>;
+	passwordRequired: boolean;
 }
 
 const modalVariants = {
@@ -14,7 +15,7 @@ const modalVariants = {
 	exit: { opacity: 0 }
 };
 
-const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({show, onCloseModal, onDeleteAccount}) => {
+const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({show, onCloseModal, onDeleteAccount, passwordRequired}) => {
 	const [password, setPassword] = useState<string>("");
 	const [loading, setLoading] = useState<boolean>(false);
 
@@ -72,16 +73,19 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({show, onCloseMod
 									<img className={`size-[20px]`} src={`/assets/icons/danger.svg`} alt={``}/>
 									<p className={`leading-relaxed`}>Deleting this Account will delete all of its data and this action is not irreversible</p>
 								</div>
-								<p className={`my-3 font-medium`}>Enter this account's password to confirm</p>
-								<input
-									type="password"
-									name="password-input"
-									id="password-input"
-									className="bg-white border border-gray text-[2.1rem] focus:outline-none rounded-lg px-4 py-2 w-full my-2"
-									value={password}
-									onChange={(e) => setPassword(e.target.value)}
-									disabled={loading}
-								/>
+									{passwordRequired &&
+										<>
+												<p className={`my-3 font-medium`}>Enter this account's password to confirm</p>
+												<input
+													type="password"
+													name="password-input"
+													id="password-input"
+													className="bg-white border border-gray text-[2.1rem] focus:outline-none rounded-lg px-4 py-2 w-full my-2"
+													value={password}
+													onChange={(e) => setPassword(e.target.value)}
+													disabled={loading}/>
+										</>
+									}
 								<button
 									onClick={handleDeleteAccount}
 									className={`${loading ? "bg-[#F2243E] text-white" : "bg-[#F6F6F6]"} py-[1rem] w-full text-[1.2rem] font-bold text-center rounded-lg transition-all duration-300 ${disabledButton ? "cursor-not-allowed" : "cursor-pointer hover:bg-[#F2243E] hover:text-white"} whitespace-nowrap inline-block`}

@@ -32,7 +32,6 @@ export const ChatListItem: FC<ChatListItemProps> = ({profileImage, contactName, 
                 }else{
                     setLastMessage(message.message as string);
                 }
-                console.log(lastMessage)
             }
             setMessageStatus(messageStatus)
         };

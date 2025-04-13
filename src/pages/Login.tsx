@@ -2,7 +2,7 @@
 import { useAuthStore } from "@/store/UserId";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { collection,  doc,  getDocs,  query,  serverTimestamp,  setDoc,  where} from 'firebase/firestore';
+import { collection, doc, getDocs, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
 import { useForm } from "react-hook-form";
@@ -106,12 +106,12 @@ const Login = () => {
                         //                         try {
                         //                             console.log("Subscription Response:", subRes); // Debugging
                         //                             const subscriptionData = subRes?.data?.[0];
-                                        
+
                         //                             if (!subscriptionData) {
                         //                                 console.error("No subscription data found.");
                         //                                 return;
                         //                             }
-                                        
+
                         //                             // Update Firestore
                         //                             await updateDoc(userDocRef, {
                         //                                 paystack: {
@@ -166,7 +166,7 @@ const Login = () => {
                         //     });
                         //         // console.log('This is not paystack');
                         //     }
-                            
+
                         // }, onError: () => toast.error('An error occurred while trying to verify payment') });} 
                         // else {
                         //     await updateDoc(userDocRef, {
@@ -177,7 +177,6 @@ const Login = () => {
                 }
             }
         } catch (error: any) {
-            console.log(error)
             if ((error.code == 'auth/network-request-failed')) {
                 setRequestError("Poor Internet Connection")
             }
@@ -282,7 +281,7 @@ const Login = () => {
                 </div>
             </div>
             <div className="auth-page__modal__terms-and-conditions">
-                By clicking on “Login” you agree to our <Link to="/terms-and-conditions">Terms and condition</Link>. Learn how we process your data in our <Link to="/privacy-policy">Privacy Policy</Link>.</div>
+                By clicking on “Login” you agree to our <Link to="/terms-and-conditions">Privacy Policy</Link>. Learn how we process your data in our <Link to="/privacy-policy">Privacy Policy</Link>.</div>
 
         </div>
     </AuthPage>

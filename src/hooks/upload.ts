@@ -1,9 +1,10 @@
 import { getDownloadURL, getStorage, ref, uploadBytesResumable } from "firebase/storage";
 
-const upload = async (file: File): Promise<string> => {
+const upload = async (file: File, location?: string): Promise<string> => {
   const date = new Date();
   const storage = getStorage();
-  const storageRef = ref(storage, `images/${date + file.name}`);
+  const url: string = location ? `${location}/${file.name}` : `images/${date + file.name}`
+  const storageRef = ref(storage, url);
 
   const uploadTask = uploadBytesResumable(storageRef, file);
 

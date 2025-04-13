@@ -1,6 +1,6 @@
 import { User } from '@/types/user';
 import { getYearFromFirebaseDate } from '@/utils/date';
-import React, {useEffect, useState} from 'react';
+import React, {useEffect} from 'react';
 import { LazyLoadImage } from 'react-lazy-load-image-component';
 import 'react-lazy-load-image-component/src/effects/opacity.css';
 import { motion } from 'framer-motion'
@@ -8,7 +8,6 @@ import { useMatchStore } from '@/store/Matches';
 import Skeleton from 'react-loading-skeleton';
 import useDashboardStore from "@/store/useDashboardStore.tsx";
 import {useAuthStore} from "@/store/UserId.tsx";
-import {useLocation} from "react-router-dom";
 
 type MatchesProps = {
     userData?: User,
@@ -29,24 +28,24 @@ const MatchesEmptyState = () => {
 
 export const MatchItem: React.FC<MatchesProps> = ({ userData, isLazyLoaded}) => {
     const { setSelectedProfile } = useDashboardStore()
-    const [viewButtonShowing, setViewButtonShowing] = useState<boolean>(true)
-    const location = useLocation()
+    // const [viewButtonShowing, _setViewButtonShowing] = useState<boolean>(true)
+    // const location = useLocation()
 
-    useEffect(() => {
-        handleViewButton();
-    }, [location.pathname]);
+    // useEffect(() => {
+    //     // handleViewButton();
+    // }, [location.pathname]);
 
-    const handleViewButton = () => {
-        if (
-            location.pathname.startsWith("/dashboard/chat") ||
-            location.pathname.startsWith("/dashboard/matches") ||
-            location.pathname.startsWith("/dashboard/user-profile")
-        ) {
-            setViewButtonShowing(false);
-        } else {
-            setViewButtonShowing(true);
-        }
-    };
+    // const handleViewButton = () => {
+    //     if (
+    //         location.pathname.startsWith("/dashboard/chat") ||
+    //         location.pathname.startsWith("/dashboard/matches") ||
+    //         location.pathname.startsWith("/dashboard/user-profile")
+    //     ) {
+    //         setViewButtonShowing(false);
+    //     } else {
+    //         setViewButtonShowing(true);
+    //     }
+    // };
 
     return (
         <>
@@ -62,7 +61,7 @@ export const MatchItem: React.FC<MatchesProps> = ({ userData, isLazyLoaded}) => 
                         <div className='matches__matched-profile-image--overlay'></div>
                     </figure>
                     <div className='matches__match-content'>
-                        {viewButtonShowing && <button onClick={() => setSelectedProfile(userData?.uid as string)} className='matches__view-button'>View</button>}
+                        {<button onClick={() => setSelectedProfile(userData?.uid as string)} className='matches__view-button'>View</button>}
                         <div className='matches__match-details'>
                           <span className='first-name'>
                             {userData?.first_name

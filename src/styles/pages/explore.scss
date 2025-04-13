@@ -31,7 +31,7 @@
             @apply mr-[]
         }
         &__left {
-            @apply w-full max-w-[70rem] flex flex-wrap gap-x-[1.6rem] gap-y-[1.6rem];
+            @apply w-full max-w-[90rem] flex overflow-y-scroll pb-8 lg:flex-wrap lg:pb-0 gap-x-[1.6rem] gap-y-[1.6rem];
         }
         &__item {
             @apply leading-[1.1rem] text-[16px] px-[1.6rem] py-[1.2rem] min-w-fit bg-[#F6F6F6] hover:bg-[#eeeeee] text-[#8A8A8E] rounded-full cursor-pointer active:scale-95 transition-all duration-200 flex items-center;
@@ -55,7 +55,7 @@
         }
     }
     .explore-grid-container {
-        @apply h-full max-h-full mt-[1.6rem] pb-[13rem] relative pt-[1.6rem];
+        @apply h-full max-h-full mt-[0.7rem] pb-[13rem] relative pt-[1.6rem];
     }
     .explore-grid-gradient-top {
         @apply w-full h-[1rem] bg-gradient-to-b from-[white] to-[rgba(255,255,255,0)] absolute -bottom-[2.6rem] z-10;

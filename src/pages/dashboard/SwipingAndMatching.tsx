@@ -40,6 +40,7 @@ import toast from "react-hot-toast";
 import {useMatchStore} from "@/store/Matches.tsx";
 import { getUserProfile } from "@/hooks/useUser";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
+import ReportModal from "@/components/dashboard/ReportModal.tsx";
 
 interface ProfileCardProps {
     profiles: User[],
@@ -63,14 +64,32 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
     const chosenActionButtonOpacity = useTransform(x, [-160, -140, -20, -10, 0, 10, 20, 140, 160], [0, 1, 1, 0, 0, 0, 1, 1, 0])
     const chosenActionScale = useTransform(x, [-160, -100, -10, 0, 10, 100, 160], [1.6, 1, 1, 1, 1, 1, 1.6])
     const nextCardOpacityValue = useTransform(x, [-160, 0, 160], [1, 0, 1])
-    const { user } = useAuthStore()
+    const { user, auth } = useAuthStore()
     const profileContainer = useRef(null);
     const moreDetailsContainer = useRef(null)
     const [currentImage, setCurrentImage] = useState(0)
     const [expanded, setExpanded] = useState(false)
     const [isBlocked, setIsBlocked] = useState(false)
     const [isBlockLoading, setIsBlockLoading] = useState(false)
+    const [openModal, setOpenModal] = useState(false);
     const  {fetchMatches} = useMatchStore()
+    const [loggedUserData, setLoggedUserData] = useState<User | null>(null);
+    const { setActivePage: setPage } = useNavigationStore()
+
+    useEffect(() => {
+        setPage('user-profile')
+    }, []);
+
+    const fetchLoggedUserData = async () => {
+        const data = await getUserProfile("users", auth?.uid as string) as User;
+        setLoggedUserData(data);
+    }
+
+    useEffect(() => {
+        fetchLoggedUserData().catch(err => console.error(err));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
 
     const goToNextPost = () => {
         if (currentImage < (item.photos?.length as number) - 1) {
@@ -132,7 +151,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
         return R * c;
     }
 
-    const distanceBetween = haversineDistance(user?.latitude as number, user?.longitude as number, item.latitude as number, item.longitude as number);
+    const distanceBetween: number = haversineDistance(loggedUserData?.latitude as number, loggedUserData?.longitude as number, item.latitude as number, item.longitude as number);
 
 
     x.on("change", latest => {
@@ -333,6 +352,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
 
     return (
         <>
+            <ReportModal userData={item} show={openModal} onCloseModal={() => setOpenModal(false)} />
             {<motion.div onDragEnd={handleDragEnd} style={{ x, opacity: activeCardOpacity, rotate: activeCardRotation, overflowY: expanded ? 'scroll' : 'hidden' }} ref={profileContainer} custom={item} initial={{ y: item == profiles[profiles.length - 1] ? 0 : (item == profiles[profiles.length - 2] ? 12 : 24), width: item == profiles[profiles.length - 1] ? '100%' : (profiles[profiles.length - 2] == item ? 'calc(100% - 48px)' : 'calc(100% - 96px)') }} animate={controls} drag={index == profiles.length - 1 ? "x" : undefined} dragConstraints={{ left: 0, right: 0 }} className="profile-card preview-profile">
                 <motion.div initial={{ opacity: item == profiles[profiles.length - 1] ? 1 : 0 }}
                     style={index == profiles.length - 2 ? { opacity: nextCardOpacity } : {}}
@@ -367,7 +387,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                         <div className="preview-profile__profile-details">
                             <div className="status-row">
                                 {item.status?.online && <div className="active-badge">Online</div>}
-                                <p className="location">~ {distanceBetween.toFixed(1)} miles away</p>
+                                <p className="location">{ !Number.isNaN(distanceBetween) ? `~ ${distanceBetween.toFixed(1)} miles away` : `loading...`}</p>
                             </div>
                             <motion.div animate={expanded ? { marginBottom: '2.8rem' } : { marginBottom: '1.2rem' }} className="name-row">
                                 <div className="left">
@@ -380,7 +400,6 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                                     {expanded && <motion.img exit={{ opacity: 0 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                                         className="contract-icon" onClick={() => {
                                             (profileContainer.current as unknown as { scrollTop: number }).scrollTop = 0
-                                            console.log(profileContainer)
                                             setExpanded(!expanded)
                                         }} src="/assets/icons/down.svg" />}
                                 </AnimatePresence>
@@ -392,12 +411,13 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                                 <div className="interests-row">
                                     <img src="/assets/icons/interests.svg" alt={``} />
                                     <div className="interests">
-                                        {item?.interests?.slice(0, 4)?.map((item, i) => <div key={i} className="interest">{item}</div>)}
+                                        {item?.interests?.slice(0, 4)?.map((item, i) =>
+                                            <div key={i} className="interest">{item}</div>)}
                                         {/* <div className="interest">Travelling</div> */}
                                     </div>
                                     <img onClick={() => {
                                         setExpanded(!expanded)
-                                    }} className="expand-profile" src="/assets/icons/down.svg" alt={``} />
+                                    }} data-cy="expand-profile-card" className="expand-profile" src="/assets/icons/down.svg" alt={``} />
                                 </div>
                             </motion.div>
                             <div className="preview-profile__image-counter-container">
@@ -467,7 +487,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                             {isBlocked ? "Unblock" : "Block"} {item.first_name}
                         </div>
                     }
-                    <div className="action-button action-button--danger">
+                    <div className="action-button action-button--danger" onClick={() => setOpenModal(true)}>
                         <img src="/assets/icons/report.svg" alt={``}/>
                         Report {item.first_name}
                     </div>
@@ -695,9 +715,6 @@ const SwipingAndMatching = () => {
                 }
             }
         }
-
-        console.log("Final Look:", matchingDocs)
-
         setProfilesLoading(false);
         setProfiles(matchingDocs);
     };
@@ -762,7 +779,7 @@ const SwipingAndMatching = () => {
             </nav>
             <AnimatePresence mode="sync">
                 {!profilesLoading && profiles.length !== 0 &&
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="swipe-and-match-page">
+                    <motion.div key={'index'} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="swipe-and-match-page">
                         <motion.div style={{ opacity: chosenActionButtonOpacity, scale: chosenActionScale }} className="chosen-action-button">
                             {activeAction == 'cancel' && <img src="/assets/icons/cancel.svg" alt={``} />}
                             {activeAction == 'like' && <img src="/assets/icons/heart.svg" alt={``} />}
@@ -774,21 +791,24 @@ const SwipingAndMatching = () => {
                                     style={{opacity: actionButtonsOpacity}}
                                     className="action-buttons">
                                     {/*{profiles.length}*/}
-                                    <button onClick={() => {
+                                    <button data-cy="dislike-profile" onClick={() => {
                                         setSwipedUser(item?.uid as string)
                                         setActionType('cancel');
                                     }} className="action-buttons__button">
                                         <img src="/assets/icons/cancel.svg" alt={``}/>
                                     </button>
-                                    <button onClick={() => {
+                                    <button data-cy="like-profile" onClick={() => {
                                         setSwipedUser(item?.uid as string)
                                         setActionType('like');
                                     }} className="action-buttons__button">
                                         <img src="/assets/icons/heart.svg" alt={``}/>
                                     </button>
-                                    <button className="action-buttons__button action-buttons__button--small"
-                                        onClick={() => {loggedUserData?.is_premium ? navigate(`/dashboard/chat?recipient-user-id=${item.uid}`) : toast.error('Upgrade to premium to chat'); console.log(loggedUserData)}}
-                                        // onClick={() => console.log(loggedUserData)}
+                                    <button data-cy="chat-profile" className="action-buttons__button action-buttons__button--small"
+                                        onClick={() => {
+                                            loggedUserData?.is_premium ?
+                                                navigate(`/dashboard/chat?recipient-user-id=${item.uid}`) :
+                                                toast.error('Upgrade to premium to chat');
+                                            console.log(loggedUserData)}}
                                     >
                                         <img src="/assets/icons/message-heart.svg" alt={``}/>
                                     </button>

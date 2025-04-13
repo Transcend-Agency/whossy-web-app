@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, or } from 'firebase/firestore';
 import { db } from '@/firebase'; // Adjust the path to your Firebase config
 import { Match } from '@/types/likingAndMatching';
 import { User } from '@/types/user';
@@ -54,15 +54,16 @@ export const useMatchStore = create<MatchStore>((set) => ({
 
             // Fetch matches
             const matchesRef = collection(db, 'matches');
-            const user1Query = query(matchesRef, where('user1_id', '==', userId));
-            const user2Query = query(matchesRef, where('user2_id', '==', userId));
+            const matchesQuery = query(
+                matchesRef,
+                or(
+                    where('user1_id', '==', userId),
+                    where('user2_id', '==', userId)
+                )
+            );
 
-            const [user1Snapshot, user2Snapshot] = await Promise.all([
-                getDocs(user1Query),
-                getDocs(user2Query),
-            ]);
+            const matchesSnapshot = await getDocs(matchesQuery);
 
-            // Helper to populate user data
             const populateUserData = async (match: Match) => {
                 const matchedUserId = match.user1_id === userId ? match.user2_id : match.user1_id;
                 const matchedUserDoc = await getDoc(doc(db, 'users', matchedUserId));
@@ -79,10 +80,9 @@ export const useMatchStore = create<MatchStore>((set) => ({
                 };
             };
 
-            const allMatches = await Promise.all([
-                ...user1Snapshot.docs.map((doc) => populateUserData(doc.data() as Match)),
-                ...user2Snapshot.docs.map((doc) => populateUserData(doc.data() as Match)),
-            ]);
+            const allMatches = await Promise.all(
+                matchesSnapshot.docs.map((doc) => populateUserData(doc.data() as Match))
+            );
 
             const uniqueMatchIds = new Set<string>();
             const filteredMatches = allMatches

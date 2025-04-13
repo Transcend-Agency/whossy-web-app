@@ -2,7 +2,7 @@ import { useGSAP } from '@gsap/react';
 import { motion } from "framer-motion";
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/dist/ScrollTrigger';
-import { useNavigate } from 'react-router';
+// import { useNavigate } from 'react-router';
 import Footer from '../components/landing/Footer';
 import Navbar from '../components/landing/Navbar';
 import Marquee from 'react-fast-marquee';
@@ -276,7 +276,7 @@ const MarqueeImageSlider = () => {
 }
 
 const Landing = () => {
-    const navigate = useNavigate()
+    // const navigate = useNavigate()
 
         return (
             <>  
@@ -301,6 +301,11 @@ const Landing = () => {
                             </div>
     
                             <div className='mt-6'>
+                                <button className="w-full rounded-[0.8rem] cursor-pointer bg-[#F2243E] py-6 px-[15rem] lg:px-[20rem] text-white text-[1.8rem] font-medium leading-[2.16rem] active:scale-[0.98] disabled:hover:scale-100 disabled:opacity-70 transition-all duration-200 flex items-center justify-center">
+                                    Download Now
+                                </button>
+                            </div>
+                            {/* <div className='mt-6'>
                                 <button onClick={() => navigate("/auth/login")} className="w-full rounded-[0.8rem] cursor-pointer bg-[#F2243E] py-6 px-[15rem] lg:px-[20rem] text-white text-[1.8rem] font-medium leading-[2.16rem] active:scale-[0.98] disabled:hover:scale-100 disabled:opacity-70 transition-all duration-200 flex items-center justify-center">
                                     Login
                                 </button>
@@ -308,7 +313,7 @@ const Landing = () => {
     
                             <div className="mt-4">
                                 <p className="text-[1.6rem] text-white">Don't have an account? <a className="text-[1.6rem] font-bold underline cursor-pointer" onClick={() => navigate("/auth/create-account")}>Create Account</a></p>
-                            </div>
+                            </div> */}
                         </div>
 
                     </section>

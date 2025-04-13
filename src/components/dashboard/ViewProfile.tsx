@@ -16,6 +16,7 @@ import DashboardPageContainer from "./DashboardPageContainer";
 import {useChatIdStore} from "@/store/ChatStore.tsx";
 import {createOrFetchChat} from "@/utils/chatService.ts";
 import {Chat} from "@/types/chat.ts";
+import { serverTimestamp } from 'firebase/firestore';
 
 interface ViewProfileProps {
     onBackClick: () => void;
@@ -30,7 +31,7 @@ export const addMatch = async (likerId: string, likedId: string) => {
     await setDoc(doc(matchesRef, matchId), {
         user1_id: likerId < likedId ? likerId : likedId,
         user2_id: likerId > likedId ? likerId : likedId,
-        timestamp: new Date().toISOString(),
+        timestamp: serverTimestamp()
     });
 
     console.log('Match created:', matchId);
@@ -75,7 +76,7 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                 uid: likeId,
                 liker_id: user?.uid,
                 liked_id: userData.uid,
-                timestamp: new Date().toISOString()
+                timestamp: serverTimestamp()
             }).then(async () => {
                 {/* @ts-expect-error quick-fix */}
                 const q = query(likesRef, where('liker_id', '==', userData.uid), where('liked_id', '==', user.uid));

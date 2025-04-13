@@ -41,10 +41,10 @@ const ExploreGridProfile: FC<ExploreGridProfileProps> = ({profile_image, distanc
             </div>
             <div className={`absolute bottom-0 right-0 w-full z-20 text-white tracking-wide pb-4 pl-3`}>
                 <div>
-                    <div className='flex gap-x-2 items-center'>
+                    <div className='flex items-center justify-between pr-3'>
                         <div>
                             <span className='text-[16px] md:text-[18px] lg:text-[20px] font-bold'>
-                                {first_name.length >= 8 ? `${first_name.slice(0,5)}... ` : first_name},
+                                {first_name.length >= 8 ? `${first_name.slice(0,7)}... ` : first_name},
                             </span>
                             <span className='text-[14px] md:text-[16px]'> {age}</span>
                         </div>

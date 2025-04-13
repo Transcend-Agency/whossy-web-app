@@ -90,7 +90,7 @@ const Image: FC<ImageProps> = ({ name }) => {
 
 const SmallSnapshots = () => {
   return (
-    <section className="flex space-x-[0.8rem]">
+    <section className="flex space-x-[0.8rem] mt-10">
       <Image name="imageTwo" />
       <Image name="imageThree" />
       <Image name="imageFour" />

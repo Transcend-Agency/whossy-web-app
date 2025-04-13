@@ -4,6 +4,7 @@ import {useAuthStore} from "@/store/UserId.tsx";
 import {collection, addDoc } from "firebase/firestore";
 import {db} from "@/firebase";
 import toast from "react-hot-toast";
+import { serverTimestamp } from 'firebase/firestore';
 
 interface HelpModalProps {
   show: boolean
@@ -35,7 +36,7 @@ const HelpModal: FC<HelpModalProps> = ({ show, onCloseModal }) => {
         firstName: user?.first_name,
         lastName: user?.last_name,
         message: message,
-        createdAt: new Date().toISOString(),
+        createdAt: serverTimestamp()
       });
 
       setMessage("");

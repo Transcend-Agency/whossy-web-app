@@ -160,6 +160,7 @@ const ChatInterface: FC = () => {
         <div className="dashboard-layout__chat-interface hidden lg:block">
             <motion.div
                 className="dashboard-layout__chat-interface__drawer z-50"
+                data-cy="chat-interface-modal"
                 transition={{ duration: 0.3 }}
             >
                 <div className="flex justify-between px-[1.6rem] pb-[2.2rem] cursor-pointer" onClick={() => setShowChats(!showChats)}>

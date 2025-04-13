@@ -28,12 +28,14 @@ const getUserProfile = async (path: CollectionName, uid: string): Promise<UserPr
 const updateUserProfile = async (
   path: CollectionName, uid: string,
   success: () => void,
-  updatedFields?: Partial<UserProfile>
+  updatedFields?: Partial<UserProfile>,
+  showToast?: boolean,
 ) => {
   const userRef = doc(db, path, uid as string);
   await updateDoc(userRef, updatedFields as UserProfile).then(() => {
     success();
-    toast.success("Updated!");
+    if(showToast)
+      toast.success("Updated!");
   });
 };
 
