@@ -2,10 +2,7 @@ import Footer from '@/components/landing/Footer';
 import Navbar from '@/components/landing/Navbar';
 import React from 'react';
 
-type DeleteAccountProps = {
-};
-
-const DeleteAccount: React.FC<DeleteAccountProps> = () => {
+const DeleteAccount: React.FC = () => {
 
     return <>
         <div className="fixed top-0 w-full z-50">

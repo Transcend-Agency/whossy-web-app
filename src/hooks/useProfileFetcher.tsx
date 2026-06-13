@@ -1,5 +1,5 @@
 import {useCallback} from "react";
-import {collection, doc, getDoc, getDocs, query, Timestamp, where} from "firebase/firestore";
+import {collection, doc, getDoc, getDocs, query, Query, Timestamp, where} from "firebase/firestore";
 import {db} from "@/firebase";
 import {User, UserFilters, UserProfile} from "@/types/user.ts";
 import useDashboardStore from "@/store/useDashboardStore.tsx";
@@ -9,7 +9,7 @@ function useProfileFetcher() {
 	const { user } = useAuthStore()
 	const { blockedUsers, setBlockedUsers, setProfiles , selectedOption, setExploreDataLoading, advancedSearchPreferences} = useDashboardStore()
 
-	const calculateDOBRange = (minAge: any, maxAge: any) => {
+	const calculateDOBRange = (minAge: number, maxAge: number) => {
 		const today = new Date();
 		const currentYear = today.getFullYear();
 
@@ -41,7 +41,7 @@ function useProfileFetcher() {
 		return userData.filter(u => !blockedUsers.includes(u.uid as string) && u.uid !== user?.uid);
 	};
 
-	const fetchBlockedAndFilteredProfiles = async (queryParam: any) => {
+	const fetchBlockedAndFilteredProfiles = async (queryParam: Query) => {
 		try {
 			setExploreDataLoading(true);
 			let data

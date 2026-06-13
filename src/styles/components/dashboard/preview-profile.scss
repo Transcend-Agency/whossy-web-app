@@ -124,10 +124,10 @@
     }
     &__overlay {
         @apply w-full h-full bg-gradient-to-b from-[#08080800] from-[60%] to-[80%] to-[#080808] absolute grid grid-cols-2 gap-[1rem];
+        z-index: z('preview-profile__overlay');
         @include media('<=1023px') {
             @apply rounded-b-[2.4rem] overflow-hidden;
         }
-        z-index: z('preview-profile__overlay');
         div {
             @apply bg-black w-full h-full bg-transparent cursor-pointer;
         }

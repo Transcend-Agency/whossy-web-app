@@ -130,6 +130,9 @@
 
             &__input {
                 -webkit-appearance: none;
+                background-color: $color-dark-black;
+                font-family: $font-neue-montreal;
+                @apply text-[1.6rem] font-medium leading-[1] -tracking-[0.001em] text-white w-full py-[2.1rem] px-[1.6rem] rounded-[8px] outline-0 focus:outline-0 focus:outline-none focus:border-[#1D1D1D] border border-transparent transition-all;
 
                 &:-webkit-autofill {
                     border: none;
@@ -147,10 +150,6 @@
                     /* Ajoute un fake background à base d'ombrage aplatit */
                 }
 
-                background-color: $color-dark-black;
-                font-family: $font-neue-montreal;
-                @apply text-[1.6rem] font-medium leading-[1] -tracking-[0.001em] text-white w-full py-[2.1rem] px-[1.6rem] rounded-[8px] outline-0 focus:outline-0 focus:outline-none focus:border-[#1D1D1D] border border-transparent transition-all;
-
                 &::placeholder {
                     color: #8A8A8E;
                 }
@@ -167,14 +166,13 @@
             .PhoneInput {
                 border: 1px solid transparent;
                 -webkit-appearance: none;
+                background-color: $color-dark-black;
+                font-family: $font-neue-montreal;
+                @apply text-[1.6rem] font-medium leading-[1] -tracking-[0.001em] text-white w-full py-[1.4rem] px-[1.6rem] rounded-[8px] outline-0 focus:outline-0 focus:outline-none focus:border-[#1D1D1D] border border-transparent transition-all;
 
                 &--focus {
                     border: 1px solid #1D1D1D;
                 }
-
-                background-color: $color-dark-black;
-                font-family: $font-neue-montreal;
-                @apply text-[1.6rem] font-medium leading-[1] -tracking-[0.001em] text-white w-full py-[1.4rem] px-[1.6rem] rounded-[8px] outline-0 focus:outline-0 focus:outline-none focus:border-[#1D1D1D] border border-transparent transition-all;
 
                 &--error {
                     @apply border-[red]; //

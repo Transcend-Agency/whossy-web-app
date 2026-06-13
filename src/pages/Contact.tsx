@@ -1,7 +1,8 @@
 import Navbar from "@/components/landing/Navbar";
 import React, { useState } from "react";
-import couplePic from "../../public/assets/icons/contact.svg";
 import Footer from "@/components/landing/Footer";
+
+const couplePic = "/assets/icons/contact.svg";
 
 const Contact = () => {
   const [formData, setFormData] = useState({

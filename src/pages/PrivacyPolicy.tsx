@@ -2,10 +2,7 @@ import Footer from '@/components/landing/Footer';
 import Navbar from '@/components/landing/Navbar';
 import React from 'react';
 
-type PrivacyPolicyProps = {
-};
-
-const PrivacyPolicy: React.FC<PrivacyPolicyProps> = () => {
+const PrivacyPolicy: React.FC = () => {
 
     return <>
         <div className="fixed top-0 w-full z-50">

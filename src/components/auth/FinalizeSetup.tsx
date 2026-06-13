@@ -12,8 +12,8 @@ const FinalizeSetup = () => {
     const navigate = useNavigate();
     const auth = getAuth();
     const { setAuth } = useAuthStore();
-    const [_loading, setLoading] = useState(false);
-    const [_error, setError] = useState('');
+    const [, setLoading] = useState(false);
+    const [, setError] = useState('');
     const userId = auth.currentUser?.uid;
 
     useEffect(() => {

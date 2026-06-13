@@ -15,9 +15,7 @@ import Button from '../components/ui/Button';
 import { auth } from '@/firebase';
 import { FormData } from '../types/auth';
 
-type ResetPasswordProps = {
-
-};
+type ResetPasswordProps = Record<string, never>;
 
 interface ResetPasswordPage {
     advance: () => void
@@ -60,16 +58,20 @@ const ResetPasswordDetails: React.FC<ResetPasswordPage> = ({ advance, goBack }) 
         navigate("/auth/login")
     }
 
-    const onFormSubmit = async (data: any) => {
+    const onFormSubmit = async (data: FormData) => {
         try {
             setLoading(true)
             console.log(searchParams.get('oobCode'))
             const oobCode = searchParams.get('oobCode')
-            const result = await confirmPasswordReset(auth, oobCode!, data.password)
+            if (!oobCode) {
+                setRequestError('Link Has Expired')
+                return
+            }
+            const result = await confirmPasswordReset(auth, oobCode, data.password!)
             advance()
             console.log(result)
-        } catch (err: any) {
-            if (err.code == 'auth/invalid-action-code') {
+        } catch (err: unknown) {
+            if (err && typeof err === 'object' && 'code' in err && err.code == 'auth/invalid-action-code') {
                 setRequestError('Link Has Expired')
             } else {
                 setRequestError('Something Went Wrong')
@@ -85,7 +87,7 @@ const ResetPasswordDetails: React.FC<ResetPasswordPage> = ({ advance, goBack }) 
         console.log(errors, isValid)
     }, [password])
     const validatePassword = (password: string) => {
-        const hasEnoughCharacters = password?.length! >= 8
+        const hasEnoughCharacters = (password?.length ?? 0) >= 8
         const hasLowerAndUpperCaseLetters = /^(?=.*[a-z])(?=.*[A-Z]).*$/
         const hasDigit = /\d/
         const hasSpecialCharacter = /[^A-Za-z0-9]/

@@ -38,7 +38,6 @@ const UserProfile = () => {
     const handleCloseModal = () => {
         setIsModalOpen(false);
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { auth } = useAuthStore();
 
     const fetchUserData = async () => {
@@ -93,8 +92,7 @@ const UserProfile = () => {
                             {/*    <img src="/assets/icons/verified-badge.svg" alt={``} />*/}
                             {/*</p> : <Skeleton width='21rem' height='2.9rem' />}*/}
                             {userData ? (
-                                // @ts-ignore
-                                <p> {userData?.first_name}, <span className='user-profile__profile-details__age'> {userData?.date_of_birth  ? (new Date()).getFullYear() - getYearFromFirebaseDate(userData?.date_of_birth!) : 'NIL'} </span>
+                                <p> {userData?.first_name}, <span className='user-profile__profile-details__age'> {userData?.date_of_birth ? (new Date()).getFullYear() - getYearFromFirebaseDate(userData.date_of_birth) : 'NIL'} </span>
                                     {userData?.is_approved && <img src="/assets/icons/verified-badge.svg" alt="verified" />}
                                 </p>
                             ) : ( <Skeleton width='21rem' height='2.9rem' /> )}

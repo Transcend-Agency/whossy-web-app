@@ -10,7 +10,6 @@ import { useGetCustomerInformation, useSubscribe, useUnsubscribe } from '@/hooks
 import { useNavigate } from 'react-router-dom';
 import { User } from '@/types/user';
 import { addCommasToNumber } from '@/constants';
-import { useObtainNombaAccessToken } from '@/hooks/useNombaAuth';
 import { useNombaRecurringPayment } from '@/hooks/useNomba';
 import { useNombaStore } from '@/store/Nomba';
 
@@ -27,9 +26,8 @@ export const SubscriptionPlanModal: React.FC<SubscriptionPlanModalProps & { setC
 
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'ngn' | 'kes' | 'usd'>('ngn');
 
-  const obtainAccessToken = useObtainNombaAccessToken();
   const makeRecurringPayment = useNombaRecurringPayment();
-  const { setAuthResponse, auth_response } = useNombaStore();
+  const { auth_response } = useNombaStore();
 
   const { user } = useAuthStore();
 

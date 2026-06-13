@@ -135,27 +135,27 @@
                 @apply text-center w-full h-[4.1rem] my-[1.6rem] text-[1.7rem] text-white rounded-[0.8rem] active:scale-[0.98] transition duration-200 cursor-pointer hover:scale-[1.02];
             }
             &--free {
+                border: 1px solid #AAAAAA;
+                @apply text-[#AAAAAA];
                 .user-profile__plans__plan__benefit {
                     border-image-source: linear-gradient(to left, #FFFFFF99, #AAAAAA99);
                 }
                 .user-profile__plans__plan__cta {
                     @apply bg-[#AAAAAA];
                 }
-                border: 1px solid #AAAAAA;
-                @apply text-[#AAAAAA];
                 .user-profile__plans__plan__title {
                     
                 }
             }
             &--premium {
+                border: 1px solid #FF5C00;
+                @apply text-[#FF5C00];
                 .user-profile__plans__plan__benefit {
                     border-image-source: linear-gradient(to left, #FFFFFF99, #FF5C0099);
                 }
                 .user-profile__plans__plan__cta {
                     @apply bg-[#FF5C00];
                 }
-                border: 1px solid #FF5C00;
-                @apply text-[#FF5C00];
                 .user-profile__plans__plan__title {
                     
                 }

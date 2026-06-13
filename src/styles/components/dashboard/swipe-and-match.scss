@@ -19,6 +19,7 @@
         }
         &__button {
             @apply w-[7.2rem] h-[7.2rem] bg-white rounded-full flex items-center justify-center;
+            box-shadow: 4px -4px 20px 0px #1212121A;
             @include media("<=1023px") {
                 @apply w-[64px] h-[64px];
                 &:nth-of-type(2) {
@@ -29,8 +30,6 @@
                     @apply relative -top-[3.2rem];
                 }
             }
-            box-shadow: 4px -4px 20px 0px #1212121A;
-
             &:hover {
                 img {
                     @apply scale-110;

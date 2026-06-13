@@ -103,7 +103,7 @@ const Matches: React.FC<MatchesProps> = () => {
                         <h3 className='matches__sub-header'>{'See who you’ve matched with here 💖'}</h3>
                         <div className='matches__total-matches-preview'>
                             <div className='matches__total-matches-preview-inner'>
-                                {/* @ts-ignore */}
+                                {/* @ts-expect-error legacy type mismatch */}
                                 <img src={matches.length > 0 ? matches[0]?.matchedUserData?.photos[0] : ''} alt={``} />
                                 <div className='matches__matches-count'>
                                     <span>{matches.length}</span>

@@ -87,9 +87,9 @@ const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, user
             await deleteUser(user);
             console.log("User deleted successfully.");
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Error during reauthentication or deletion:", error);
-            if (error.code === "auth/wrong-password") {
+            if (error && typeof error === 'object' && 'code' in error && error.code === "auth/wrong-password") {
                 toast.error("Incorrect password. Please try again.");
             } else {
                 toast.error("An error occurred while deleting the account.");

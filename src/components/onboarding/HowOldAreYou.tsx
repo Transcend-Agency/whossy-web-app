@@ -48,7 +48,7 @@ const HowOldAreYou: React.FC<OnboardingProps> = ({ advance, goBack }) => {
       data["date-of-birth"] !== null &&
       data["date-of-birth"] !== ""
     ) {
-      // @ts-ignore
+      // @ts-expect-error legacy type mismatch
       const the_date = new Date(data["date-of-birth"]);
       setBirthDate({
         day: (the_date.getDate() - 1).toString(),
