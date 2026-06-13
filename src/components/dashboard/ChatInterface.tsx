@@ -23,7 +23,7 @@ const ChatInterface: FC = () => {
     const navigate = useNavigate();
     const currentUserId = auth?.uid as string;
     const [userData, setUserData] = useState<User | null>(null);
-    const [_recipientData, setRecipientData] = useState<User | null>(null);
+    const [, setRecipientData] = useState<User | null>(null);
     const { setChatId } = useChatIdStore();
     const [isLoadingChats, setIsLoadingChats] = useState(false);
 
@@ -135,9 +135,9 @@ const ChatInterface: FC = () => {
             const filteredChats = chatDataWithUserData.filter(chat => chat !== null) as ChatDataWithUserData[];
 
             const sortedChats = filteredChats.filter(chat => chat.last_sender_id !== null || chat.last_message !== null).sort((a, b) => {
-                // @ts-ignore
+                // @ts-expect-error legacy type mismatch
                 const aTimestamp = a.last_message_timestamp?.seconds || 0;
-                // @ts-ignore
+                // @ts-expect-error legacy type mismatch
                 const bTimestamp = b.last_message_timestamp?.seconds || 0;
                 return bTimestamp - aTimestamp;
             });

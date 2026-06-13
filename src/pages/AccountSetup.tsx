@@ -63,8 +63,8 @@ const FillInAccountNames: React.FC<AccountSetupFormPage> = ({ advance, pageKey }
         mode: 'onBlur',
         defaultValues: { first_name, last_name }
     });
-    const onFormSubmit = (data: any) => {
-        setNames(data)
+    const onFormSubmit = (data: FormData) => {
+        setNames({ first_name: data.first_name!, last_name: data.last_name! })
         advance()
     }
     return (
@@ -108,7 +108,7 @@ const FillInCountries: React.FC<AccountSetupFormPage> = ({ advance, goBack, page
     const [selected, setSelected] = useState('country_of_origin');
     const [loading, setLoading] = useState(false)
     const [requestError, setRequestError] = useState('')
-    const onFormSubmit = async (data: any) => {
+    const onFormSubmit = async (data: FormData) => {
         try {
             setLoading(true)
             if (auth_provider == 'phone') {
@@ -127,7 +127,10 @@ const FillInCountries: React.FC<AccountSetupFormPage> = ({ advance, goBack, page
                 if (result.docs.length > 0) {
                     setRequestError("Phone Number Exists")
                 } else {
-                    setCountryAndPhoneData(data)
+                    setCountryAndPhoneData({
+                        country_of_origin: data.country_of_origin!,
+                        phone_number: data.phone_number!,
+                    })
                     advance()
                 }
             }
@@ -211,8 +214,8 @@ const FillInGender: React.FC<AccountSetupFormPage> = ({ goBack, pageKey }) => {
     const auth = getAuth()
     const { setAuth } = useAuthStore();
 
-    const onFinishCreateAccount = async (data: any) => {
-        setGender(data.gender);
+    const onFinishCreateAccount = async (data: FormData) => {
+        setGender(data.gender!);
         try {
             setLoading(true);
 

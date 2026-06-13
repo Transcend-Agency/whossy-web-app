@@ -1202,7 +1202,7 @@ const checkUserProfileCompletion = (userData: User) => {
   ];
 
   // Function to check if a value is filled (non-null, non-empty)
-  const isFilled = (value: any) => {
+  const isFilled = (value: unknown) => {
     if (Array.isArray(value)) return value.length > 0; // Check if array is not empty
     return value !== null && value !== undefined && value !== ""; // Check for non-null, non-undefined, and non-empty string
   };

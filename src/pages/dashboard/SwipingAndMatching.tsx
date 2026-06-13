@@ -391,7 +391,6 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                             </div>
                             <motion.div animate={expanded ? { marginBottom: '2.8rem' } : { marginBottom: '1.2rem' }} className="name-row">
                                 <div className="left">
-                                    {/*@ts-ignore */}
                                     <p className="details">{item?.first_name}, <span className="age">{(new Date()).getFullYear() - (getYearFromFirebaseDate(item?.date_of_birth) as number)}</span></p>
                                     {/* <p className="details">{userData?.first_name}, <span className="age">{item?.date_of_birth ? (new Date()).getFullYear() - getYearFromFirebaseDate(item.date_of_birth) : 'NIL'}</span></p> */}
                                     <img src="/assets/icons/verified.svg" alt={``}/>
@@ -594,7 +593,7 @@ const SwipingAndMatching = () => {
             }
         }).catch(err => console.error("An error occured while updating likes: ", err));
 
-        // @ts-expect-error unused vars
+        // @ts-expect-error legacy type mismatch unused vars
         setProfiles(profiles.filter((profileItem, index) => index !== profiles.length - 1))
         // assert(profileI)
         await controls.start((item) => {
@@ -653,7 +652,7 @@ const SwipingAndMatching = () => {
         // Each item in 'bounds' represents a startAt/endAt pair. We have to issue
         // a separate query for each pair. There can be up to 9 pairs of bounds
         // depending on overlap, but in most cases there are 4.
-        // @ts-ignore
+        // @ts-expect-error legacy type mismatch
         const bounds = geohashQueryBounds(center, radiusInM);
 
         const usersCollection = collection(db, 'users');
@@ -698,7 +697,7 @@ const SwipingAndMatching = () => {
             )) {
                 const lat = doc.get('latitude') as number;
                 const lng = doc.get('longitude') as number;
-                // @ts-ignore
+                // @ts-expect-error legacy type mismatch
                 const distanceInKm = distanceBetween([lat, lng], center);
                 const distanceInM = distanceInKm * 1000;
 

@@ -208,6 +208,7 @@ export const mobileTourSteps: Tour = {
 }
 
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export const styles = {
 		popover: (base: any) => ({
 				...base,

@@ -420,14 +420,12 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                                     <p className="content-item__info__title">Gender</p>
                                     <p className="content-item__info__text">{userData.gender}</p>
                                 </div>
-                                {![null, undefined].includes(userData.education as unknown as any) && <div className="content-item__info">
+                                {userData.education != null && <div className="content-item__info">
                                     <p className="content-item__info__title">Education</p>
-                                    {/* @ts-expect-error quick-fix */}
                                     <p className="content-item__info__text">{education[userData.education]}</p>
                                 </div>}
-                                {![null, undefined].includes(userData.religion as unknown as any) && <div className="content-item__info">
+                                {userData.religion != null && <div className="content-item__info">
                                     <p className="content-item__info__title">Religion</p>
-                                    {/* @ts-expect-error quick-fix */}
                                     <p className="content-item__info__text">{religion[userData.religion]}</p>
                                 </div>}
                             </div>

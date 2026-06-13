@@ -90,7 +90,7 @@ const Explore = () => {
     const isNewUserFromDate = (timestampDate: string) => {
         const twoDaysAgo = new Date();
         twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-        // @ts-ignore
+        // @ts-expect-error Firebase timestamp comparison
         return timestampDate >= Timestamp.fromDate(twoDaysAgo);
     };
 
@@ -228,11 +228,10 @@ const Explore = () => {
                                                         {noSearchResult(profiles).map((profile, index: number) => (
                                                             (index % 5 === value) &&
                                                             <ExploreGridProfile
-                                                                // @ts-ignore
+                                                                // @ts-expect-error optional created_at field
                                                                 isNewUser={isNewUserFromDate(profile.created_at as string)}
                                                                 profile_image={profile.photos ? profile.photos![0] : undefined}
                                                                 first_name={profile!.first_name!}
-                                                                // @ts-ignore
                                                                 age={(new Date()).getFullYear() - getYearFromFirebaseDate(profile.date_of_birth)}
                                                                 onProfileClick={() => {
                                                                     setSelectedProfile(profile?.uid as string)
@@ -256,13 +255,12 @@ const Explore = () => {
                                                         (index % 3 == value) &&
                                                         <ExploreGridProfile
                                                             key={`${index}-${profile.uid}`}
-                                                            // @ts-ignore
+                                                            // @ts-expect-error optional created_at field
                                                             isNewUser={isNewUserFromDate(profile.created_at as string)}
                                                             // isNewUser={false}
                                                             profile_image={profile.photos ? profile.photos![0] : undefined}
                                                             first_name={profile!.first_name!}
-                                                            // @ts-ignore
-                                                            age={(new Date()).getFullYear() - getYearFromFirebaseDate(profile.date_of_birth)}
+                                                                age={(new Date()).getFullYear() - getYearFromFirebaseDate(profile.date_of_birth)}
                                                             onProfileClick={() => setSelectedProfile(profile?.uid as string)}
                                                             isVerified={profile!.is_approved as boolean}
                                                             hasBeenLiked={hasUserBeenLiked(profile.uid!)}

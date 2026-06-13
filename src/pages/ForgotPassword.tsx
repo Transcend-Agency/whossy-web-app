@@ -14,6 +14,7 @@ import { AnimatePresence } from 'framer-motion';
 import AuthModalRequestMessage from '../components/auth/AuthModalRequestMessage';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { motion } from 'framer-motion'
+import { FormData } from '../types/auth';
 
 interface ForgotPasswordPage {
     advance: () => void
@@ -44,7 +45,7 @@ const ForgotPasswordInputPage: React.FC<ForgotPasswordPage> = ({ advance, key })
         navigate(-1)
     }
 
-    const onFormSubmit = async (data: any) => {
+    const onFormSubmit = async (data: FormData) => {
         try {
             setLoading(true)
             const q = query(collection(db, "users"), where("email", "==", data.email));
@@ -52,12 +53,12 @@ const ForgotPasswordInputPage: React.FC<ForgotPasswordPage> = ({ advance, key })
             if (result.docs.length == 0) {
                 throw new Error("Account Does Not Exist")
             }
-            await sendPasswordResetEmail(auth, data.email, {
+            await sendPasswordResetEmail(auth, data.email as string, {
                 url: `${import.meta.env.VITE_APP_FRONTEND_URL}/auth/login`
             });
             advance()
-        } catch (err: any) {
-            if (err.message) {
+        } catch (err: unknown) {
+            if (err instanceof Error) {
                 setRequestError(err.message)
             } else {
                 setRequestError("Something Went Wrong...")

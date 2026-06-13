@@ -29,6 +29,6 @@ export type FormFieldProps = {
     placeholder?: string;
     name: keyof FormData;
     register: UseFormRegister<FormData>;
-    error?: FieldError | Merge<FieldError, FieldErrorsImpl<any>> | undefined;
+    error?: FieldError | Merge<FieldError, FieldErrorsImpl<FormData>> | undefined;
     valueAsNumber?: boolean;
 };

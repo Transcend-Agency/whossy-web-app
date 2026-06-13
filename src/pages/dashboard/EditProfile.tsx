@@ -85,7 +85,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ activePage, activeSubPage, cl
 
                     <div className="space-y-3">
                         <SettingsGroup data={[['Name', userData?.first_name as string, () => {setSettingsModalShowing('name')}],
-                            // @ts-ignore
+                            // @ts-expect-error legacy type mismatch
                         ['Birthday', userData?.date_of_birth ? getFormattedDateFromFirebaseDate(userData?.date_of_birth) : '', () => {  }],
                         ['Gender', userData?.gender as string, () => {}],
                         ['Email', userData?.email as string,

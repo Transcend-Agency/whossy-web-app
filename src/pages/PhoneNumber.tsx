@@ -67,7 +67,7 @@ const FillInPhoneNumber: React.FC<PhoneNumberPageProps> = ({ advance, key }) => 
     const setPhoneNumber = usePhoneNumberStore(state => state.setPhoneNumber)
     const updateAccountSetupUserData = useAccountSetupFormStore(state => state.updateUserData)
     const [requestError, setRequestError] = useState('')
-    const onFormSubmit = async (data: any) => {
+    const onFormSubmit = async (data: FormData) => {
         try {
             setLoading(true)
             const q = query(collection(db, "users"), where("phone_number", "==", data.phone_number));
@@ -89,22 +89,23 @@ const FillInPhoneNumber: React.FC<PhoneNumberPageProps> = ({ advance, key }) => 
                 })
                 const confirmationResult = await signInWithPhoneNumber(
                     auth,
-                    data.phone_number,
+                    data.phone_number!,
                     recaptcha
                 );
                 setVerificationId(confirmationResult.verificationId)
                 setConfirmationResult(confirmationResult)
                 console.log(confirmationResult)
                 advance()
-                setPhoneNumber(data.phone_number)
-                updateAccountSetupUserData({ phone_number: data.phone_number })
+                setPhoneNumber(data.phone_number!)
+                updateAccountSetupUserData({ phone_number: data.phone_number! })
             }
 
-        } catch (err: any) {
-            console.log(err.code)
-            if (err.code == 'auth/invalid-phone-number') {
+        } catch (err: unknown) {
+            const code = err && typeof err === 'object' && 'code' in err ? String(err.code) : undefined;
+            console.log(code)
+            if (code === 'auth/invalid-phone-number') {
                 setRequestError("Invalid Phone Number")
-            } else if (err.code == 'auth/invalid-app-credential') {
+            } else if (code === 'auth/invalid-app-credential') {
                 setRequestError("Phone Number Sign In Is Down")
             } else {
                 setRequestError('Something Went Wrong')
@@ -158,12 +159,12 @@ const FillInPhoneNumberOtp: React.FC<PhoneNumberPageProps> = ({ goBack, key }) =
             code: ''
         }
     });
-    const onFormSubmit = async (data: any) => {
+    const onFormSubmit = async (data: FormData) => {
         try {
             // console.log(data.phone_number, confirmationResult)
             console.log(confirmationResult, verification_id)
             setLoading(true)
-            const verificationData = await confirmationResult.confirm(data.code)
+            const verificationData = await confirmationResult.confirm(data.code!)
 
             const q = query(collection(db, "users"), where("uid", "==", verificationData.user.uid));
             const result = await getDocs(q);
@@ -188,9 +189,10 @@ const FillInPhoneNumberOtp: React.FC<PhoneNumberPageProps> = ({ goBack, key }) =
                 navigate('/auth/account-setup')
             }
 
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.log(err)
-            if (err.code == 'auth/invalid-verification-code') {
+            const code = err && typeof err === 'object' && 'code' in err ? String(err.code) : undefined;
+            if (code === 'auth/invalid-verification-code') {
                 setRequestError('Invalid Authentication Code')
                 setTimeout(() => {
                     setRequestError('')

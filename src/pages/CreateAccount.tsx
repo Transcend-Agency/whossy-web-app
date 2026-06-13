@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, User, UserCredential } from 'firebase/auth';
 import { collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore';
 import { AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
@@ -56,7 +56,7 @@ const CreateAccount = () => {
     const setAuthProvider = useAccountSetupFormStore((state) => state.setAuthProvider);
     const { setAuth } = useAuthStore();
 
-    const handleUserDocument = async (user: any, authProvider: string, firstName?: string, lastName?: string) => {
+    const handleUserDocument = async (user: User, authProvider: string, firstName?: string, lastName?: string) => {
         const q = query(collection(db, "users"), where("uid", "==", user.uid));
         const result = await getDocs(q);
 
@@ -102,14 +102,17 @@ const CreateAccount = () => {
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, data.email as string, data.password as string);
             await handleUserDocument(userCredential.user, 'email');
-        } catch (error: any) {
-            setRequestError(errorMessages[error.code as FirebaseErrorCodes] || 'Something Went Wrong');
+        } catch (error: unknown) {
+            const code = error && typeof error === 'object' && 'code' in error
+                ? error.code as FirebaseErrorCodes
+                : undefined;
+            setRequestError(code ? errorMessages[code] : 'Something Went Wrong');
         } finally {
             setLoading(false);
         }
     };
 
-    const onGoogleSignIn = async (res: any) => {
+    const onGoogleSignIn = async (res: UserCredential) => {
         setLoading(true);
         try {
             const [firstName, lastName] = res.user.displayName?.split(" ") || ["", ""];

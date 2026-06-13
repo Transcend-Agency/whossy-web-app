@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import { motion } from "framer-motion";
 import React, { useEffect, useState } from "react";
 import { PremiumPlansHeader } from "./PremiumPlans";

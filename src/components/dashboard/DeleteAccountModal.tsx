@@ -63,8 +63,7 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({show, onCloseMod
 									<img className={`size-[18px] cursor-pointer`} onClick={() => {
 										onCloseModal();
 										setPassword("")
-									}}
-										 src={`/assets/icons/close-icons.svg`} alt={``}/>
+									}} src={`/assets/icons/close-icons.svg`} alt={``}/>
 								</div>
 								<div className="settings-page__settings-group__item-separator"></div>
 

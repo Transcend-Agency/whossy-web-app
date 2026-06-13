@@ -1,7 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useAuthStore } from "@/store/UserId";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, User, UserCredential } from "firebase/auth";
 import { collection, doc, getDocs, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
@@ -49,7 +48,7 @@ const Login = () => {
     const setId = useAccountSetupFormStore(state => state.setId)
     const setAuthProvider = useAccountSetupFormStore(state => state.setAuthProvider)
     const navigate = useNavigate()
-    const [attemptedAuthUser, setAttemptedAuthUser] = useState<any>({})
+    const [attemptedAuthUser, setAttemptedAuthUser] = useState<User | null>(null)
     const { setAuth } = useAuthStore();
     // const { mutate: paystackReferenceQuery } = useVerify();
     // const subscriptionList = useGetSubscriptionCodeAndEmailToken();
@@ -176,11 +175,12 @@ const Login = () => {
                     }
                 }
             }
-        } catch (error: any) {
-            if ((error.code == 'auth/network-request-failed')) {
+        } catch (error: unknown) {
+            const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : undefined;
+            if (code === 'auth/network-request-failed') {
                 setRequestError("Poor Internet Connection")
             }
-            if (error.code == 'auth/invalid-credential') {
+            if (code === 'auth/invalid-credential') {
                 setRequestError("Invalid Email or Password")
             }
             else {
@@ -191,22 +191,23 @@ const Login = () => {
         }
     }
 
-    const onGoogleSignIn = async (res: any) => {
+    const onGoogleSignIn = async (res: UserCredential) => {
         try {
             setLoading(true)
             setAttemptedAuthUser(res.user)
             console.log(attemptedAuthUser)
+            const [firstName, lastName] = res.user.displayName?.split(" ") ?? ["", ""];
             const q = query(collection(db, "users"), where("uid", "==", res.user.uid));
             const result = await getDocs(q);
             if (result.docs.length === 0) {
                 setNames({
-                    first_name: res.user.displayName.split(" ")[0],
-                    last_name: res.user.displayName.split(" ")[1],
+                    first_name: firstName,
+                    last_name: lastName,
                 })
                 await setDoc(doc(db, "users", res.user.uid), {
                     uid: res.user.uid,
-                    first_name: res.user.displayName.split(" ")[0],
-                    last_name: res.user.displayName.split(" ")[1],
+                    first_name: firstName,
+                    last_name: lastName,
                     auth_provider: "google",
                     email: res.user.email,
                     has_completed_account_creation: false,

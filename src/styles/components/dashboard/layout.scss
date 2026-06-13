@@ -77,13 +77,13 @@
                 @apply overflow-x-hidden overflow-y-scroll w-full h-full absolute inset-0;
             }
             &__secondary-page {
-                &::-webkit-scrollbar {
-                    display: none;
-                }
                 border-top-right-radius: 16px;
                 border-top-left-radius: 16px;
                 border-bottom-left-radius: 32px;
                 border-bottom-right-radius: 32px;
+                &::-webkit-scrollbar {
+                    display: none;
+                }
                 @apply overflow-x-hidden overflow-y-scroll w-full h-full absolute inset-0 left-[100%];
             }
             &__secondary-page-no-border {

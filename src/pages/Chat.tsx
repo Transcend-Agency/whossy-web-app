@@ -148,9 +148,9 @@ const ChatPage = () => {
                     ) as ChatDataWithUserData[];
 
             const sortedChats = filteredChats.sort((a, b) => {
-                // @ts-ignore
+                // @ts-expect-error legacy type mismatch
                 const aTimestamp = a.last_message_timestamp?.seconds || 0;
-                // @ts-ignore
+                // @ts-expect-error legacy type mismatch
                 const bTimestamp = b.last_message_timestamp?.seconds || 0;
                 return bTimestamp - aTimestamp;
             });
@@ -225,7 +225,7 @@ const ChatPage = () => {
                                     </div> :
                                     <div className='matches__total-matches-preview-small'>
                                         <div className='matches__total-matches-preview-inner'>
-                                            {/* @ts-ignore */}
+                                            {/* @ts-expect-error legacy type mismatch */}
                                             <img src={matches.length > 0 ? matches[0]?.matchedUserData?.photos[0] : ''}
                                                  alt={``}/>
                                             <div className='matches__matches-count'>
