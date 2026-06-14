@@ -6,14 +6,21 @@ import { User } from '@/types/user';
 import useDashboardStore from '@/store/useDashboardStore';
 import {useAuthStore} from "@/store/UserId.tsx";
 
-interface PopulatedMatchData extends Match {
+export interface PopulatedMatchData extends Match {
     matchedUserData: User | null; // Ensure this matches your User type
 }
+
+// Two users are "connected" when a `matches` doc exists containing both UIDs,
+// in either user1_id/user2_id slot.
+export const isConnectedTo = (matches: PopulatedMatchData[], otherUid?: string | null): boolean => {
+    if (!otherUid) return false;
+    return matches.some(match => match.user1_id === otherUid || match.user2_id === otherUid);
+};
 
 interface MatchStore {
     matches: PopulatedMatchData[];
     loading: boolean;
-    fetchMatches: (userId: string) => void; // Method to fetch matches
+    fetchMatches: (userId: string) => Promise<void>; // Method to fetch matches
 }
 
 export const useMatchStore = create<MatchStore>((set) => ({

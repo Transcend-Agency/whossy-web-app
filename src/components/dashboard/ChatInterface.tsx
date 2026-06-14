@@ -10,6 +10,7 @@ import { useChatIdStore } from '@/store/ChatStore';
 import { getUserProfile } from '@/hooks/useUser';
 import {ChatListItem} from "@/components/dashboard/ChatListItem.tsx";
 import {createOrFetchChat, getLastValidMessage} from "@/utils/chatService.ts";
+import {isConnectedTo, useMatchStore} from "@/store/Matches.tsx";
 
 interface ChatDataWithUserData extends Chat {
     user: User;
@@ -26,6 +27,7 @@ const ChatInterface: FC = () => {
     const [, setRecipientData] = useState<User | null>(null);
     const { setChatId } = useChatIdStore();
     const [isLoadingChats, setIsLoadingChats] = useState(false);
+    const { matches } = useMatchStore();
 
     const fetchUserChats = async (id: string) => {
         const userChatsDocRef = doc(db, 'chats', id);
@@ -202,6 +204,7 @@ const ChatInterface: FC = () => {
                                         profileImage={chat.user.photos && chat.user.photos[0]}
                                         chatUnlocked={chat.is_unlocked}
                                         chat={chat}
+                                        connected={isConnectedTo(matches, chat.user?.uid)}
                                         openChat={async () => {
                                             if(chat.user.uid){
                                                 const chatId = chat.participants.sort().join('_')
