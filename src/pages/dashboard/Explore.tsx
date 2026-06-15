@@ -129,11 +129,11 @@ const Explore = () => {
     };
 
     const settingsData: SettingsDataItem[] = [
-        { label: 'Gender', value: advancedSearchPreferences.gender || 'Choose', onClick: () => setAdvancedSearchModalShowing('gender') },
-        { label: 'Age', value: `${advancedSearchPreferences.age_range?.min} - ${advancedSearchPreferences.age_range?.max} years old` || 'Choose', onClick: () => setAdvancedSearchModalShowing('age-range') },
-        { label: 'Country of Residence', value: advancedSearchPreferences.country || 'Choose', onClick: () => setAdvancedSearchModalShowing('country') },
-        { label: 'Relationship Preference', value: advancedSearchPreferences.relationship_preference !== null ? preference[advancedSearchPreferences.relationship_preference as number] : 'Choose', onClick: () => setAdvancedSearchModalShowing('relationship_preference') },
-        { label: 'Religion', value: advancedSearchPreferences.religion !== null ? religion[advancedSearchPreferences.religion as number] : 'Choose', onClick: () => setAdvancedSearchModalShowing('religion') }
+        { label: 'Gender', value: advancedSearchPreferences?.gender || 'Choose', onClick: () => setAdvancedSearchModalShowing('gender') },
+        { label: 'Age', value: `${advancedSearchPreferences?.age_range?.min} - ${advancedSearchPreferences?.age_range?.max} years old` || 'Choose', onClick: () => setAdvancedSearchModalShowing('age-range') },
+        { label: 'Country of Residence', value: advancedSearchPreferences?.country || 'Choose', onClick: () => setAdvancedSearchModalShowing('country') },
+        { label: 'Relationship Preference', value: advancedSearchPreferences?.relationship_preference !== null && advancedSearchPreferences?.relationship_preference !== undefined ? preference[advancedSearchPreferences.relationship_preference as number] : 'Choose', onClick: () => setAdvancedSearchModalShowing('relationship_preference') },
+        { label: 'Religion', value: advancedSearchPreferences?.religion !== null && advancedSearchPreferences?.religion !== undefined ? religion[advancedSearchPreferences.religion as number] : 'Choose', onClick: () => setAdvancedSearchModalShowing('religion') }
     ];
 
     const noSearchResults = (profiles: User[]): number => {

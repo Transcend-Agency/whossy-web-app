@@ -41,6 +41,10 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import {updateUserProfile} from "@/hooks/useUser.ts";
 import { User } from "@/types/user.ts";
 import DeleteAccount from "./pages/DeleteAccount";
+import { AdminRoute } from "./pages/AdminRoute";
+import AdminLayout from "./pages/admin/AdminLayout";
+import VerificationQueue from "./pages/admin/VerificationQueue";
+import VerificationChallenges from "./pages/admin/VerificationChallenges";
 
 const queryClient = new QueryClient();
 
@@ -229,6 +233,10 @@ function App() {
             <Route path="/contact" element={<Contact />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/delete-account" element={<DeleteAccount />} />
+            <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+              <Route path="verifications" element={<VerificationQueue />} />
+              <Route path="challenges" element={<VerificationChallenges />} />
+            </Route>
           </Routes>
           <ToastContainer />
         </AnimatePresence>

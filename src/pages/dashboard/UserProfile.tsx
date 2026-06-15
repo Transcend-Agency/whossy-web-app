@@ -1,5 +1,7 @@
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/firebase';
 import DashboardPageContainer from '../../components/dashboard/DashboardPageContainer';
 import ProfilePlan from '../../components/dashboard/ProfilePlan';
 import EditProfile from './EditProfile';
@@ -59,10 +61,29 @@ const UserProfile = () => {
         setUserFilters(data)
     }
 
+    const prevFaceVerificationStatusRef = useRef<'pending_review' | 'approved' | 'rejected' | null | undefined>(undefined);
+
     useEffect(() => {
-        fetchUserData().catch(err => console.log(err));
+        if (!auth?.uid) return;
+
+        const unsubscribe = onSnapshot(doc(db, "users", auth.uid), (snapshot) => {
+            if (!snapshot.exists()) return;
+            const data = snapshot.data() as User;
+            setUserData(data);
+            setCompleted(checkUserProfileCompletion(data));
+
+            const status = data.face_verification?.status;
+            const prevStatus = prevFaceVerificationStatusRef.current;
+            if (prevStatus !== undefined && prevStatus !== 'rejected' && status === 'rejected') {
+                toast.error("Your selfie didn't match the pose — please retake your verification photo");
+            }
+            prevFaceVerificationStatusRef.current = status;
+        }, (err) => console.log("Error fetching user data:", err));
+
         fetchUserFilters().catch(err => console.log(err));
-    }, []);
+
+        return () => unsubscribe();
+    }, [auth?.uid]);
 
     const refetchUserData = async () => { await fetchUserData() }
     const refetchUserFilters = async () => { await fetchUserFilters() }
@@ -134,7 +155,8 @@ const UserProfile = () => {
             <ProfileSettings
                 activePage={activePage == 'profile-settings'} closePage={() => setActivePage('user-profile')}
                 userSettings={{ incoming_messages: userData?.user_settings?.incoming_messages, public_search: userData?.user_settings?.public_search, online_status: userData?.user_settings?.online_status, read_receipts: userData?.user_settings?.read_receipts }}
-                prefetchUserData={refetchUserData} userShouldRetakePhoto={userData?.face_verification?.retake_photo as boolean} />
+                prefetchUserData={refetchUserData} userShouldRetakePhoto={userData?.face_verification?.retake_photo as boolean}
+                faceVerificationStatus={userData?.face_verification?.status} />
             <Preferences activePage={activePage == 'preferences'} closePage={() => setActivePage('user-profile')} onInterests={() => setActivePage('interests')} userData={userData} userFilters={userFilters} refetchUserData={refetchUserData} refetchUserFilters={refetchUserFilters} />
             <PreviewProfile activePage={activePage} activeSubPage={activeSubPage} closePage={() => { setActivePage('edit-profile'); setActiveSubPage(0) }} setActiveSubPage={setActiveSubPage} userData={userData} />
             <PreferredInterestsDesktop activePage={activePage == 'interests'} closePage={() => setActivePage('preferences')} onInterests={() => setActivePage('interests')} userFilters={userFilters} refetchUserFilters={refetchUserFilters} />

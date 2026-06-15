@@ -147,7 +147,8 @@ function useProfileFetcher() {
 					// where("meet","in", [2, user.meet === 0 ? 1 : 0])
 				);
 			} else {
-				throw new Error("Invalid meet value provided.");
+				console.error("Invalid meet value provided.", user.meet);
+				q = q_base;
 			}
 		} else {
 			q = q_base;

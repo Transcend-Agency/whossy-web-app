@@ -51,15 +51,24 @@ const updateAdvancedSearchPreferences = async (
   });
 }
 
-const getAdvancedSearchPreferences = async (uid: string) => {
+const defaultAdvancedSearchPreferences: AdvancedSearchPreferences = {
+  gender: '',
+  age_range: { min: 18, max: 100 },
+  country: '',
+  relationship_preference: null,
+  religion: null,
+};
+
+const getAdvancedSearchPreferences = async (uid: string): Promise<AdvancedSearchPreferences> => {
   const docRef = doc(db, "advancedSearchPreferences", uid as string);
   const docSnap = await getDoc(docRef);
 
   if (docSnap.exists()) {
-    return docSnap.data() as AdvancedSearchPreferences;
-  } else {
-    console.log("No such document!");
+    return { ...defaultAdvancedSearchPreferences, ...docSnap.data() } as AdvancedSearchPreferences;
   }
+
+  console.log("No such document!");
+  return defaultAdvancedSearchPreferences;
 }
 
 export { getUserProfile, updateUserProfile, updateAdvancedSearchPreferences, getAdvancedSearchPreferences };

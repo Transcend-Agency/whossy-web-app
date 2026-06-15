@@ -48,6 +48,7 @@ const PrivacyPolicy: React.FC = () => {
                                 <li>Send marketing communications (with your consent).</li>
                                 <li>Personalize user experiences and advertisements.</li>
                                 <li>Ensure user safety and enforce our terms.</li>
+                                <li>Verify your identity, including reviewing selfie photos submitted for verification against a reference pose to confirm you are a real person. These photos are reviewed by Whossy staff.</li>
                                 <li>Comply with legal obligations and prevent fraud.</li>
                             </ol>
                         </div>
