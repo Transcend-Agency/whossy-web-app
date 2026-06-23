@@ -14,7 +14,7 @@ import { getUserProfile } from '@/hooks/useUser';
 import ViewProfile from "@/components/dashboard/ViewProfile";
 import useDashboardStore from "@/store/useDashboardStore";
 import useProfileFetcher from "@/hooks/useProfileFetcher";
-import {useMatchStore} from "@/store/Matches.tsx";
+import {isConnectedTo, useMatchStore} from "@/store/Matches.tsx";
 import useSyncPeopleWhoLikedUser from "@/hooks/useSyncPeopleWhoLikedUser.tsx";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
 
@@ -35,7 +35,7 @@ const ChatPage = () => {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [allChats, setAllChats] = useState<ChatDataWithUserData[]>([]);
     const [isLoadingChats, setIsLoadingChats] = useState(false);
-    const { matches } = useMatchStore()
+    const { matches, fetchMatches } = useMatchStore()
     const { peopleWhoLiked } = useSyncPeopleWhoLikedUser()
     const { setActivePage: setPage } = useNavigationStore()
 
@@ -81,6 +81,12 @@ const ChatPage = () => {
         fetchLoggedUserData();
         return () => setSelectedProfile(null)
     }, []);
+
+    useEffect(() => {
+        if (currentUserId) {
+            fetchMatches(currentUserId).catch(e => console.error("Error fetching matches:", e));
+        }
+    }, [currentUserId, fetchMatches]);
 
     useEffect(() => {
         let isMounted = true;
@@ -267,6 +273,7 @@ const ChatPage = () => {
                                             chatUnlocked={chat.is_unlocked}
                                             openChat={() => openChat(chat)}
                                             chat={chat}
+                                            connected={isConnectedTo(matches, chat.user?.uid)}
                                         />
                                     ))
                                 )

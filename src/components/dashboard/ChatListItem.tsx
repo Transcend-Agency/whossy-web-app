@@ -14,9 +14,10 @@ interface ChatListItemProps {
     userData?: User;
     chatUnlocked?: boolean;
     chat?: Chat
+    connected?: boolean;
 }
 
-export const ChatListItem: FC<ChatListItemProps> = ({profileImage, contactName, openChat, onlineStatus, chatInterface, userData, chatUnlocked, chat}) => {
+export const ChatListItem: FC<ChatListItemProps> = ({profileImage, contactName, openChat, onlineStatus, chatInterface, userData, chatUnlocked, chat, connected}) => {
 
     const [lastMessage, setLastMessage] = useState('...');
     const [messageStatus, setMessageStatus] = useState(false);
@@ -63,7 +64,7 @@ export const ChatListItem: FC<ChatListItemProps> = ({profileImage, contactName, 
             <div>
                 <p className='text-[15px] leading-[3rem]'>{contactName} </p>
                 {userData?.is_premium || chatUnlocked ? (<p className={`text-[12px] leading-[1.92rem] ${lastMessage === 'Image' ? 'italic text-[#b2b2b5]' : 'text-[#8A8A8E]'}`}> {lastMessage !== "Image" ? (chatInterface ? lastMessage.length > 25 ? lastMessage.slice(0, 25) + '...' : lastMessage : lastMessage.length > 35 ? lastMessage.slice(0, 35) + '...' : lastMessage) : 'sent a photo'}
-                        </p> ) : (<p className="text-[12px] leading-[1.92rem] text-[#8A8A8E]">Upgrade plan or use credits to chat</p>)}
+                        </p> ) : connected === false ? (<p className="text-[12px] leading-[1.92rem] text-[#8A8A8E]">Match with {contactName} to unlock this chat</p>) : (<p className="text-[12px] leading-[1.92rem] text-[#8A8A8E]">Upgrade plan or use credits to chat</p>)}
             </div>
         </div>
        {messageStatus && <p className='bg-[#F6F6F6] text-[14px] flex items-center font-normal h-[28px] px-[0.6rem] rounded-[0.6rem]'>Unread</p>}

@@ -27,7 +27,7 @@ import {Chat, Messages} from "@/types/chat";
 import {User} from "@/types/user";
 import toast from "react-hot-toast";
 import {useLocation, useNavigate} from "react-router-dom";
-import {useMatchStore} from "@/store/Matches.tsx";
+import {isConnectedTo, useMatchStore} from "@/store/Matches.tsx";
 import ReportModal from "@/components/dashboard/ReportModal.tsx";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
 
@@ -79,7 +79,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
     const dropdownRef = useRef<HTMLDivElement>(null);
     const endRef = useRef<HTMLDivElement>(null);
     const { chatId, setChatId } = useChatIdStore();
-    const { fetchMatches } = useMatchStore()
+    const { matches, fetchMatches } = useMatchStore()
     const navigate = useNavigate()
 
     const { setActivePage: setPage } = useNavigationStore()
@@ -91,6 +91,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
     const location2 = useLocation();
     const state = location2.state as { chatId: string; recipientUser: User; chatUnlocked: boolean };
     const checkChatUnlocked = state?.chatUnlocked ?? false;
+    const connected = isConnectedTo(matches, state?.recipientUser?.uid);
 
 // Initialize chatId from state
     useEffect(() => {
@@ -142,7 +143,13 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         };
 
         if (recipientUserId) {
-            updateChatDocument().catch(e => console.error(e))
+            const initChatDocument = async () => {
+                if (currentUser?.uid) {
+                    await fetchMatches(currentUser.uid);
+                }
+                await updateChatDocument();
+            };
+            initChatDocument().catch(e => console.error(e))
             getUserDetails().then(
                 () => handleReadReceipts().then(() => setIsLoading(false))
             )
@@ -232,7 +239,10 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         const currentUserBlockedRecipient = await checkIfUserBlocked(currentUser.uid as string, recipientUserId as string);
         const recipientBlockedCurrentUser = await checkIfUserBlocked(state.recipientUser.uid as string, currentUser.uid as string);
         const userBlockedStatus: boolean[] = [currentUserBlockedRecipient, recipientBlockedCurrentUser];
-        const bothPremiumUsers = state.recipientUser.is_premium && currentUser.is_premium
+        // Read matches directly from the store (rather than the `connected` render value) so this
+        // reflects the result of the fetchMatches() awaited just before this is called.
+        const connectedToRecipient = isConnectedTo(useMatchStore.getState().matches, state.recipientUser?.uid);
+        const bothPremiumUsers = state.recipientUser.is_premium && currentUser.is_premium && connectedToRecipient
 
         if(!chatId) return
         try {
@@ -278,6 +288,11 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
     };
 
     const unlockChat = async (chatId: string): Promise<void> => {
+        if (!connected) {
+            toast.error("You need to match with this user before you can unlock this chat.")
+            return;
+        }
+
         const chatRef = doc(db, "chats", chatId);
 
         const expirationTime = Timestamp.fromDate(
@@ -347,6 +362,13 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
     const handleSendMessage = async () => {
         let imgUrl: string | null = null;
         if(!chatId) return
+        if(!connected){
+            toast.error("You need to match with this user before you can chat.")
+            setChatUnlocked(false)
+            state.chatUnlocked = false
+            closePage()
+            return;
+        }
         if(!await isChatUnlocked(chatId) && !currentUser.is_premium){
             toast.error("Chat Unlock Duration Expired")
             setChatUnlocked(false)
@@ -542,38 +564,46 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                           <section className="text-[1.6rem] text-[#121212] flex-1 px-8 flex flex-col overflow-y-scroll pb-20 no-scrollbar">
                               <section className="messages flex flex-col gap-y-6 h-[calc(100vh-32.4rem)] overflow-y-scroll no-scrollbar relative">
                                   <div className={`max-w-[70%] flex`} key={'no-chat-yet'}>
-                                      {!isLoading && !checkChatUnlocked && currentUser.is_premium != true && chats.length === 0 && (
+                                      {!isLoading && chats.length === 0 && (!connected || (!checkChatUnlocked && currentUser.is_premium != true)) && (
                                           <div className="overlay backdrop-blur-sm absolute inset-0 rounded-md bg-black/25 flex items-center pt-[24px] justify-center z-50">
-                                              <div className={`grid p-4 items-center text-[2rem] bg-[#ff1f1] text-white rounded-md font-bold mx-[50px] w-[300px] text-center gap-8`}>
-                                                  <img className={`size-[50px] mx-auto`} src="/assets/icons/no-message.svg" alt={``} />
-                                                  <p>Chat has not been unlocked 🔒</p>
-                                                  <p>Unlock this chat for both of you to connect 😍</p>
-                                                  <p>1 Credit is required to unlock chat</p>
-                                                  <p className={`whitespace-nowrap flex gap-x-2 items-start`}>
-                                                      <img className={`size-[24px]`}
-                                                           src={`/assets/images/dashboard/coin.png`} alt={``}/>
-                                                      Credit Balance: {`${currentUser?.credit_balance || 0}`} credits
-                                                  </p>
-                                                  <div className={` flex-col flex justify-center gap-4 items-center`}>
-                                                      <button onClick={(e) => {
-                                                          e.preventDefault();
-                                                          if(chatId) {
-                                                              unlockChat(chatId)
-                                                                  .then(() => console.log("Chat Unlocked")).catch(e => console.error("Error Unlocking chat", e))
-                                                          }
-                                                      }} className={`border p-3 bg-gradient-to-br from-red to-orange-400 hover:bg-gradient-to-br hover:from-red/80 hover:to-orange-600 active:scale-95 rounded-md px-2 w-[140px]`}>
-                                                          { /* @ts-expect-error currentUser is probably undefined.*/ }
-                                                          {currentUser?.credit_balance !== null && currentUser?.credit_balance < 1
-                                                              ? 'Buy Credits'
-                                                              : 'Use Credits'}
-                                                      </button>
-                                                      <p className={`font-bold text-[18px] text-white`}>OR</p>
-                                                      <button onClick={() => {
-                                                          setPage('subscription-plans')
-                                                          navigate("/dashboard/user-profile")}
-                                                      } className={`border p-4 bg-gradient-to-r from-orange-400 to-red hover:from-orange-600 hover:to-red/80 active:scale-95 rounded-md px-3 w-fit`} >Subscribe to Premium</button>
+                                              {!connected ? (
+                                                  <div className={`grid p-4 items-center text-[2rem] bg-[#ff1f1] text-white rounded-md font-bold mx-[50px] w-[300px] text-center gap-8`}>
+                                                      <img className={`size-[50px] mx-auto`} src="/assets/icons/no-message.svg" alt={``} />
+                                                      <p>You're not connected yet 🔒</p>
+                                                      <p>You and {recipientDetails.name || 'this user'} need to match with each other before you can chat 💞</p>
                                                   </div>
-                                              </div>
+                                              ) : (
+                                                  <div className={`grid p-4 items-center text-[2rem] bg-[#ff1f1] text-white rounded-md font-bold mx-[50px] w-[300px] text-center gap-8`}>
+                                                      <img className={`size-[50px] mx-auto`} src="/assets/icons/no-message.svg" alt={``} />
+                                                      <p>Chat has not been unlocked 🔒</p>
+                                                      <p>Unlock this chat for both of you to connect 😍</p>
+                                                      <p>1 Credit is required to unlock chat</p>
+                                                      <p className={`whitespace-nowrap flex gap-x-2 items-start`}>
+                                                          <img className={`size-[24px]`}
+                                                               src={`/assets/images/dashboard/coin.png`} alt={``}/>
+                                                          Credit Balance: {`${currentUser?.credit_balance || 0}`} credits
+                                                      </p>
+                                                      <div className={` flex-col flex justify-center gap-4 items-center`}>
+                                                          <button onClick={(e) => {
+                                                              e.preventDefault();
+                                                              if(chatId) {
+                                                                  unlockChat(chatId)
+                                                                      .then(() => console.log("Chat Unlocked")).catch(e => console.error("Error Unlocking chat", e))
+                                                              }
+                                                          }} className={`border p-3 bg-gradient-to-br from-red to-orange-400 hover:bg-gradient-to-br hover:from-red/80 hover:to-orange-600 active:scale-95 rounded-md px-2 w-[140px]`}>
+                                                              { /* @ts-expect-error currentUser is probably undefined.*/ }
+                                                              {currentUser?.credit_balance !== null && currentUser?.credit_balance < 1
+                                                                  ? 'Buy Credits'
+                                                                  : 'Use Credits'}
+                                                          </button>
+                                                          <p className={`font-bold text-[18px] text-white`}>OR</p>
+                                                          <button onClick={() => {
+                                                              setPage('subscription-plans')
+                                                              navigate("/dashboard/user-profile")}
+                                                          } className={`border p-4 bg-gradient-to-r from-orange-400 to-red hover:from-orange-600 hover:to-red/80 active:scale-95 rounded-md px-3 w-fit`} >Subscribe to Premium</button>
+                                                      </div>
+                                                  </div>
+                                              )}
                                           </div>
                                       )}
                                   </div>
@@ -581,40 +611,48 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                     return !(message.sender_id_blocked && message.sender_id !== currentUser.uid)
                                 }).map((message: Messages, i: number) =>
                                     <div className={`max-w-[70%] flex ${message.sender_id === currentUser?.uid ? " flex-col self-end our_message" : ' gap-x-2 items-start flex-col their_message'}`} key={i}>
-                                        {!isLoading && !checkChatUnlocked && currentUser.is_premium != true && (
+                                        {!isLoading && (!connected || (!checkChatUnlocked && currentUser.is_premium != true)) && (
                                             <div className="overlay backdrop-blur-sm absolute inset-0 rounded-md bg-black/25 flex items-center pt-[24px] justify-center z-50">
-                                                <div className={`grid p-4 items-center text-[2rem] bg-[#ff1f1] text-white rounded-md font-bold mx-[50px] w-[300px] text-center gap-8`}>
-                                                    <img className={`size-[50px] mx-auto`} src="/assets/icons/no-message.svg" alt={``} />
-                                                    <p>Chat has not been unlocked 🔒</p>
-                                                    <p>Unlock this chat for both of you to connect 😍</p>
-                                                    <p>1 Credit is required to unlock chat</p>
-                                                    <p className={`whitespace-nowrap`}>Credit Balance: {`${currentUser?.credit_balance || 0}`} credits</p>
-                                                    <div className={`flex justify-center gap-4 items-center`}>
-                                                        <button onClick={(e) => {
-                                                            e.preventDefault();
-                                                            if (chatId) {
-                                                                unlockChat(chatId)
-                                                                    .then(() => console.log("Chat Unlocked")).catch(e => console.error("Error Unlocking chat", e))
-                                                            }
-                                                        }}
-                                                                className={`border p-3 bg-green-700 hover:bg-green-800 active:scale-95 rounded-md px-2 w-[140px]`}>
-                                                            {/* @ts-expect-error currentUser is probably undefined.*/}
-                                                            {currentUser?.credit_balance !== null && currentUser?.credit_balance < 1
-                                                                ? 'Buy Credits'
-                                                                : 'Use Credits'}
-                                                        </button>
-                                                        <p className={`font-bold text-[18px] text-white`}>OR</p>
-                                                        <button onClick={() => {
-                                                            setPage('subscription-plans')
-                                                            navigate("/dashboard/user-profile")
-                                                        }
-                                                        }
-                                                                className={`border p-4 bg-gradient-to-r from-orange-400 to-red hover:from-orange-600 hover:to-red/80 active:scale-95 rounded-md px-3 w-fit`}>Subscribe
-                                                                                                                                                                                                             to
-                                                                                                                                                                                                             Premium
-                                                        </button>
+                                                {!connected ? (
+                                                    <div className={`grid p-4 items-center text-[2rem] bg-[#ff1f1] text-white rounded-md font-bold mx-[50px] w-[300px] text-center gap-8`}>
+                                                        <img className={`size-[50px] mx-auto`} src="/assets/icons/no-message.svg" alt={``} />
+                                                        <p>You're not connected yet 🔒</p>
+                                                        <p>You and {recipientDetails.name || 'this user'} need to match with each other before you can chat 💞</p>
                                                     </div>
-                                                </div>
+                                                ) : (
+                                                    <div className={`grid p-4 items-center text-[2rem] bg-[#ff1f1] text-white rounded-md font-bold mx-[50px] w-[300px] text-center gap-8`}>
+                                                        <img className={`size-[50px] mx-auto`} src="/assets/icons/no-message.svg" alt={``} />
+                                                        <p>Chat has not been unlocked 🔒</p>
+                                                        <p>Unlock this chat for both of you to connect 😍</p>
+                                                        <p>1 Credit is required to unlock chat</p>
+                                                        <p className={`whitespace-nowrap`}>Credit Balance: {`${currentUser?.credit_balance || 0}`} credits</p>
+                                                        <div className={`flex justify-center gap-4 items-center`}>
+                                                            <button onClick={(e) => {
+                                                                e.preventDefault();
+                                                                if (chatId) {
+                                                                    unlockChat(chatId)
+                                                                        .then(() => console.log("Chat Unlocked")).catch(e => console.error("Error Unlocking chat", e))
+                                                                }
+                                                            }}
+                                                                    className={`border p-3 bg-green-700 hover:bg-green-800 active:scale-95 rounded-md px-2 w-[140px]`}>
+                                                                {/* @ts-expect-error currentUser is probably undefined.*/}
+                                                                {currentUser?.credit_balance !== null && currentUser?.credit_balance < 1
+                                                                    ? 'Buy Credits'
+                                                                    : 'Use Credits'}
+                                                            </button>
+                                                            <p className={`font-bold text-[18px] text-white`}>OR</p>
+                                                            <button onClick={() => {
+                                                                setPage('subscription-plans')
+                                                                navigate("/dashboard/user-profile")
+                                                            }
+                                                            }
+                                                                    className={`border p-4 bg-gradient-to-r from-orange-400 to-red hover:from-orange-600 hover:to-red/80 active:scale-95 rounded-md px-3 w-fit`}>Subscribe
+                                                                                                                                                                                                                 to
+                                                                                                                                                                                                                 Premium
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                         <div className="flex flex-col">
@@ -643,7 +681,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                             </section>
                         </section>
                         <AnimatePresence>
-                            {openEmoji && <m.div initial={{ opacity: 0, scale: 0.8, y: 50 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8, y: 50 }} transition={{ duration: 0.3, ease: "easeInOut" }} ref={dropdownRef} className="absolute bottom-32 right-8 "><EmojiPicker onEmojiClick={(e) => { if (!(chatUnlocked || currentUser?.is_premium)) return; setText((prev) => prev + e.emoji) } } /> </m.div>}</AnimatePresence>
+                            {openEmoji && <m.div initial={{ opacity: 0, scale: 0.8, y: 50 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8, y: 50 }} transition={{ duration: 0.3, ease: "easeInOut" }} ref={dropdownRef} className="absolute bottom-32 right-8 "><EmojiPicker onEmojiClick={(e) => { if (!connected || !(chatUnlocked || currentUser?.is_premium)) return; setText((prev) => prev + e.emoji) } } /> </m.div>}</AnimatePresence>
                         {!currentChat?.user_blocked[0] || isLoading ? <footer className=" flex justify-between text-[1.6rem] bg-white items-center gap-x-4 mx-6 sticky bottom-10">
                                 <div className="flex-1 flex gap-x-4">
                                     {/* Image Upload Section */}
@@ -672,7 +710,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                         )}
 
                                         <input
-                                            disabled={!(chatUnlocked || currentUser?.is_premium)}
+                                            disabled={!connected || !(chatUnlocked || currentUser?.is_premium)}
                                             type="text"
                                             className={`bg-inherit outline-none w-full`}
                                             placeholder="Say something nice"
