@@ -1,0 +1,210 @@
+.matches {
+
+    @apply px-[1.6rem] py-[2.4rem] h-full overflow-y-scroll;
+    &__header {
+        @apply text-[2.4rem] font-bold leading-[2.88rem] text-[#121212];
+    }
+    &__sub-header {
+        @apply text-[1.6rem] mt-[1.6rem] text-[#8A8A8E];
+    }
+    &__total-matches-preview {
+        @apply rounded-[1.2rem] w-[15.8rem] h-[17.4rem] p-[0.3rem] mt-[1.2rem];
+        background-image: linear-gradient(180deg, #485FE6 0%, #309BBD 100%);
+    }
+    &__total-matches-preview-small {
+        @apply rounded-[1.2rem] w-[11.2rem] h-[12rem] p-[0.3rem];
+        background-image: linear-gradient(180deg, #485FE6 0%, #309BBD 100%);
+    }
+    &__total-matches-preview-inner {
+        @apply bg-white w-full h-full rounded-[1.2rem] p-[0.3rem] relative;
+        img {
+            @apply w-full h-full object-cover rounded-[1rem];
+        }
+    }
+    &__matches-count {
+        background: linear-gradient(180deg, #485FE6 0%, #309BBD 100%);
+        @apply flex items-center w-fit py-[0.5rem] px-[1.2rem] text-[1.4rem] text-white rounded-full absolute bottom-[0.8rem] left-[50%] -translate-x-[50%];
+        img {
+            @apply w-[1.163rem] ml-[0.2rem];
+        }
+    }
+    &__matched-profiles {
+        @apply w-full mt-[1.2rem] flex flex-col overflow-hidden rounded-[1.2rem] h-[14.4rem] max-h-[14.4rem];
+        br {
+            @apply hidden;
+        }
+    }
+    &__matched-profile {
+        @apply h-[14.4rem] max-h-[14.4rem] relative;
+    }
+    &__matched-profile-image {
+        @apply w-full h-full absolute inset-0;
+        img {
+            @apply w-full h-full object-cover;
+        }
+        &--overlay {
+            @apply absolute inset-0 bg-gradient-to-b from-[transparent] to-black from-10% to-85%;
+        }
+    }
+    &__view-button {
+        @apply text-[1.4rem] font-medium px-[0.8rem] py-[0.6rem] rounded-[0.6rem] bg-[#3c171a] w-fit text-white mb-[0.8rem] transition-all hover:scale-105 active:scale-100;
+    }
+    &__match-content {
+        @apply w-full h-full flex flex-col justify-end p-[1.6rem] relative z-10;
+
+    }
+    &__match-details {
+        @apply inline-flex items-center;
+        .first-name, .age {
+            @apply text-[14px] leading-[1.5rem] font-bold text-white;
+        }
+        .age {
+            @apply font-normal inline-block ml-[0.4rem];
+        }
+        img {
+            @apply w-[1.4rem] h-[1.4rem] ml-[0.8rem];
+        }
+    }
+}
+.matches-page {
+    @apply flex flex-col lg:relative overflow-scroll;
+    &__matches-container, &__likes-container {
+        @apply min-h-[calc(100%-6rem)] relative;
+    }
+
+    &__nav {
+        @apply w-full mt-[2.4rem] px-[2.4rem] flex justify-between items-center relative z-10;
+        .left-nav {
+
+        }
+    }
+    .left-nav {
+        @apply flex items-center;
+    }
+    &__nav-item {
+        @apply text-[16px] font-medium px-[0.8rem] text-[#8A8A8E] cursor-pointer transition-all duration-200 items-center;
+        &--active {
+            @apply text-[22px] font-bold leading-[2.88rem] text-[#F2243E];
+        }
+    }
+    .right-nav {
+        @apply h-[2.2rem];
+        img {
+            @apply hover:scale-105 active:scale-100 transition-all cursor-pointer;
+        }
+    }
+    &__empty-state {
+        @apply  inset-0 flex flex-col items-center justify-center absolute;
+        img {
+            @apply w-[10.4rem];
+        }
+    }
+    &__empty-state-text {
+        @apply font-medium text-[16px] mt-[1.6rem];
+    }
+    &__grid {
+        @apply grid grid-cols-3 px-[2.4rem] gap-x-[0.8rem] mt-[1.2rem];
+    }
+    @include media('<=phone') {
+        &__grid {
+            @apply grid-cols-2;;
+        }
+    }
+    .likes-subscribe-cta {
+        @apply w-full h-[13.6rem] p-[0.8rem] rounded-[1.2rem] flex items-center;
+        background: linear-gradient(180deg, #FF5C00 0%, #F0174B 100%);
+        
+        &__image {
+            @apply min-w-[20.8rem] h-full rounded-[1.2rem] mr-[1.6rem] overflow-hidden relative;
+            border: 2px solid white;
+            img:not(.likes-subscribe-cta__likes-banner) {
+                @apply w-full h-full object-cover;
+            }
+        }
+        &__total-likes {
+            @apply px-[0.8rem] py-[0.5rem] flex items-center justify-center text-[1.4rem] rounded-full;
+            background: linear-gradient(180deg, #FF5C00 0%, #F0174B 100%);
+            span {
+                @apply inline-block mr-[0.2rem] text-white;
+            }
+        }
+        &__overlay { 
+            @apply w-full h-full absolute inset-0 flex items-center justify-center;
+        }
+        &__text {
+            @apply text-[2rem] leading-[2.4rem] font-bold text-white flex flex-col justify-between h-[9rem] max-h-[9rem];
+        }
+        &__upgrade-button {
+            background: linear-gradient(180deg, #FDDE00 0%, #FF5C00 100%);
+            @apply p-[0.8rem] rounded-[0.8rem] leading-[1.4rem] text-[1.2rem] font-medium w-fit transition-all hover:scale-105 active:scale-100;
+        }
+        &__likes-banner {
+            @apply absolute bottom-[1rem] text-[1.2rem] font-medium w-[4.8rem] max-w-[4.8rem] h-auto;
+        }
+
+        @include media("<=1023px") {
+            @apply py-[10px] h-[120px];
+            &__text {
+                @apply text-[2.8rem] leading-[3.1rem] h-[10.3rem] max-h-[10.3rem];
+            }
+        }
+        @include media("<=phone") {
+            @apply  h-[120px];
+
+            &__text {
+                @apply text-[2.2rem] leading-[2.5rem] h-[9rem] max-h-[9rem];
+            }
+        }
+    }
+    .matches-subscribe-cta {
+        background: linear-gradient(180deg, #485FE6 0%, #309BBD 100%);
+        @apply w-full h-[13.6rem] p-[0.8rem] rounded-[1.2rem] flex items-center;
+        &__grid {
+            @apply grid grid-cols-[20rem_13.6rem] gap-[2.4rem] mx-auto;
+        }
+        &__text-container {
+            @apply flex justify-center h-full items-center;
+        }
+        &__text {
+            @apply text-[2rem] leading-[2.4rem] font-bold text-white flex flex-col justify-between h-[9rem] max-h-[9rem];
+        }
+        &__upgrade-button {
+            background: linear-gradient(180deg, #FF5C00 0%, #F0174B 100%);
+            @apply p-[0.8rem] rounded-[0.8rem] leading-[1.4rem] text-[1.2rem] font-medium w-fit transition-all hover:scale-105 active:scale-100;
+        }
+        &__image {
+            img {
+                @apply h-full;
+            }
+        }
+        @include media("<=tablet") {
+            @apply py-[10px] h-[120px];
+            &__grid {
+                @apply grid-cols-[auto_auto] 
+            }
+            &__text {
+                @apply text-[2.8rem] ml-[16px] leading-[3.1rem] h-[10.3rem] max-h-[10.3rem];
+            }
+            &__upgrade-button {
+                // @apply text-[12px] p-[8px];
+            }
+        }
+        @include media("<=phone") {
+            @apply  h-[120px];
+            &__grid {
+                @apply grid-cols-[auto_auto] 
+            }
+            &__text {
+                @apply text-[2.2rem] ml-[16px] leading-[2.5rem] h-[9rem] max-h-[9rem];
+            }
+            &__upgrade-button {
+                // @apply text-[12px] p-[8px];
+            }
+        }
+
+    }
+    .likes-subscribe-cta-container, .matches-subscribe-cta-container {
+        @apply px-[2.4rem] mt-[1.6rem];
+    }
+    
+}

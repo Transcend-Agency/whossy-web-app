@@ -1,0 +1,21 @@
+.button {
+    @apply w-[calc(100%-2.8rem)] rounded-[0.8rem] text-white text-[1.8rem] font-medium leading-[2.16rem] active:scale-[0.98] disabled:hover:scale-100 disabled:opacity-70 transition-all duration-200 flex items-center justify-center;
+    font-family: $font-neue-montreal;
+    background-color: $color-primary-pink;
+    padding: 1.7rem;
+
+    &__loader {
+        @apply w-[22px];
+    }
+}
+
+.button-black {
+    @apply w-[50.5rem] rounded-[0.8rem] text-black text-[1.8rem] font-medium leading-[2.16rem] active:scale-[0.98] disabled:hover:scale-100 disabled:opacity-70 transition-all duration-200 flex items-center justify-center;
+    font-family: $font-neue-montreal;
+    background-color: $color-primary-pink;
+    padding: 1.7rem;
+
+    &__loader {
+        @apply w-[22px];
+    }
+}

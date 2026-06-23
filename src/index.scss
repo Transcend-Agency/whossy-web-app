@@ -2,22 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url("https://cdn.syncfusion.com/ej2/material.css");
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&display=swap');
+
 /*=============================================
-=            FONTS            =
+=            FONTS           
 =============================================*/
 
-@import './styles/base/fonts.scss';
+@import "./styles/base/fonts.scss";
 
 /*=====  End of FONTS  ======*/
-
-
-
 
 /*=============================================
 =            Utils            =
 =============================================*/
-@import './styles/utils/functions.scss';
-@import './styles/utils/variables.scss';
+@import "./styles/utils/functions.scss";
+@import "./styles/utils/variables.scss";
 @import "./styles/utils/breakpoints.scss";
 /*=====  End of Utils  ======*/
 
@@ -28,33 +28,76 @@
 @import "./styles/base/reset.scss";
 @import "./styles/base/base.scss";
 
-
 /*=====  End of Base ======*/
-
 
 /*=============================================
 =            Components            =
 =============================================*/
 
-// @import "./styles/components/cursor.scss";
-// @import "./styles/components/preloader.scss";
-// @import "./styles/components/navigation.scss";
-// @import "./styles/components/particle-scene.scss";
-// @import "./styles/components/menu.scss";
-
+@import "./styles/components/auth/auth-page.scss";
+@import "./styles/components/onboarding/onboarding-page.scss";
+@import "./styles/components/dashboard/profile.scss";
+@import "./styles/components/auth/marquee-image-slider-background.scss";
+@import "./styles/components/ui//button.scss";
+@import "./styles/components/ui//slider.scss";
+@import "./styles/components/dashboard/layout.scss";
+@import "./styles/components/dashboard/profile-settings.scss";
+@import "./styles/components/dashboard/modal.scss";
+@import "./styles/components/dashboard/preview-profile.scss";
+@import "./styles/components/dashboard/matches.scss";
+@import "./styles/components/dashboard/swipe-and-match.scss";
+@import "./styles/components/dashboard/safety-guide.scss";
+@import "./styles/components/dashboard/safety-item-page.scss";
 
 /*=====  End of Components  ======*/
-
-
 
 /*=============================================
 =            Pages            =
 =============================================*/
 
-@import "./styles/pages/home/index.scss";
+@import "./styles/pages/home.scss";
+@import "./styles/pages/reset-password.scss";
+@import "./styles/pages/user-profile.scss";
+@import "./styles/pages/explore.scss";
 // @import "./styles/pages/home/about.scss";
 // @import "./styles/pages/home/footer.scss";
 // @import "./styles/pages/home/services.scss";
 // @import "./styles/pages/contact-us/index.scss";
 
 /*=====  End of Pages  ======*/
+
+@layer components{
+    .bg-img{
+        @apply bg-cover bg-[top] bg-no-repeat
+    }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+.paystack-button {
+    cursor: pointer;
+    text-align: center;
+    color: white;
+    font-size: 1.6rem;
+    letter-spacing: 0.1rem;
+    text-transform: uppercase;
+    background-color: #bfbfbf;
+    font-weight: bold;
+    border: none;
+    border-radius: 5px;
+    width: 100%;
+    height: 45px;
+    margin-top: 40px;
+  }
+
+  .video-flip {
+    -webkit-transform: scaleX(-1); /* For Safari */
+    transform: scaleX(-1); /* Flip the video horizontally */
+  }

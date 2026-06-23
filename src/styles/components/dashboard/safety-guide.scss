@@ -1,0 +1,30 @@
+.safety-guide {
+    @apply bg-white;
+    .settings-page__container {
+        @apply h-full;
+    }
+    .safety-guide-icon {
+        @apply h-[2.4rem];
+    }
+    .settings-page__title {
+        @apply items-center;
+    }
+    &__items {
+        @apply flex flex-col px-[2.4rem] pt-[2.4rem] pb-[4.8rem];
+    }
+    .safety-guide-item {
+        @apply mb-[1.6rem] w-full h-[6.4rem] bg-[#F6F6F6] rounded-[1.2rem] items-center justify-between flex px-[1.6rem] cursor-pointer hover:scale-[1.02] active:scale-100 transition-all duration-200;
+        &:last-of-type {
+            @apply mb-0;
+        }
+        &__image {
+            @apply w-[4rem] h-[4rem] mr-[0.8rem];
+        }
+        &__left {
+            @apply flex items-center text-[1.8rem] font-medium;
+        }
+        &__arrow-right {
+            @apply rotate-180;
+        }
+    }
+}

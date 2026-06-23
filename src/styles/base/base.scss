@@ -1,27 +1,32 @@
-*,
-*:after,
-*:before {
-  box-sizing: border-box;
-  user-select: none;
-}
-
 html {
-//   background-color: $color-black;
-  font-size: calc(100vw / 1440 * 10);
+  //   background-color: $color-black;
+  font-size: calc(100vw / 1512 * 10);
+
+
   line-height: 1;
-//   overflow: hidden;
+  font-family: $font-neue-montreal;
+  //   overflow: hidden;
   // position: fixed;
   min-height: 100vh;
   overflow: scroll;
-  cursor: none;
+  // cursor: none;
   max-width: 100vw;
   overflow-x: hidden;
 
-  @include media('<phone') {
-    font-size: calc(100vw / 750 * 10);
+  button {
+    cursor: pointer;
   }
-}
 
-.clickable {
-  cursor: none;
+
+  @include media('<=smDesktop') {
+    font-size: calc(100vw / 1280 * 12);
+  }
+
+  @include media('<=tablet') {
+    font-size: calc(100vw / 1024 * 13);
+  }
+
+  @include media('<=phone') {
+    font-size: calc(100vw / 725 * 14);
+  }
 }

@@ -1,0 +1,166 @@
+.onboarding-page {
+  @apply lg:grid grid-cols-2 h-screen w-full lg:overflow-hidden;
+
+  &__logo {
+    @apply mb-[4rem] text-[2.4rem] text-[#CCCCCC];
+  }
+
+  &__progress-bar {
+    @apply flex space-x-[10px] mb-[3rem] w-full;
+
+    &__item {
+      @apply w-full h-2 rounded-full bg-[#CCCCCC] transition-all duration-[500ms];
+
+      &--active {
+        @apply bg-[#F2243E];
+      }
+    }
+
+  }
+
+  &__section-one {
+    @apply px-[2rem] lg:px-[6.4rem] overflow-x-hidden lg:max-w-none overflow-y-scroll pt-[4rem] pb-[10rem] w-full;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    &__page {
+      @apply w-full mx-auto lg:mx-0;
+    }
+
+    &__buttons {
+      // @apply flex space-x-[2rem] sticky bottom-0 bg-white pt-[2rem] pb-[4rem];
+      @apply flex space-x-[2rem] bg-white pt-[1rem] cursor-pointer w-[320px];
+
+      &__back-button {
+        @apply bg-[#F6F6F6] px-[2.9rem] flex items-center rounded-lg cursor-pointer active:scale-[0.95] transition-all duration-200;
+      }
+
+      &__select-button-inactive {
+        @apply w-full rounded-lg h-[5.5rem] text-[1.8rem] font-medium leading-[2.16rem] transition-all duration-200;
+
+        // @apply bg-[#F6F6F6] px-[2.4rem] w-full py-[2rem] text-[1.8rem] flex justify-center rounded-lg cursor-pointer hover:scale-105 active:scale-90 transition-all duration-200;
+      }
+
+      &__skip {
+        @apply rounded-md bg-[#F6F6F6] p-[1.2rem] text-[1.6rem] leading-[1.92rem] mb-[1.2rem] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200;
+      }
+    }
+
+    &__search {
+      @apply flex py-[1.4rem] px-[1.6rem] text-[1.6rem] space-x-[1rem] my-[2rem] rounded-xl bg-[#F6F6F6];
+
+      &__input {
+        @apply w-full outline-none bg-inherit;
+      }
+    }
+  }
+
+  &__header {
+    @apply text-[3rem] font-bold mb-[1.2rem];
+  }
+
+  &__text {
+    @apply text-[1.8rem] text-[#8A8A8E] space-y-[0.8rem] leading-[2.16rem];
+  }
+
+  &__preferences-container {
+    @apply space-y-[2rem] my-[4rem];
+
+    &__preferences {
+      @apply bg-[#F6F6F6] rounded-xl py-[0.8rem] px-[1.6rem] flex justify-between space-x-[5rem] items-center cursor-pointer transition-all duration-200 active:scale-[0.97];
+      border: 1px solid #F6F6F6;
+
+      &__active {
+        border: 1px solid #f2243e;
+      }
+
+      &__radio-button {
+        @apply rounded-full min-h-[1.8rem] min-w-[1.8rem] cursor-pointer transition-all duration-200;
+        border: 1px solid #d9d9d9;
+      }
+
+      &__sub-container {
+        @apply flex space-x-[1.4rem] items-center;
+      }
+
+      &__header {
+        @apply text-[1.8rem] font-bold mb-[0.4rem];
+
+        &--without-description {
+          @apply font-medium mb-0;
+        }
+      }
+
+      &__text {
+        @apply text-[#8A8A8E] text-[1.6rem] leading-[1.92rem];
+      }
+
+      &__image {
+        @apply w-[6.4rem] h-[5.4rem];
+
+        &__small {
+          @apply w-[1.4rem] h-[4.4rem];
+        }
+      }
+    }
+  }
+
+  &__section-two {
+    @apply bg-[#F6F6F6] py-[4.8rem] px-[6.4rem] space-y-[4rem] text-center hidden lg:flex max-h-screen items-center justify-start pt-[8rem] pb-[10rem];
+
+    &__image {
+      @apply w-full max-w-[45rem];
+    }
+
+    .onboarding-page__text {
+      @apply max-w-[43.9rem];
+    }
+  }
+
+  &__date {
+    @apply flex my-[5rem] space-x-[3rem] text-[1.8rem];
+
+    &__input {
+      @apply w-[13.5rem] h-[6rem] text-center text-[#121212] outline-none placeholder:text-[#8A8A8E];
+      border-bottom: 1px solid #d9d9d9;
+    }
+  }
+
+  &__regular-options-container {
+    @apply space-y-[2rem] my-[4rem];
+
+    &__regular-options {
+      @apply bg-[#F6F6F6] rounded-xl py-[2.4rem] px-[1.6rem] flex justify-between space-x-[5rem] items-center cursor-pointer transition-all duration-200 active:scale-[0.97];
+      border: 1px solid #F6F6F6;
+
+      &__active {
+        border: 1px solid #f2243e;
+      }
+
+      &__radio-button {
+        @apply rounded-full h-[1.8rem] w-[1.8rem] cursor-pointer transition duration-200;
+        border: 1px solid #d9d9d9;
+      }
+
+      &__sub-container {
+        @apply flex space-x-[1.4rem] items-center;
+      }
+
+      //   &__header {
+      //     @apply text-[1.8rem] font-bold;
+      //   }
+      &__text {
+        @apply text-[1.6rem];
+      }
+
+      //   &__image {
+      //     @apply w-[6.4rem] h-[5.4rem];
+      //     &__small {
+      //       @apply w-[1.4rem] h-[4.4rem];
+      //     }
+      //   }
+    }
+  }
+}

@@ -1,0 +1,329 @@
+.auth-page {
+    @apply fixed w-full h-[100dvh] flex items-center justify-center px-[2.5rem];
+
+    &.email-verification {
+        .auth-page__modal__header__title {
+            @apply mt-[37px];
+        }
+    }
+
+    .error-message-container {
+        @apply h-[2rem] pt-[0.6rem];
+
+        .error-message {
+            @apply text-[red] text-[1.2rem] leading-[1.4rem];
+        }
+    }
+
+    &__request-error {
+        @apply bg-[#2F080C] rounded-[0.6rem] flex items-center justify-center py-[1.2rem] px-[1.6rem] w-fit text-[1.6rem] left-[50%] absolute translate-x-[-50%] min-w-[30rem] whitespace-nowrap;
+        border: 1px solid #F2243E;
+
+        span {
+            @apply ml-[0.8rem] text-[#F2243E];
+        }
+
+        img {
+            @apply w-[1.8rem];
+        }
+
+    }
+
+    &__modal {
+        @apply p-[2.4rem] rounded-[16px] w-full sm:max-w-[51rem] md:max-w-[53rem] lg:max-w-[48.7rem] relative;
+        background-color: $color-black;
+
+        &__icon-text-group-container {
+            @apply mt-[3.2rem];
+        }
+
+        &__otp-input {
+            -webkit-appearance: none;
+
+            &__notifier {
+                @apply text-[#8a8a8e] text-[1.8rem] mt-[1.6rem] text-center mb-[2.5rem] font-medium;
+
+                &__cta {
+                    @apply text-white underline cursor-pointer;
+
+                    &.disabled {
+                        @apply cursor-not-allowed;
+                    }
+                }
+            }
+
+            &__box {
+                @apply w-full aspect-square rounded-[0.8rem] bg-[#101010] text-white text-center text-[1.8rem] outline-0 focus:outline-0 border border-transparent focus-visible:border-[#1D1D1D] transition-all;
+
+                &--filled {
+                    @apply border-[#1D1D1D];
+                }
+            }
+        }
+
+        &__success-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        &__icon-text-group {
+            @apply flex;
+
+            &:not(:first-of-type) {
+                @apply mt-[3.2rem];
+            }
+
+            &__image {
+                @apply flex mr-[1.6rem];
+
+                img {
+                    @apply min-w-[4.8rem] h-fit relative top-[-1rem];
+                }
+            }
+
+
+            &__text {
+                &__title {
+                    @apply text-white font-medium text-[1.8rem] leading-[2.16rem];
+                }
+
+                &__subtext {
+                    @apply text-[#8A8A8E] font-normal text-[1.8rem] mt-[0.7rem] leading-[2.16rem];
+                }
+            }
+        }
+
+        &__back-button {
+            background-color: $color-dark-black;
+            @apply w-[3.2rem] h-[3rem] rounded-[6px] flex items-center justify-center hover:scale-110 active:scale-90 transition-all cursor-pointer duration-200;
+
+            img {
+                @apply w-[1.4rem];
+            }
+        }
+
+        &__header {
+            @apply mt-[3.2rem] text-white;
+
+            &__title {
+                font-family: $font-neue-montreal;
+                @apply text-[3.2rem] font-bold leading-[3.84rem] -tracking-[0.20000000298023224px] text-center;
+            }
+
+            &__sub-title {
+                font-family: $font-neue-montreal;
+                @apply text-[1.8rem] leading-[2.16rem] -tracking-[0.001em] text-center mt-[1.2rem] text-[#8A8A8E];
+            }
+
+            &--gradient-bg {
+                .auth-page__modal__header__title {
+                    background: linear-gradient(270deg, #FF5C00 0%, #F0174B 100%);
+                    background-clip: text;
+                    color: transparent;
+                }
+            }
+        }
+
+        &__form {
+            @apply mt-[3.2rem];
+
+            &__input {
+                -webkit-appearance: none;
+                background-color: $color-dark-black;
+                font-family: $font-neue-montreal;
+                @apply text-[1.6rem] font-medium leading-[1] -tracking-[0.001em] text-white w-full py-[2.1rem] px-[1.6rem] rounded-[8px] outline-0 focus:outline-0 focus:outline-none focus:border-[#1D1D1D] border border-transparent transition-all;
+
+                &:-webkit-autofill {
+                    border: none;
+                    border-radius: .3rem;
+                    caret-color: #fff;
+                    /* Pour le I quand on édite */
+                    color: #fff;
+                    background: #292a2d;
+                    /* webkit autofill */
+                    -webkit-text-fill-color: #fff;
+                    /* Surcharge la font color d'autofill */
+                    -webkit-background-clip: text;
+                    /* Supprime le background autofill, utile pour le border radius */
+                    box-shadow: 0 0 0 50px #292a2d inset;
+                    /* Ajoute un fake background à base d'ombrage aplatit */
+                }
+
+                &::placeholder {
+                    color: #8A8A8E;
+                }
+
+                &:not(:first-of-type) {
+                    @apply mt-[1rem];
+                }
+
+                &--error {
+                    @apply border-[red] ; //
+                }
+            }
+
+            .PhoneInput {
+                border: 1px solid transparent;
+                -webkit-appearance: none;
+                background-color: $color-dark-black;
+                font-family: $font-neue-montreal;
+                @apply text-[1.6rem] font-medium leading-[1] -tracking-[0.001em] text-white w-full py-[1.4rem] px-[1.6rem] rounded-[8px] outline-0 focus:outline-0 focus:outline-none focus:border-[#1D1D1D] border border-transparent transition-all;
+
+                &--focus {
+                    border: 1px solid #1D1D1D;
+                }
+
+                &--error {
+                    @apply border-[red]; //
+                }
+
+                &Input {
+                    -webkit-appearance: none;
+                    font-family: $font-neue-montreal;
+                    @apply ml-[1.6rem] bg-transparent py-[0.7rem] outline-0 focus:outline-0;
+
+                    &::placeholder {
+                        color: #8A8A8E;
+                    }
+
+                }
+            }
+
+            #rfs-btn {
+                background-color: $color-dark-black;
+                font-family: $font-neue-montreal;
+                @apply text-[1.6rem] font-medium leading-[1] -tracking-[0.001em] text-white w-full py-[1.6rem] px-[1.6rem] rounded-[8px] outline-0 focus:outline-0 focus:outline-none focus:border-[#1D1D1D] border border-transparent transition-all -mb-[0.6rem] mt-[1.6rem];
+                font-size: 1.6rem !important;
+
+                span {
+                    color: #8A8A8E;
+                    font-family: $font-neue-montreal;
+
+                    span {
+                        color: white;
+                    }
+                }
+
+                &.has-error {
+                    @apply border-[red] ; //
+                }
+            }
+
+            &__button {
+                @apply mt-[2rem];
+            }
+
+            &__cta {
+                @apply text-[1.6rem] mt-[1.2rem] text-center text-[#8A8A8E];
+
+                .underline {
+                    color: white;
+                }
+            }
+
+            &__gender {
+                background-color: $color-dark-black;
+                @apply py-[1.6rem] rounded-[8px] flex items-center justify-center text-[1.6rem] text-[#8A8A8E] cursor-pointer hover:border-[#1D1D1D] transition-all duration-200 active:scale-[0.98];
+                border: 1px solid transparent;
+
+                path {
+                    fill: #8A8A8E;
+                    transition: 0.2s all;
+                }
+
+                &--selected {
+                    background-color: white;
+                    color: #121212;
+
+                    &:hover {
+                        border: 1px solid transparent;
+                    }
+
+                    path {
+                        fill: #121212;
+                    }
+
+                }
+
+                span {
+                    @apply ml-[0.8rem];
+                }
+
+                &:not(:first-of-type) {
+                    @apply mt-[1.6rem];
+                }
+            }
+        }
+
+        &__alternate-options {
+            &__divider {
+                @apply flex mt-[3.2rem] items-center;
+
+                p {
+                    @apply text-[1.8rem] leading-[1.6rem] px-[8px] text-[#8A8A8E] min-w-fit;
+                }
+
+                div {
+                    @apply h-[1px] w-full bg-[#1D1D1D];
+                }
+            }
+
+            &__container {
+                @apply mt-[1.6rem] grid grid-cols-2 items-center gap-[1.6rem];
+            }
+
+            &__item {
+                @apply py-[1.6rem] rounded-[8px] flex items-center justify-center hover:scale-105 transition-all active:scale-100 duration-200 cursor-pointer;
+                background-color: $color-dark-black;
+
+                img {
+                    @apply h-[2.4rem];
+                }
+
+                span {
+                    @apply text-[1.6rem] leading-[1.92rem] ml-[8px] text-white;
+                }
+            }
+        }
+
+        &__terms-and-conditions {
+            @apply mt-[3.2rem] text-white text-center text-[1.2rem] leading-[1.44rem];
+
+            a {
+                @apply underline;
+            }
+        }
+
+        &__password-requirements {
+            @apply w-full rounded-[8px] px-[16px] py-[12px] mb-[1.2rem];
+            background-color: $color-dark-black;
+
+            &__parameter {
+                @apply flex items-center;
+
+                &__icon {
+                    fill: #1AA75D;
+                    @apply transition-all duration-200;
+
+                    &--inactive {
+                        fill: #8A8A8E;
+                    }
+                }
+
+                &:not(:first-of-type) {
+                    @apply mt-[0.8rem];
+                }
+
+                &__text {
+                    @apply inline-block ml-[0.8rem] text-[1.4rem] font-normal leading-[1.68rem] text-white transition duration-200;
+
+                    &--inactive {
+                        color: #8A8A8E;
+                    }
+                }
+            }
+        }
+
+    }
+}

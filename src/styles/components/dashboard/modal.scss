@@ -1,0 +1,142 @@
+.modal {
+    @apply absolute top-0 left-0 inset-0;
+    z-index: z('modal');
+    // z-index: 40;
+    &__container {
+        @apply top-0 left-0 absolute w-full h-full flex items-center justify-center;
+    }
+    &__overlay {
+        @apply bg-[#0000004D] w-full h-full fixed lg:absolute inset-0;
+        z-index: z('modal-overlay');
+        // z-index: 30;
+    }
+    &__body {
+        @apply w-full max-w-[48.7rem] rounded-[1.6rem] overflow-hidden;
+        // z-index: 50;
+        z-index: z('modal-body');
+        &__header {
+            @apply p-[1.6rem] bg-[#F6F6F6] flex justify-between;
+            &__left {
+                @apply flex items-center;
+            }
+            &__title {
+                @apply text-[1.8rem] ml-[1.2rem];
+            }
+            &__save-button {
+                @apply text-[1.8rem] text-[#485FE6] py-[4px] cursor-pointer;
+            }
+        }
+        &__back-button {
+            @apply bg-white w-[3.2rem] h-[3.2rem] rounded-[0.6rem] flex items-center justify-center active:scale-[0.9] transition-all duration-200;
+        }
+        &__content {
+            @apply py-[2.4rem] px-[1.6rem] bg-white;
+        }
+    }
+    &__input-group {
+        &:not(:last-of-type) {
+            @apply mb-[1.6rem];
+        }
+        @apply bg-[#F6F6F6] py-[1.2rem] px-[1.6rem] rounded-[0.8rem] flex flex-col;
+        &__label {
+            @apply text-[1.8rem] font-medium leading-[1.3rem] mb-[1.6rem];
+        }
+        &__input {
+            @apply text-[#8A8A8E] outline-0 focus:outline-0 text-[1.6rem] leading-[1.1rem] bg-transparent;
+        }
+        &__image {
+            @apply size-[1.4rem];
+        }
+        &__image-container {
+            @apply bg-[#F6F6F6] py-[1.2rem] px-[1.6rem] rounded-[0.8rem] flex items-center space-x-3;
+        }
+    }
+    &__gender-options {
+        @apply grid grid-cols-2 gap-[2.4rem];
+    }
+    &__gender-option {
+        @apply h-[4.9rem] flex items-center justify-center text-[1.8rem] font-medium text-[#8A8A8E] bg-[#F6F6F6] rounded-[0.8rem] cursor-pointer transition duration-200;
+        &--selected {
+            @apply bg-[#121212] text-white;
+        }
+    }
+    &__verified-changeable-input {
+        @apply bg-[#F6F6F6] rounded-[0.8rem] py-[1.8rem] px-[1.6rem] flex justify-between items-center;
+        &__left {
+            @apply flex items-center;
+            p {
+                @apply pr-[0.8rem] text-[1.8rem];
+            }
+        }
+        &__value {
+            @apply text-[1.8rem] text-[#8A8A8E];
+        }
+        &__click-to-edit {
+            @apply text-center leading-[1.1rem] text-[1.6rem] underline mt-[2.4rem] cursor-pointer w-fit mx-auto;
+        }
+        &__input { 
+            @apply text-[1.8rem] text-[#8A8A8E] bg-transparent w-fit focus:outline-none text-right;
+        }
+    }
+    &__verified-badge {
+        @apply text-[1.6rem] leading-[1.1rem] py-[0.8rem] px-[1.2rem] bg-[#0CB25A] text-white rounded-full;
+    }
+    &__select-options {
+        @apply flex flex-wrap;
+        &__option {
+            @apply leading-[1.3rem] py-[1.8rem] px-[1.6rem] text-[1.8rem] text-[#8A8A8E] bg-[#F6F6F6] rounded-[0.8rem] w-fit h-fit cursor-pointer hover:scale-[1.02] transition duration-200 active:scale-100;
+            &:not(:last-of-type) {
+                @apply mr-[2.4rem] mb-[2.4rem];
+            }
+            &--selected {
+                @apply bg-[#121212] text-white;
+            }
+        }
+    }
+    &__slider-container {
+        @apply rounded-[0.8rem] py-[1.2rem] px-[1.6rem] bg-[#F6F6F6];
+        &__value {
+            @apply bg-white w-fit leading-[1rem] px-[0.8rem] text-[1.4rem] py-[1.2rem] font-medium rounded-[0.8rem];
+        }
+        form {
+            @apply w-full mt-[1rem];
+        }
+        .SliderRoot {
+            position: relative;
+            display: flex;
+            align-items: center;
+            user-select: none;
+            touch-action: none;
+            width: 100%;
+            height: 20px;
+          }
+          .SliderTrack {
+            background-color: white;
+            position: relative;
+            flex-grow: 1;
+            border-radius: 9999px;
+            height: 3px;
+          }
+          
+          .SliderRange {
+            position: absolute;
+            background-color: #8A8A8E80;
+            border-radius: 9999px;
+            height: 100%;
+          }
+          
+          .SliderThumb {
+            display: block;
+            width: 20px;
+            height: 20px;
+            background-color: white;
+            box-shadow: 0 2px 10px var(--black-a7);
+            border-radius: 10px;
+            border: 1px solid #D9D9D980;
+          }
+          .SliderThumb:hover {
+            background-color: white;
+            cursor: pointer;
+          }
+    }
+}

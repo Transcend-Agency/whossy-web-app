@@ -1,0 +1,178 @@
+.explore-page {
+    @apply overflow-scroll mb-[1rem];
+}
+
+.preview-profile__action-button.liked {
+    @apply bg-[#F2243E] cursor-default;
+    &:hover {
+        img {
+            @apply scale-100;
+
+        }
+    }
+}
+
+.explore {
+    @apply px-[1.6rem] pt-[2.4rem] w-full h-full;
+
+    .empty-state {
+        @apply w-full h-full flex items-center justify-center flex-col;
+        &__icon {
+            @apply w-[10.4rem] h-auto;
+        }
+        &__text {
+            @apply font-medium text-[1.6rem] mt-[1.6rem];
+        }
+    }
+
+    .filter {
+        @apply w-full flex justify-between relative;
+        img {
+            @apply mr-[]
+        }
+        &__left {
+            @apply w-full max-w-[90rem] flex overflow-y-scroll pb-8 lg:flex-wrap lg:pb-0 gap-x-[1.6rem] gap-y-[1.6rem];
+        }
+        &__item {
+            @apply leading-[1.1rem] text-[16px] px-[1.6rem] py-[1.2rem] min-w-fit bg-[#F6F6F6] hover:bg-[#eeeeee] text-[#8A8A8E] rounded-full cursor-pointer active:scale-95 transition-all duration-200 flex items-center;
+            &--active {
+                @apply bg-[#F2243E] hover:bg-[#F2243E]  text-white;
+            }
+            &--active {
+                path {
+                    fill: white;
+                }
+            }
+            path {
+                transition: all 0.3s;
+            }
+            svg {
+                @apply mr-[0.4rem];
+            }
+        }
+        &__saved-search {
+            @apply cursor-pointer hover:scale-110 active:scale-100 transition-all duration-200;
+        }
+    }
+    .explore-grid-container {
+        @apply h-full max-h-full mt-[0.7rem] pb-[13rem] relative pt-[1.6rem];
+    }
+    .explore-grid-gradient-top {
+        @apply w-full h-[1rem] bg-gradient-to-b from-[white] to-[rgba(255,255,255,0)] absolute -bottom-[2.6rem] z-10;
+    }
+    .explore-grid, .mobile-grid {
+        @apply w-full grid grid-cols-5;
+        &__column {
+            // @apply gap-[0.8rem];
+            &:not(:last-of-type) {
+                @apply mr-[0.8rem]
+            }
+            &:nth-of-type(2n + 2) {
+                .explore-grid__profile2:nth-child(4n+3),
+                .explore-grid__profile2:nth-child(4n+4) {
+                    @apply min-h-[28rem] h-[28rem];
+                }
+            }
+            &:nth-of-type(2n + 1) {
+                .explore-grid__profile2:nth-child(4n+1),
+                .explore-grid__profile2:nth-child(4n+2) {
+                    @apply min-h-[28rem] h-[28rem];
+                }
+            }
+        }
+        &__profile {
+            @apply min-h-[20rem] h-[20rem] w-full rounded-[0.8rem] overflow-hidden relative transition duration-200 active:scale-100 cursor-pointer block mb-[0.8rem];
+            &:hover {
+                .explore-grid__profile-picture {
+                    @apply scale-110;
+                }
+            }
+        }
+        &__profile-picture {
+            @apply w-full h-full transition-all duration-[0.3s] bg-[#ebebeb];
+            
+        }
+        &__profile-picture-image {
+                @apply w-full h-full object-cover min-h-[20rem];
+        }
+        &__profile-picture-gradient {
+                @apply w-full h-full absolute inset-0 bg-gradient-to-b from-[transparent] to-black from-60% to-85% z-10;
+        }
+        &__profile-info {
+            @apply p-[1.2rem]  pb-[1.6rem] h-full w-full absolute z-10 inset-0 flex flex-col justify-between;
+        }
+        &__profile-info-top-left {
+            @apply flex items-center; 
+        }
+        &__profile-info-top {
+            @apply text-[1.4rem] flex text-white items-center justify-between min-h-[3.3rem];
+            @include media('<=480px'){
+                @apply text-[1rem];
+            }
+            .new-profile {
+                @apply flex px-[0.8rem] text-[1.2rem] bg-[#F2243E] rounded-[0.6rem] w-fit py-[0.4rem] text-white mr-[0.8rem];
+                img {
+                    @apply mr-[0.8rem] h-[1.2rem];
+                    @include media('<=480px'){
+                        @apply h-[1rem];
+                    }
+                }
+                @include media('<=480px'){
+                    @apply text-[1rem];
+                }
+            }
+        }
+        &__profile-info-bottom {
+            @apply flex items-center;
+            img {
+                @apply ml-[0.8rem] w-[1.8rem];
+                @include media('<=480px'){
+                    @apply text-[1.5rem];
+                }
+            }
+        }
+        &__profile-name {
+            @apply text-white text-[2rem] font-bold;
+            @include media('<=480px'){
+                @apply text-[1.5rem];
+            }
+        }
+        &__profile-age {
+            @apply text-white text-[1.8rem] font-normal  ml-[0.4rem];
+        }
+    }
+    .explore-grid {
+        @apply hidden lg:grid;
+
+        &__profile-like-icon {
+            @apply w-[2.5rem];
+        }
+    }
+    // .react-loading-skeleton.explore-grid__profile {
+    //     @apply mb-[0.8rem];
+    // }
+    .mobile-grid {
+        @apply w-full grid grid-cols-3 lg:hidden;
+        &__column {
+            // @apply gap-[0.8rem];
+            &:not(:last-of-type) {
+                @apply mr-[0.8rem]
+            }
+            &:nth-of-type(2n + 2) {
+                .explore-grid__profile:nth-child(4n+3), 
+                .explore-grid__profile:nth-child(4n+4), 
+                span
+                 {
+                    @apply min-h-[28rem] h-[28rem];
+                }
+            }
+            &:nth-of-type(2n + 1) {
+                .explore-grid__profile:nth-child(4n+1), 
+                .explore-grid__profile:nth-child(4n+2), 
+                span {
+                    @apply min-h-[28rem] h-[28rem];
+                }
+            }
+        }
+    }
+}

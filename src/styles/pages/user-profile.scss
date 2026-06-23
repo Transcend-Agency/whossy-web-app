@@ -1,0 +1,170 @@
+.user-profile {
+    @apply pt-[2.4rem] overflow-y-scroll;
+    &::-webkit-scrollbar {
+        display: none;
+    }
+    &__container {
+        @apply px-[2.4rem];
+    }
+    &__settings-button {
+        @apply hover:scale-110 active:scale-95 duration-200 transition cursor-pointer;
+        img {
+            @apply w-[2.1rem];
+        }
+    }
+    &__profile-picture-container {
+        @apply w-[15.2rem] h-[15.2rem] relative mx-auto;
+    }
+    &__profile-picture {
+        @apply w-full h-full rounded-full overflow-hidden;
+        img {
+            @apply w-full h-full object-cover;
+        }
+    }
+    &__update-profile-button {
+        @apply w-[4.8rem] h-[4.8rem] bg-white absolute top-[1rem] right-[1rem] cursor-pointer rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition duration-200;
+        border: 1px solid #e8e8e8;
+        img {
+            @apply h-[1.6rem];
+        }
+    }
+    &__profile-details {
+        @apply text-[2.4rem] mx-auto;
+        &__age {
+            @apply font-normal inline-block ml-[0.4rem];
+        }
+        img {
+            @apply ml-[0.8rem];
+        }
+        p {
+            @apply flex font-bold leading-[2.88rem] justify-center;
+        }
+        &__completion-status {
+            @apply px-[1.6rem] text-[1.4rem] bg-black text-white rounded-[0.8rem] w-fit mx-auto mt-[1.2rem] leading-[1rem] h-[3.4rem] flex items-center;
+        }
+    }
+
+    &__banner {
+        @apply py-[1.6rem] text-[1.8rem] rounded-[1.2rem] flex justify-center items-center;
+        img {
+            @apply mr-[1.2rem] h-[2.4rem];
+        }
+        &--info {
+            border: 1px solid #D9D9D9;
+            @apply mt-[1.6rem];
+            p {
+                @apply w-[36.2rem];
+            }
+        }
+        &--safety-guide {
+            @apply bg-[#F6F6F6] mt-[0.8rem] cursor-pointer transition-all duration-200 active:scale-95;
+        }
+    }
+
+    &__credit-buttons {
+        // grid-cols-2 was removed { no more profile boost }
+        @apply grid gap-[0.8rem] mt-[0.8rem];
+        &__button {
+            @apply py-[2rem] bg-[#FDFAE7] rounded-[1.2rem] text-[1.8rem] font-medium flex justify-center items-center;
+            &:first-of-type {
+                @apply bg-[#FDFAE7];
+                .user-profile__credit-buttons__button__link {
+                    @apply text-[#EECA0C];
+                }
+            }
+            &__description {
+                @apply leading-[1.3rem];
+            }
+            &__link {
+                @apply text-[1.6rem] font-normal underline text-[#EECA0C] cursor-pointer mt-[1.2rem] leading-[1.1rem];
+            }
+            img {
+                @apply mr-[0.8rem] h-[5rem];
+            }
+        }
+    }
+
+    &__plans {
+        @apply mt-[1.6rem] mb-[2rem] px-[2.4rem] w-full overflow-x-scroll flex;
+        &::-webkit-scrollbar {
+            display: none;
+        }
+        &__plan {
+            @apply pt-[1.6rem] px-[1.2rem] rounded-[1.2rem] w-full max-w-[34.3rem] relative overflow-hidden min-w-[34.3rem];
+            border: 1px solid black;
+            &:not(:last-of-type) {
+                @apply mr-[1.6rem];
+            }
+            &__title {
+                @apply text-[2.4rem] font-bold leading-[1.7rem];
+            }
+            &__gradient {
+                @apply absolute left-0 top-0;
+            }
+            &__pricing {
+                font-family: $font-nunito-sans;
+                // TODO: Change Font For Currency to Nunito Sans
+                @apply flex mt-[1.6rem];
+                .currency {
+                    @apply text-[1.6rem] leading-[2.182rem] self-center;
+                }
+                .price {
+                    @apply text-[3.2rem] leading-[2.3rem] font-bold inline-block ml-[0.4rem];
+                }
+                .billing-cycle {
+                    font-family: $font-neue-montreal;
+                    @apply font-bold text-[1.6rem] inline-block ml-[0.4rem] self-end;
+                }
+            }
+            &__benefits {
+                @apply flex flex-col mt-[1.6rem];
+            }
+            &__benefit {
+                @apply text-[1.6rem] leading-[1.1rem] py-[1.2rem];
+                border-bottom: 1px solid;
+                border-image-slice: 1;
+              
+                // border-image: linear-gradient(to right, rgba(255, 92, 0, 0.6), rgba(255, 255, 255, 0.6));
+
+                &:not(:last-of-type) {
+                    @apply mb-[1.6rem];
+
+                }
+            }
+            &__cta {
+                @apply text-center w-full h-[4.1rem] my-[1.6rem] text-[1.7rem] text-white rounded-[0.8rem] active:scale-[0.98] transition duration-200 cursor-pointer hover:scale-[1.02];
+            }
+            &--free {
+                border: 1px solid #AAAAAA;
+                @apply text-[#AAAAAA];
+                .user-profile__plans__plan__benefit {
+                    border-image-source: linear-gradient(to left, #FFFFFF99, #AAAAAA99);
+                }
+                .user-profile__plans__plan__cta {
+                    @apply bg-[#AAAAAA];
+                }
+                .user-profile__plans__plan__title {
+                    
+                }
+            }
+            &--premium {
+                border: 1px solid #FF5C00;
+                @apply text-[#FF5C00];
+                .user-profile__plans__plan__benefit {
+                    border-image-source: linear-gradient(to left, #FFFFFF99, #FF5C0099);
+                }
+                .user-profile__plans__plan__cta {
+                    @apply bg-[#FF5C00];
+                }
+                .user-profile__plans__plan__title {
+                    
+                }
+            }
+            
+        }
+    }
+
+}
+.edit-profile {
+    @apply bg-white;
+}

@@ -1,31 +1,21 @@
 // COLORS
-$color-black: #222226;
-$color-white-grey: #E6E6E6;
-$color-light-grey: #3A3A40;
-$color-grey-900: #545454;
-$color-grey-300: #C8C8C8;
-$color-white: #FAFAFA;
-$color-white-grey-950: #363636;
-$color-grey-400: #91939F;
+$color-primary-pink: #F0174B;
+$color-black: #080808;
+$color-dark-black: #101010;
 // END COLORS
 
-$font-ninetea: 'Ninetea';
-$font-gover: 'GOVER';
+$font-neue-montreal: 'Neue Montreal';
+$font-nunito-sans: "Nunito Sans";
 
 $ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 
 $z-indexes: (
-    'cursor',
-    'preloader__wrapper',
-    'preloader__loader-bg',
-    'menu',
-    'navigation',
-    'hero',
-    'services-title-sides',
-    'services',
-    'particle-scene',
-    'hero-text',
-    'about__details__text',
-    'about__details__image',
-    'hero-bg',
+    'preview-profile__profile-details',
+    'preview-profile__overlay',
+    'modal-body',
+    'modal-overlay',
+    'modal',
+    'home-content',
+    'marquee-background-overlay',
+    'marquee-background-image'
 );

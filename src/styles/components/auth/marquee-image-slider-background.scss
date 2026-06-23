@@ -1,0 +1,31 @@
+.marquee-background {
+    @apply w-screen max-h-[100dvh] flex flex-col items-center justify-center bg-black fixed;
+
+    .rfm-marquee-container {
+        overflow-x: visible;
+    }
+
+    &__image {
+        @apply w-[20rem] lg:w-[21rem] lg:h-[25rem] mr-[4px] mt-[4px];
+        z-index: z('marquee-background-image');
+    }
+
+    &__overlay {
+        @apply w-full inset-0 fixed h-screen bg-[#080808] opacity-80;
+        z-index: z('marquee-background-overlay');
+    }
+
+    &__container {
+        @apply flex flex-col rotate-[5deg];
+    }
+
+    &__landing {
+        @apply flex flex-col ;
+    }
+
+}
+
+.marquee-landing {
+    @apply w-full min-h-[100dvh] flex flex-col items-center justify-center bg-black;
+
+}
