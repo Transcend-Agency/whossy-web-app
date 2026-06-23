@@ -77,6 +77,11 @@ export type User = {
     retake_photo?: boolean | null;
     photo?: string | null;
     updated_at?: Timestamp | Date | null;
+    challenge_id?: string | null;
+    challenge_image_url?: string | null;
+    status?: 'pending_review' | 'approved' | 'rejected' | null;
+    reviewed_by?: string | null;
+    reviewed_at?: Timestamp | Date | null;
   }
   tour_guide?: {
     explore?: boolean;

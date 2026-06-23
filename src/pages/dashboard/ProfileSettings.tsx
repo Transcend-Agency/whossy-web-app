@@ -26,9 +26,10 @@ interface ProfileSettingsProps {
     }
     prefetchUserData: () => void;
     userShouldRetakePhoto: boolean;
+    faceVerificationStatus?: 'pending_review' | 'approved' | 'rejected' | null;
 }
 
-const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, userSettings, prefetchUserData, userShouldRetakePhoto}) => {
+const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, userSettings, prefetchUserData, userShouldRetakePhoto, faceVerificationStatus}) => {
     const [profileSettings, setProfileSettings] = useState(userSettings);
     const [showBlockedContacts, setShowBlockedContacts] = useState(false);
     const [showModal, setShowModal] = useState<'hidden' | 'logout'>('hidden');
@@ -211,6 +212,13 @@ const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, user
                         <button onClick={() => setOpenModal(true)}>
                             <ProfileSettingsGroup title="Help and Support"/>
                         </button>
+                        {faceVerificationStatus && (
+                            <div className="px-[2.8rem] py-[1rem] text-[1.4rem] text-[#8A8A8E]">
+                                {faceVerificationStatus === 'pending_review' && 'Verification photo pending review'}
+                                {faceVerificationStatus === 'approved' && 'Verification photo approved ✅'}
+                                {faceVerificationStatus === 'rejected' && "Your verification photo didn't match the pose — please retake it"}
+                            </div>
+                        )}
                         {userShouldRetakePhoto && <button onClick={() => setOpenFaceVModal(true)}>
                             <ProfileSettingsGroup title="Take Verification Photo"/>
                         </button>}
