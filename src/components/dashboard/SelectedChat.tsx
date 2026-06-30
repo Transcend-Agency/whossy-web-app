@@ -2,7 +2,7 @@ import {ChangeEvent, FC, useEffect, useRef, useState} from "react";
 import {AnimatePresence, motion, motion as m} from "framer-motion";
 import Skeleton from "react-loading-skeleton";
 import EmojiPicker from "emoji-picker-react";
-import {IoCheckmarkDone} from "react-icons/io5";
+import {IoCheckmarkDone, IoLockClosed} from "react-icons/io5";
 import {
     arrayRemove, arrayUnion,
     collection,
@@ -567,10 +567,12 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                       {!isLoading && chats.length === 0 && (!connected || (!checkChatUnlocked && currentUser.is_premium != true)) && (
                                           <div className="overlay backdrop-blur-sm absolute inset-0 rounded-md bg-black/25 flex items-center pt-[24px] justify-center z-50">
                                               {!connected ? (
-                                                  <div className={`grid p-4 items-center text-[2rem] bg-[#ff1f1] text-white rounded-md font-bold mx-[50px] w-[300px] text-center gap-8`}>
-                                                      <img className={`size-[50px] mx-auto`} src="/assets/icons/no-message.svg" alt={``} />
-                                                      <p>You're not connected yet 🔒</p>
-                                                      <p>You and {recipientDetails.name || 'this user'} need to match with each other before you can chat 💞</p>
+                                                  <div className={`bg-white rounded-2xl shadow-xl mx-[50px] w-[300px] p-8 flex flex-col items-center text-center gap-3`}>
+                                                      <div className={`size-[56px] rounded-full flex items-center justify-center bg-gradient-to-br from-[#485FE6] to-[#309BBD]`}>
+                                                          <IoLockClosed className="text-white" size={26} />
+                                                      </div>
+                                                      <p className={`font-bold text-[18px] text-[#121212]`}>You're not connected yet</p>
+                                                      <p className={`text-[14px] text-gray leading-relaxed`}>You and {recipientDetails.name || 'this user'} need to match with each other before you can chat.</p>
                                                   </div>
                                               ) : (
                                                   <div className={`grid p-4 items-center text-[2rem] bg-[#ff1f1] text-white rounded-md font-bold mx-[50px] w-[300px] text-center gap-8`}>
@@ -614,10 +616,12 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                         {!isLoading && (!connected || (!checkChatUnlocked && currentUser.is_premium != true)) && (
                                             <div className="overlay backdrop-blur-sm absolute inset-0 rounded-md bg-black/25 flex items-center pt-[24px] justify-center z-50">
                                                 {!connected ? (
-                                                    <div className={`grid p-4 items-center text-[2rem] bg-[#ff1f1] text-white rounded-md font-bold mx-[50px] w-[300px] text-center gap-8`}>
-                                                        <img className={`size-[50px] mx-auto`} src="/assets/icons/no-message.svg" alt={``} />
-                                                        <p>You're not connected yet 🔒</p>
-                                                        <p>You and {recipientDetails.name || 'this user'} need to match with each other before you can chat 💞</p>
+                                                    <div className={`bg-white rounded-2xl shadow-xl mx-[50px] w-[300px] p-8 flex flex-col items-center text-center gap-3`}>
+                                                        <div className={`size-[56px] rounded-full flex items-center justify-center bg-gradient-to-br from-[#485FE6] to-[#309BBD]`}>
+                                                            <IoLockClosed className="text-white" size={26} />
+                                                        </div>
+                                                        <p className={`font-bold text-[18px] text-[#121212]`}>You're not connected yet</p>
+                                                        <p className={`text-[14px] text-gray leading-relaxed`}>You and {recipientDetails.name || 'this user'} need to match with each other before you can chat.</p>
                                                     </div>
                                                 ) : (
                                                     <div className={`grid p-4 items-center text-[2rem] bg-[#ff1f1] text-white rounded-md font-bold mx-[50px] w-[300px] text-center gap-8`}>
