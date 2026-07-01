@@ -16,9 +16,11 @@ import Modal from "../ui/Modal";
 import Lottie from "lottie-react";
 import Cat from "../../Cat.json";
 import {captureImage, startCamera} from "@/utils/cameraUtils.ts";
+import {getRandomChallenge, VerificationChallenge} from "@/hooks/useVerificationChallenge.ts";
 
 export const TakeASelfie: React.FC<OnboardingProps> = ({ goBack }) => {
 		const [openModal, setOpenModal] = useState(false);
+		const [challenge, setChallenge] = useState<VerificationChallenge | null>(null);
 
 		const navigate = useNavigate();
 		const { auth, setAuth } = useAuthStore();
@@ -36,6 +38,12 @@ export const TakeASelfie: React.FC<OnboardingProps> = ({ goBack }) => {
 						navigate('/dashboard/explore');
 				}
 		}, [auth?.has_completed_onboarding]);
+
+		useEffect(() => {
+				getRandomChallenge()
+						.then(setChallenge)
+						.catch((e) => console.error('Failed to load challenge:', e));
+		}, []);
 
 		const handleFaceVerificationSkip = () => {
 				setOpenModal(true);
@@ -64,7 +72,10 @@ export const TakeASelfie: React.FC<OnboardingProps> = ({ goBack }) => {
 										face_verification:{
 												retake_photo: false,
 												photo: capturedImage,
-												updated_at: Timestamp.now()
+												updated_at: Timestamp.now(),
+												challenge_id: challenge?.id ?? null,
+												challenge_image_url: challenge?.image_url ?? null,
+												status: 'pending_review',
 										}
 								});
 						}
@@ -94,9 +105,9 @@ export const TakeASelfie: React.FC<OnboardingProps> = ({ goBack }) => {
 
 		return (
 				<OnboardingPage>
-						<section className="h-[500px] overflow-hidden">
+						<section>
 								<Skip advance={handleFaceVerificationSkip} />
-								<div className={`flex flex-col gap-y-[30px] h-full`}>
+								<div className={`flex flex-col gap-y-[30px]`}>
 										<div className={`grid gap-y-4`}>
 												<h1 className={`text-[30px] font-neue-montreal font-bold`}>Take a Selfie</h1>
 												<p className={`text-[12px] max-w-[280px] text-[#8A8A8E] leading-[120%]`}>
@@ -105,6 +116,19 @@ export const TakeASelfie: React.FC<OnboardingProps> = ({ goBack }) => {
 										</div>
 
 										<div className={`grid gap-y-6`}>
+												{challenge && (
+														<div className="flex items-center gap-4 p-4 bg-red-50 rounded-2xl border border-red-100">
+																<img
+																		src={challenge.image_url}
+																		alt={challenge.instruction}
+																		className="w-[80px] h-[80px] rounded-xl object-cover flex-shrink-0"
+																/>
+																<div>
+																		<p className="text-[11px] text-red-400 font-bold uppercase tracking-widest mb-1">Match this pose</p>
+																		<p className="text-[17px] font-bold text-gray-900 leading-tight">{challenge.instruction}</p>
+																</div>
+														</div>
+												)}
 												<div className={`w-[300px] h-[225px] bg-center bg-no-repeat bg-cover rounded-[15px] bg-opacity-20 bg-[#8A8A8E] relative overflow-hidden`}>
 														<video className={`size-full absolute z-30 video-flip ${capturedImage ? "hidden" : "block"}`} ref={videoRef} autoPlay></video>
 														<canvas className={`size-full absolute z-20`} ref={canvasRef} style={{ display: 'none' }}></canvas>
