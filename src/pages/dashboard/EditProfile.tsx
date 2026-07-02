@@ -21,6 +21,25 @@ import {
 import { updateUserProfile } from "@/hooks/useUser";
 import { useAuthStore } from "@/store/UserId";
 import { User, UserProfile } from "@/types/user";
+import { FaceVerificationModal } from "@/components/dashboard/FaceVerificationModal.tsx";
+
+// Mirrors the mobile app's status label (FaceVerification.getVerificationStatus)
+// so the Edit Profile row reads identically across platforms.
+const getFaceVerificationLabel = (fv?: User["face_verification"]): string => {
+    if (!fv) return "Not Complete";
+    switch (fv.status) {
+        case "approved":
+            return "Complete";
+        case "rejected":
+            return "Not Complete, Declined";
+        case "pending_review":
+            return "Pending";
+    }
+    // Fallback for documents written before the `status` field existed.
+    if (!fv.photo) return "Not Complete";
+    if (fv.retake_photo) return "Not Complete, Declined";
+    return "Complete";
+};
 
 interface EditProfileProps {
     activePage: string;
@@ -37,6 +56,7 @@ type SettingsModal = 'hidden' | 'name' | 'birthday' | 'gender' | 'email' | 'phon
 
 const EditProfile: React.FC<EditProfileProps> = ({ activePage, activeSubPage, closePage, onPreviewProfile, userData, refetchUserData, onInterests }) => {
     const [settingsModalShowing, setSettingsModalShowing] = useState<SettingsModal>('hidden')
+    const [showFaceVModal, setShowFaceVModal] = useState(false)
     const hideModal = () => setSettingsModalShowing('hidden')
 
     const { auth } = useAuthStore();
@@ -70,6 +90,8 @@ const EditProfile: React.FC<EditProfileProps> = ({ activePage, activeSubPage, cl
             <EducationSettingsModal showing={settingsModalShowing === 'education'} hideModal={hideModal} userEducation={userData?.education as number}  handleSave={(education) => updateUser({education}) }/>
             <BioSettingsModal showing={settingsModalShowing === 'bio'} hideModal={hideModal} bio={userData?.bio as string}  handleSave={(bio) => updateUser({bio}) }/>
 
+            <FaceVerificationModal show={showFaceVModal} onCloseModal={() => setShowFaceVModal(false)} refetchUserData={refetchUserData} />
+
             <motion.div
                 animate={activePage == 'edit-profile' ? (activeSubPage == 0 ? { x: "-100%", opacity: 1 } : { scale: 0.9, opacity: 0.3, x: "-100%" }) : { x: 0 }}
                 transition={{ duration: 0.25 }} className="dashboard-layout__main-app__body__secondary-page edit-profile settings-page">
@@ -94,6 +116,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ activePage, activeSubPage, cl
                             setSettingsModalShowing('phone')
                         }],
                         ]} />
+                        <SettingsGroup data={[['Photo Verification', getFaceVerificationLabel(userData?.face_verification), () => { setShowFaceVModal(true) }]]}/>
                         <SettingsGroup data={[['Add personalized interests', 'Change', () => {onInterests()}]]}/>
                         <SettingsGroup data={[['Education', education[userData?.education as number], () => {
                             setSettingsModalShowing('education')
