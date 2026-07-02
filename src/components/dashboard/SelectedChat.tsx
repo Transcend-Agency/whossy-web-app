@@ -20,7 +20,8 @@ import {
 import {db} from "@/firebase";
 import {v4 as uuidv4} from "uuid";
 import upload from "@/hooks/upload";
-import { updateUserProfile} from "@/hooks/useUser.ts";
+import { getUserProfile, updateUserProfile} from "@/hooks/useUser.ts";
+import { useVerificationGate } from "@/hooks/useVerificationGate.tsx";
 import {formatFirebaseTimestampToTime, formatServerTimeStamps} from "@/constants";
 import {useChatIdStore} from "@/store/ChatStore";
 import {Chat, Messages} from "@/types/chat";
@@ -81,6 +82,21 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
     const { chatId, setChatId } = useChatIdStore();
     const { matches, fetchMatches } = useMatchStore()
     const navigate = useNavigate()
+
+    // Verification gate for sending messages. Seeded from the `currentUser`
+    // prop (so it's accurate immediately) and refreshed so an approval/submit
+    // is reflected without a full reload.
+    const [loggedInUser, setLoggedInUser] = useState<User | null>(currentUser ?? null);
+    const fetchLoggedInUser = async () => {
+        if (!currentUser?.uid) return;
+        const data = await getUserProfile("users", currentUser.uid) as User;
+        setLoggedInUser(data);
+    };
+    useEffect(() => {
+        fetchLoggedInUser().catch(err => console.error(err));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentUser?.uid]);
+    const { requireVerification, modals: verificationModals } = useVerificationGate(loggedInUser, fetchLoggedInUser);
 
     const { setActivePage: setPage } = useNavigationStore()
 
@@ -360,6 +376,9 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
 
     //sending text message to the recipient
     const handleSendMessage = async () => {
+        // Block sending until the sender's selfie is verified (covers reaching
+        // the chat via a direct URL, bypassing the gated entry points).
+        if (!requireVerification()) return;
         let imgUrl: string | null = null;
         if(!chatId) return
         if(!connected){
@@ -514,6 +533,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
 
     return (
         <AnimatePresence>
+            {verificationModals}
             <ReportModal key={'report-modal'} userData={recipientUser as User} show={openModal} onCloseModal={() => setOpenModal(false)} />
             {activePage === 'selected-chat' &&
                 <>
