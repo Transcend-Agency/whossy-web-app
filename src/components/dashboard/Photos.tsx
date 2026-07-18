@@ -25,13 +25,22 @@ const Card: FC<CardProps & { onDelete?: () => void; index?: number; onPress?: ()
 
   return (
     <>
-      <div className={`relative w-full ${colspan} ${rowspan} xs:h-[128px] ${height} cursor-pointer hover:scale-[0.95] transition ease-in-out duration-200`}
+      <div className={`relative group w-full ${colspan} ${rowspan} xs:h-[128px] ${height} cursor-pointer hover:scale-[0.98] transition ease-in-out duration-200`}
         onClick={onPress}
       >
-        <img className="size-[18px] object-cover absolute  -top-3 cursor-pointer" src={photo ? "/assets/icons/more.png" : "/assets/icons/camera-gray.png"} alt="" />
-        {photo ? (<img className={`object-cover xs:h-[128px] ${height} w-full rounded-2xl`} src={photo} alt="" />
+        {photo ? (
+          <>
+            <img className={`object-cover xs:h-[128px] ${height} w-full rounded-2xl`} src={photo} alt="Profile photo" />
+            {/* Always-visible edit affordance — hover-only overlays are
+                invisible on touch devices, so the badge never hides. */}
+            <div className="absolute bottom-[0.8rem] right-[0.8rem] size-[2.8rem] rounded-full bg-black/50 border border-white/60 flex items-center justify-center group-hover:bg-black/75 transition-colors duration-200">
+              <img className="size-[1.5rem] invert brightness-0" src="/assets/icons/black-camera.svg" alt="" />
+            </div>
+          </>
         ) : (
-          <div className={`bg-white  w-full xs:h-[128px] ${height} rounded-2xl  `} />
+          <div className={`bg-white w-full xs:h-[128px] ${height} rounded-2xl flex items-center justify-center`}>
+            <img className="size-[2.4rem] opacity-70" src="/assets/icons/add-image.svg" alt="Add photo" />
+          </div>
         )}
       </div>
     </>

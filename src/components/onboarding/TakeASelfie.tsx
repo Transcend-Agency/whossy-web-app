@@ -17,6 +17,7 @@ import Lottie from "lottie-react";
 import Cat from "../../Cat.json";
 import {captureImage, startCamera} from "@/utils/cameraUtils.ts";
 import {getRandomChallenge, VerificationChallenge} from "@/hooks/useVerificationChallenge.ts";
+import {PoseChallengeCard} from "@/components/ui/PoseChallengeCard.tsx";
 
 export const TakeASelfie: React.FC<OnboardingProps> = ({ goBack }) => {
 		const [openModal, setOpenModal] = useState(false);
@@ -117,17 +118,7 @@ export const TakeASelfie: React.FC<OnboardingProps> = ({ goBack }) => {
 
 										<div className={`grid gap-y-6`}>
 												{challenge && (
-														<div className="flex items-center gap-4 p-4 bg-red-50 rounded-2xl border border-red-100">
-																<img
-																		src={challenge.image_url}
-																		alt={challenge.instruction}
-																		className="w-[80px] h-[80px] rounded-xl object-cover flex-shrink-0"
-																/>
-																<div>
-																		<p className="text-[11px] text-red-400 font-bold uppercase tracking-widest mb-1">Match this pose</p>
-																		<p className="text-[17px] font-bold text-gray-900 leading-tight">{challenge.instruction}</p>
-																</div>
-														</div>
+														<PoseChallengeCard challenge={challenge} onChallengeChange={setChallenge} />
 												)}
 												<div className={`w-[300px] h-[225px] bg-center bg-no-repeat bg-cover rounded-[15px] bg-opacity-20 bg-[#8A8A8E] relative overflow-hidden`}>
 														<video className={`size-full absolute z-30 video-flip ${capturedImage ? "hidden" : "block"}`} ref={videoRef} autoPlay></video>

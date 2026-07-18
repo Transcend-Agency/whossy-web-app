@@ -6,6 +6,7 @@ import {doc, Timestamp, updateDoc} from "firebase/firestore";
 import {db} from "@/firebase";
 import {useAuthStore} from "@/store/UserId.tsx";
 import {getRandomChallenge, VerificationChallenge} from "@/hooks/useVerificationChallenge.ts";
+import {PoseChallengeCard} from "@/components/ui/PoseChallengeCard.tsx";
 
 interface FaceVerificationModalProps {
 		show: boolean
@@ -81,16 +82,8 @@ export const FaceVerificationModal: FC<FaceVerificationModalProps> = ({show, onC
 							<div>
 									<h1 className='text-3xl font-bold flex justify-center mb-[2rem]'>Take A Selfie</h1>
 									{challenge && (
-											<div className="flex items-center gap-4 p-4 bg-red-50 rounded-2xl border border-red-100 mb-4">
-													<img
-															src={challenge.image_url}
-															alt={challenge.instruction}
-															className="w-[80px] h-[80px] rounded-xl object-cover flex-shrink-0"
-													/>
-													<div>
-															<p className="text-[11px] text-red-400 font-bold uppercase tracking-widest mb-1">Match this pose</p>
-															<p className="text-[17px] font-bold text-gray-900 leading-tight">{challenge.instruction}</p>
-													</div>
+											<div className="mb-4">
+													<PoseChallengeCard challenge={challenge} onChallengeChange={setChallenge} />
 											</div>
 									)}
 									<div className={`w-[300px] h-[225px] bg-center bg-no-repeat bg-cover rounded-[15px] bg-opacity-20 bg-[#8A8A8E] relative overflow-hidden mb-8`}>
