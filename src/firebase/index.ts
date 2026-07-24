@@ -3,6 +3,7 @@ import { getAuth } from "firebase/auth";
 import { FacebookAuthProvider, GoogleAuthProvider } from "firebase/auth";
 import { getDatabase } from "firebase/database";
 import { getFirestore } from "firebase/firestore";
+import { getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -19,7 +20,8 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const realtimeDb = getDatabase()
+const functions = getFunctions(app);
 const googleProvider = new GoogleAuthProvider();
 const facebookProvider = new FacebookAuthProvider();
 
-export {auth, db, googleProvider, facebookProvider, realtimeDb }
+export {auth, db, googleProvider, facebookProvider, realtimeDb, functions }

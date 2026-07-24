@@ -118,7 +118,7 @@ const UserProfile = () => {
                     <section data-cy="buy-credit-modal" className='user-profile__credit-buttons'>
                         {/*<ProfileCreditButton description='Profile Boost' linkText='Get Now' imgSrc='/assets/images/dashboard/rocket.png' onLinkClick={handleOpenModal}/>*/}
                         <ProfileBoostModal isModalOpen={isModalOpen} handleCloseModal={handleCloseModal} />
-                        <ProfileCreditButton description={`Credits: ${userData?.credit_balance !== undefined ? userData.credit_balance : ''}`} linkText='Add More' imgSrc='/assets/images/dashboard/coin.png' onLinkClick={() => setActivePage('add-credits')}  />
+                        <ProfileCreditButton description={`Credits: ${userData?.credit_balance !== undefined ? userData.credit_balance : ''}${(userData?.credits_on_hold ?? 0) > 0 ? ` · ${userData?.credits_on_hold} on hold` : ''}`} linkText='Add More' imgSrc='/assets/images/dashboard/coin.png' onLinkClick={() => setActivePage('add-credits')}  />
                     </section>
 
                 </div>

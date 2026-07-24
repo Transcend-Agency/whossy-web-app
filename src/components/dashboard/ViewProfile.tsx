@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import DashboardPageContainer from "./DashboardPageContainer";
 import {useChatIdStore} from "@/store/ChatStore.tsx";
 import {createOrFetchChat} from "@/utils/chatService.ts";
+import {isChatWindowActive} from "@/utils/chatCreditState";
 import {Chat} from "@/types/chat.ts";
 import { serverTimestamp } from 'firebase/firestore';
 import { getUserProfile } from "@/hooks/useUser";
@@ -236,12 +237,11 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                                   async () => {
                                       const chat = await fetchUserChats(chatId) as Chat;
                                       if (chatId != "nil" || !chat || !chat.participants || chat.participants.length < 2) {
-                                          const bothPremiumUsers = userData.is_premium && user?.is_premium
                                           navigate(`/dashboard/chat?recipient-user-id=${userData.uid}`, {
                                               state: {
                                                   chatId,
                                                   recipientUser: userData,
-                                                  chatUnlocked: bothPremiumUsers ? true : chat.is_unlocked ? chat.is_unlocked : false
+                                                  chatUnlocked: isChatWindowActive(chat)
                                               },
                                           });
                                           setChatId(chatId)
@@ -276,12 +276,11 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                                           async () => {
                                               const chat = await fetchUserChats(chatId) as Chat;
                                               if (chatId != "nil" || !chat || !chat.participants || chat.participants.length < 2) {
-                                                  const bothPremiumUsers = userData.is_premium && user?.is_premium
                                                   navigate(`/dashboard/chat?recipient-user-id=${userData.uid}`, {
                                                       state: {
                                                           chatId,
                                                           recipientUser: userData,
-                                                          chatUnlocked: bothPremiumUsers ? true : chat.is_unlocked ? chat.is_unlocked : false
+                                                          chatUnlocked: isChatWindowActive(chat)
                                                       },
                                                   });
                                                   setChatId(chatId)

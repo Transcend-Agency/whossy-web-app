@@ -55,6 +55,9 @@ export type User = {
     geopoint: GeoPoint
   };
   credit_balance?: number | null;
+  /** Credits reserved by pending chat initiations (server-written only).
+   *  Spendable balance = credit_balance − credits_on_hold. */
+  credits_on_hold?: number | null;
   amount_paid_in_total?: {
     naira?: number | null,
     kenyan_shillings?: number | null,
