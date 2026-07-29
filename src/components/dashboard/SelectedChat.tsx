@@ -103,7 +103,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         fetchLoggedInUser().catch(err => console.error(err));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser?.uid]);
-    const { requireVerification, modals: verificationModals } = useVerificationGate(loggedInUser, fetchLoggedInUser);
+    const { isVerified, requireVerification, modals: verificationModals } = useVerificationGate(loggedInUser, fetchLoggedInUser);
 
     const { setActivePage: setPage } = useNavigationStore()
 
@@ -119,9 +119,6 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
     // server (Cloud Functions) is the only writer of the credit fields.
     // No match prerequisite — premium-or-credits is the only initiation gate.
     const creditState = deriveChatCreditState(currentChat, currentUser?.uid as string);
-    const composerLocked =
-        ((creditState === 'idle' || creditState === 'expired') && !canInitiate(loggedInUser ?? currentUser)) ||
-        isInitiating;
 
 // Initialize chatId from state
     useEffect(() => {
@@ -678,15 +675,24 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                             </section>
                         </section>
                         <AnimatePresence>
-                            {openEmoji && <m.div initial={{ opacity: 0, scale: 0.8, y: 50 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8, y: 50 }} transition={{ duration: 0.3, ease: "easeInOut" }} ref={dropdownRef} className="absolute bottom-32 right-8 "><EmojiPicker onEmojiClick={(e) => { if (composerLocked) return; setText((prev) => prev + e.emoji) } } /> </m.div>}</AnimatePresence>
+                            {openEmoji && <m.div initial={{ opacity: 0, scale: 0.8, y: 50 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8, y: 50 }} transition={{ duration: 0.3, ease: "easeInOut" }} ref={dropdownRef} className="absolute bottom-32 right-8 "><EmojiPicker onEmojiClick={(e) => setText((prev) => prev + e.emoji)} /> </m.div>}</AnimatePresence>
                         <div className="sticky bottom-0 z-20 bg-white pt-2 pb-10">
                         {!isLoading && !currentChat?.user_blocked?.[0] && (
-                            <ChatStateBanner
-                                state={creditState}
-                                recipientName={recipientDetails.name || 'them'}
-                                currentUser={loggedInUser ?? currentUser}
-                                chat={currentChat}
-                            />
+                            isVerified ? (
+                                <ChatStateBanner
+                                    state={creditState}
+                                    recipientName={recipientDetails.name || 'them'}
+                                    currentUser={loggedInUser ?? currentUser}
+                                    chat={currentChat}
+                                />
+                            ) : (
+                                <div className="mx-6 mb-3 px-5 py-3 rounded-xl text-[1.3rem] leading-snug text-center bg-[#FDECEC] text-[#F0174B] flex items-center justify-center gap-x-3 flex-wrap">
+                                    <span>Verify your photo to message {recipientDetails.name || 'them'}.</span>
+                                    <button onClick={() => requireVerification()} className="underline font-bold shrink-0 cursor-pointer">
+                                        Verify now
+                                    </button>
+                                </div>
+                            )
                         )}
                         {!currentChat?.user_blocked?.[0] || isLoading ? <footer className=" flex justify-between text-[1.6rem] bg-white items-center gap-x-4 mx-6">
                                 <div className="flex-1 flex gap-x-4">
@@ -716,7 +722,6 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                         )}
 
                                         <input
-                                            disabled={composerLocked}
                                             type="text"
                                             className={`bg-inherit outline-none w-full`}
                                             placeholder="Say something nice"
