@@ -21,6 +21,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 
 // Not called at module scope: `index.ts`'s `admin.initializeApp()` runs after
 // this module's imports are resolved (imports hoist above it in the compiled
@@ -86,7 +87,7 @@ export const reviewVerification = onRequest(
           return { outcome: "NOT_PENDING" as const, currentStatus: fv.status };
         }
 
-        const now = admin.firestore.Timestamp.now();
+        const now = Timestamp.now();
         const currentMainPhoto = ((user.photos as string[] | undefined) ?? [])[0] ?? null;
         const submittedAgainst = (fv.profile_photo_snapshot as string | null | undefined) ?? null;
         const photoChangedSinceSubmission = submittedAgainst !== null && submittedAgainst !== currentMainPhoto;

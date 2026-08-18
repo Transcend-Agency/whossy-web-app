@@ -1,6 +1,6 @@
 import { db } from '@/firebase';
 import { useAuthStore } from '@/store/UserId';
-import {collection, getDocs } from 'firebase/firestore';
+import {collection, onSnapshot } from 'firebase/firestore';
 import { AnimatePresence } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
 import { IoIosNotifications } from "react-icons/io";
@@ -30,27 +30,23 @@ const Dashboard: React.FC = () => {
     const { banner: verificationBanner, visible: bannerVisible } = useVerificationStatusBanner();
 
     useEffect(() => {
-        fetchNotifications()
-    }, []);
-
-    const fetchNotifications = async () => {
-        if (!auth?.uid) {
-            console.error("User is not authenticated");
-            return;
-        }
+        if (!auth?.uid) return;
+        // Live count — a one-time fetch would miss a notification that
+        // arrives while the dashboard is already open.
         const notificationsRef = collection(db, `users/${auth.uid}/notifications`);
-        try {
-            const querySnapshot = await getDocs(notificationsRef);
-            const notifications = querySnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })) as Notification[];
-            const unreadNotifications = notifications.filter(notifications => notifications.seen == false).length
-            setUnseenNotificationsCount(unreadNotifications);
-        } catch (error) {
-            console.error("Error fetching notifications:", error);
-        }
-    };
+        const unSub = onSnapshot(
+            notificationsRef,
+            (snapshot) => {
+                const notifications = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                })) as Notification[];
+                setUnseenNotificationsCount(notifications.filter(n => n.seen == false).length);
+            },
+            (error) => console.error("Error fetching notifications:", error)
+        );
+        return () => unSub();
+    }, [auth?.uid]);
 
     return <>
         <div className='dashboard-layout hidden lg:block'>

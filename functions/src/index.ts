@@ -18,11 +18,19 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { logger } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
+import { sendPush } from "./push";
+import { participantsOf } from "./chatId";
 
 admin.initializeApp();
 const db = admin.firestore();
 
 export { reviewVerification } from "./verification";
+export {
+  notifyOnNewLike,
+  notifyOnNewMatch,
+  notifyOnNewMessage,
+  notifyOnVerificationDecision,
+} from "./notifications";
 
 /** Hours the recipient has to reply before the hold is refunded (AC 5.1). */
 const HOLD_WINDOW_HOURS = 48;
@@ -44,35 +52,12 @@ interface ChatCreditFields {
   credit_held?: boolean;
 }
 
-/** chatId is `[uidA, uidB].sort().join('_')` on both clients. */
-function participantsOf(chatId: string): [string, string] | null {
-  const parts = chatId.split("_");
-  if (parts.length !== 2 || !parts[0] || !parts[1] || parts[0] === parts[1]) return null;
-  return [parts[0], parts[1]];
-}
-
 function isWindowActive(chat: ChatCreditFields, now: admin.firestore.Timestamp): boolean {
   return (
     chat.credit_status === "connected" &&
     chat.expiration_time != null &&
     chat.expiration_time.toMillis() > now.toMillis()
   );
-}
-
-/** Best-effort push. No-op when the user has no registered device token. */
-async function sendPush(uid: string, title: string, body: string): Promise<void> {
-  try {
-    const userSnap = await db.collection("users").doc(uid).get();
-    const token = userSnap.get("fcm_token") as string | undefined;
-    if (!token) return;
-    await admin.messaging().send({
-      token,
-      notification: { title, body },
-      data: { type: "reply_gated_credits" },
-    });
-  } catch (err) {
-    logger.warn(`Push to ${uid} failed (non-fatal)`, err);
-  }
 }
 
 /**
