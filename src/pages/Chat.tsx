@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import {collection, doc, getDoc, getDocs, onSnapshot, orderBy, query} from 'firebase/firestore';
+import {collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, where} from 'firebase/firestore';
 import { db } from '@/firebase';
 import { useAuthStore } from '@/store/UserId';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -112,12 +112,13 @@ const ChatPage = () => {
             }
         };
 
-        const unSub = onSnapshot(collection(db, "chats"), async (snapshot) => {
+        // Scoped to this user's own chats — see the matching comment in
+        // ChatInterface.tsx (A6: an unfiltered collection listen can't be
+        // secured by Firestore rules).
+        const unSub = onSnapshot(query(collection(db, "chats"), where('participants', 'array-contains', currentUserId)), async (snapshot) => {
             if (!isMounted) return;
 
-            const chatIds: string[] = snapshot.docs
-                .map((doc) => doc.id)
-                .filter((id) => id.includes(currentUserId));
+            const chatIds: string[] = snapshot.docs.map((doc) => doc.id);
 
             const userChats = await Promise.all(
                 chatIds.map(async (chatId) => {

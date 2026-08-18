@@ -1,6 +1,6 @@
 import { useEffect, useState, FC } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { useAuthStore } from '@/store/UserId';
 import { useNavigate } from 'react-router-dom';
@@ -88,12 +88,13 @@ const ChatInterface: FC = () => {
         let isMounted = true;
         setIsLoadingChats(true);
 
-        const unSub = onSnapshot(collection(db, 'chats'), async (snapshot) => {
+        // Scoped to this user's own chats (participants array-contains) —
+        // an unfiltered listen on the whole collection can't be secured by
+        // Firestore rules (A6) since a rule can't field-mask a broad listen.
+        const unSub = onSnapshot(query(collection(db, 'chats'), where('participants', 'array-contains', currentUserId)), async (snapshot) => {
             if (!isMounted) return;
 
-            const chatIds: string[] = snapshot.docs
-                .map((doc) => doc.id)
-                .filter((id) => id.includes(currentUserId));
+            const chatIds: string[] = snapshot.docs.map((doc) => doc.id);
 
             const userChats = await Promise.all(
                 chatIds.map(async (chatId) => {

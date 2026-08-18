@@ -2,6 +2,7 @@ import { ReactNode, useState } from 'react';
 import { User } from '@/types/user';
 import { VerificationGateModal } from '@/components/dashboard/VerificationGateModal.tsx';
 import { FaceVerificationModal } from '@/components/dashboard/FaceVerificationModal.tsx';
+import { deriveVerificationStatus } from '@/utils/verification.ts';
 
 /**
  * Gates "match & connect" actions (liking, messaging) behind face verification,
@@ -19,8 +20,9 @@ export const useVerificationGate = (
     const [showGate, setShowGate] = useState(false);
     const [showFaceModal, setShowFaceModal] = useState(false);
 
-    const isVerified = userData?.is_approved === true;
-    const isPending = userData?.face_verification?.status === 'pending_review';
+    const status = deriveVerificationStatus(userData?.face_verification);
+    const isVerified = status === 'approved';
+    const isPending = status === 'awaiting_review';
 
     const requireVerification = (): boolean => {
         if (isVerified) return true;
@@ -32,7 +34,8 @@ export const useVerificationGate = (
         <>
             <VerificationGateModal
                 show={showGate}
-                isPending={isPending}
+                status={status}
+                rejectionReason={userData?.face_verification?.rejection_reason}
                 onClose={() => setShowGate(false)}
                 onVerify={() => {
                     setShowGate(false);
@@ -43,6 +46,7 @@ export const useVerificationGate = (
                 show={showFaceModal}
                 onCloseModal={() => setShowFaceModal(false)}
                 refetchUserData={refetchUserData}
+                mainPhoto={userData?.photos?.[0]}
             />
         </>
     );

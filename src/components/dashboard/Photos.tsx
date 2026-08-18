@@ -8,6 +8,8 @@ import {Oval} from "react-loader-spinner";
 import {User} from "@/types/user";
 import {doc, getDoc, setDoc} from "firebase/firestore";
 import {db} from "@/firebase";
+import {deriveVerificationStatus} from "@/utils/verification";
+import Modal from "@/components/ui/Modal";
 interface CardProps {
   photo?: string;
   colspan?: string;
@@ -53,6 +55,8 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
   const [photo, setPhoto] = useState<string[]>([]);
   const [mutatedPhoto, setMutatedPhoto] = useState<string[]>([]);
   const [fileMap, setFileMap] = useState<Map<number, File>>(new Map());
+  const [faceVerification, setFaceVerification] = useState<User["face_verification"]>();
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
 
   const { auth } = useAuthStore();
 
@@ -61,7 +65,14 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
   const fetchUserPhotos = async () => {
     const data = await getUserProfile("users", auth?.uid as string) as User;
     setPhoto(data?.photos as string[] || [])
+    setFaceVerification(data?.face_verification)
   }
+
+  // The main photo is what a reviewer approved against — changing it (a new
+  // upload in slot 1, or moving an existing photo into slot 1) invalidates
+  // that approval. Adding/removing/reordering any other slot doesn't.
+  const isMainPhotoChange = (newPhotos: string[]) => newPhotos[0] !== photo[0];
+  const isCurrentlyVerified = deriveVerificationStatus(faceVerification) === 'approved';
 
   const updateUserPhotos = async (s: string[]) => {
     if (!auth?.uid) {
@@ -71,13 +82,20 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
 
     const userId = auth.uid;
     const deletePicRef = doc(db, `deletePicQueue/${userId}`);
+    const revokesVerification = isMainPhotoChange(s) && isCurrentlyVerified;
 
     try {
       await updateUserProfile("users", userId, async () => {
         await fetchUserPhotos().catch(e => console.error(e));
         refetchUserData();
         setIsUpdating(false);
-      }, { photos: s, is_approved: false });
+      }, {
+        photos: s,
+        ...(revokesVerification ? {
+          is_approved: false,
+          face_verification: { ...faceVerification, status: 'revoked' },
+        } : {}),
+      });
 
       const existingDeleteRequest = await getDoc(deletePicRef);
       if (!existingDeleteRequest.exists()) {
@@ -91,6 +109,18 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
     }
   };
 
+  const requestSave = () => {
+    if (mutatedPhoto.length < 2) {
+      toast.error("A minumum of 2 images is required");
+      return;
+    }
+    if (isMainPhotoChange(mutatedPhoto) && isCurrentlyVerified) {
+      setShowRevokeConfirm(true);
+      return;
+    }
+    finalizePhotos();
+  };
+
   useEffect(() => { fetchUserPhotos().catch(err => console.log("Error occurred while fetching photos: ", err)) }, [])
   useEffect(() => { setPhoto(photo); setMutatedPhoto(photo) }, [photo])
 
@@ -101,7 +131,10 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
   const uploadImage = async (file: File): Promise<string> => {
     try {
       const storage = getStorage();
-      const storageRef = ref(storage, `tests/${auth}/profile_pictures/${file.name}`);
+      // Per-user folder — this used to interpolate the whole auth object
+      // (`${auth}` → the literal string "[object Object]"), so every user's
+      // uploads collided in one shared, un-scoped folder.
+      const storageRef = ref(storage, `users/${auth?.uid}/profile_pictures/${Date.now()}_${file.name}`);
       await uploadBytes(storageRef, file);
       return await getDownloadURL(storageRef);
     } catch (error) {
@@ -168,8 +201,32 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
           <Card photo={mutatedPhoto[4]} index={5} colspan="col-span-2" height="h-[88px]" onPress={() => { if (mutatedPhoto[4]) { setPhotoModalShowing('photo-five') } else { setPhotoModalShowing('photo-five-first-upload') } }} onDelete={() => { const updatedPhotos = photo.filter(item => item !== photo[4]); updateUserPhotos(updatedPhotos); }} />
           <Card photo={mutatedPhoto[5]} index={6} colspan="col-span-2" height="h-[88px]" onPress={() => { if (mutatedPhoto[5]) { setPhotoModalShowing('photo-six') } else { setPhotoModalShowing('photo-six-first-upload') } }} />
         </div>
-        {JSON.stringify(mutatedPhoto) !== JSON.stringify(photo) && <button className="text-center modal__body__header__save-button mt-4 flex justify-center" onClick={() => { if (mutatedPhoto.length < 2) { toast.error("A minumum of 2 images is required") } else { finalizePhotos() } }}>{!isUpdating ? 'Save' : <Oval color="#485FE6" secondaryColor="#485FE6" width={20} height={20} />}</button>}
+        {JSON.stringify(mutatedPhoto) !== JSON.stringify(photo) && <button className="text-center modal__body__header__save-button mt-4 flex justify-center" onClick={requestSave}>{!isUpdating ? 'Save' : <Oval color="#485FE6" secondaryColor="#485FE6" width={20} height={20} />}</button>}
       </section>
+      {showRevokeConfirm && (
+        <Modal>
+          <div className="bg-white w-[47rem] p-8 rounded-2xl text-center flex flex-col relative gap-y-6">
+            <h1 className="text-[2.4rem] font-bold">Change your main photo?</h1>
+            <p className="text-[1.6rem] text-[#8A8A8E] leading-[130%]">
+              Your verified badge was approved against your current main photo. Changing it
+              will <span className="font-bold text-[#121212]">remove your verified badge</span> and
+              stop liking and messaging until a reviewer approves your profile again.
+            </p>
+            <div className="flex gap-x-4">
+              <button
+                className="bg-[#F6F6F6] py-[1.3rem] w-full text-[1.6rem] font-bold text-center rounded-lg hover:bg-[#ececec] transition-all duration-300 cursor-pointer"
+                onClick={() => setShowRevokeConfirm(false)}>
+                Cancel
+              </button>
+              <button
+                className="bg-gradient-to-br from-orange-400 to-red text-white py-[1.3rem] w-full text-[1.6rem] font-bold text-center rounded-lg hover:opacity-80 transition-all duration-300 cursor-pointer"
+                onClick={() => { setShowRevokeConfirm(false); finalizePhotos(); }}>
+                Change photo
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </>
   );
 };

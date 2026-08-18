@@ -5,9 +5,10 @@ import { IoMdAlert, IoMdCamera, IoMdCheckmarkCircle, IoMdClose, IoMdTime } from 
 import { db } from '@/firebase';
 import { useAuthStore } from '@/store/UserId';
 import { User } from '@/types/user';
+import { deriveVerificationStatus } from '@/utils/verification';
 import { FaceVerificationModal } from './FaceVerificationModal';
 
-type BannerVariant = 'prompt' | 'pending' | 'approved' | 'rejected';
+type BannerVariant = 'prompt' | 'pending' | 'approved' | 'rejected' | 'revoked';
 
 const toMillis = (value?: Timestamp | Date | number | string | null): number | null => {
     if (value === null || value === undefined) return null;
@@ -25,23 +26,6 @@ const toMillis = (value?: Timestamp | Date | number | string | null): number | n
 
 const ackKey = (uid: string) => `whossy_verification_approved_ack_${uid}`;
 const promptDismissKey = (uid: string) => `whossy_verification_prompt_dismissed_${uid}`;
-
-const deriveStatus = (
-    fv?: User['face_verification'],
-): 'none' | 'pending' | 'approved' | 'rejected' => {
-    if (!fv) return 'none';
-    switch (fv.status) {
-        case 'approved':
-            return 'approved';
-        case 'rejected':
-            return 'rejected';
-        case 'pending_review':
-            return 'pending';
-    }
-    if (!fv.photo) return 'none';
-    if (fv.retake_photo) return 'rejected';
-    return 'approved';
-};
 
 export const useVerificationStatusBanner = (): { banner: ReactNode; visible: boolean } => {
     const { auth } = useAuthStore();
@@ -69,7 +53,7 @@ export const useVerificationStatusBanner = (): { banner: ReactNode; visible: boo
         );
     }, [uid]);
 
-    const status = deriveStatus(userData?.face_verification);
+    const status = deriveVerificationStatus(userData?.face_verification);
     // The "approval event" marker the show-once ack is keyed on. The admin
     // tooling doesn't reliably write reviewed_at, so fall back to the
     // submission's own updated_at (always written by the client), then to a
@@ -86,7 +70,9 @@ export const useVerificationStatusBanner = (): { banner: ReactNode; visible: boo
             if ((approvalAck ?? 0) < reviewedAt) variant = 'approved';
         } else if (status === 'rejected') {
             variant = 'rejected';
-        } else if (status === 'pending') {
+        } else if (status === 'revoked') {
+            variant = 'revoked';
+        } else if (status === 'awaiting_review') {
             variant = 'pending';
         } else if (!promptDismissed) {
             variant = 'prompt';
@@ -117,6 +103,7 @@ export const useVerificationStatusBanner = (): { banner: ReactNode; visible: boo
             show={showFaceModal}
             onCloseModal={() => setShowFaceModal(false)}
             refetchUserData={() => { /* live onSnapshot keeps userData fresh */ }}
+            mainPhoto={userData?.photos?.[0]}
         />
     );
 
@@ -150,8 +137,17 @@ export const useVerificationStatusBanner = (): { banner: ReactNode; visible: boo
             container: 'bg-[#FDECEC] text-[#F0174B] border-[#F0174B]/15',
             chip: 'bg-[#F0174B]/10',
             icon: <IoMdAlert className="size-[1.6rem]" />,
-            text: 'Your verification wasn’t approved, retake your selfie to start matching',
+            text: userData?.face_verification?.rejection_reason
+                ? `Your verification wasn’t approved: ${userData.face_verification.rejection_reason}`
+                : 'Your verification wasn’t approved, retake your selfie to start matching',
             action: 'Retake',
+        },
+        revoked: {
+            container: 'bg-[#FDECEC] text-[#F0174B] border-[#F0174B]/15',
+            chip: 'bg-[#F0174B]/10',
+            icon: <IoMdAlert className="size-[1.6rem]" />,
+            text: 'Your verified badge was revoked after a profile photo change. Re-verify to like and message again',
+            action: 'Re-verify',
         },
     }[variant];
 

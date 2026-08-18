@@ -1,0 +1,48 @@
+rules_version = '2';
+
+// Whossy Storage rules (pre-launch plan, A6). No rules file existed before
+// this — every authenticated client could read/write any object. NOT YET
+// DEPLOYED, see firestore.rules header for the same caveats.
+//
+// Note on download tokens: `getDownloadURL()` URLs carry their own access
+// token and bypass these rules on subsequent GETs regardless of what's
+// below — that's how a profile photo or a Retool reviewer keeps working
+// off a URL already stored in Firestore even under owner-only `read` here.
+// These rules only govern requests that don't already hold such a token.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Profile photos — need to be visible to other users browsing, so read
+    // is any signed-in user; only the owner can write into their own folder.
+    match /users/{uid}/profile_pictures/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(uid);
+    }
+
+    // Verification selfies — biometric, no legitimate other-user read path.
+    // Retool reviews via the stored download-URL token (see header note),
+    // not a live Storage read, so owner-only here doesn't block review.
+    match /users/{uid}/face_verification/{fileName} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // Chat-message images.
+    match /users/{uid}/chat_images/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(uid);
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -9,7 +9,7 @@ import {useAuthStore} from "@/store/UserId.tsx";
 import {usePhotoStore} from "@/store/PhotoStore.tsx";
 import {useOnboardingStore} from "@/store/OnboardingStore.tsx";
 import toast from "react-hot-toast";
-import {doc, getDoc, Timestamp, updateDoc} from "firebase/firestore";
+import {doc, getDoc, updateDoc} from "firebase/firestore";
 import {db} from "@/firebase";
 import {User} from "@/types/user.ts";
 import Modal from "../ui/Modal";
@@ -18,9 +18,11 @@ import Cat from "../../Cat.json";
 import {captureImage, startCamera} from "@/utils/cameraUtils.ts";
 import {getRandomChallenge, VerificationChallenge} from "@/hooks/useVerificationChallenge.ts";
 import {PoseChallengeCard} from "@/components/ui/PoseChallengeCard.tsx";
+import {buildFaceVerificationSubmission} from "@/utils/verification.ts";
 
 export const TakeASelfie: React.FC<OnboardingProps> = ({ goBack }) => {
 		const [openModal, setOpenModal] = useState(false);
+		const [showSkipConfirm, setShowSkipConfirm] = useState(false);
 		const [challenge, setChallenge] = useState<VerificationChallenge | null>(null);
 
 		const navigate = useNavigate();
@@ -47,6 +49,7 @@ export const TakeASelfie: React.FC<OnboardingProps> = ({ goBack }) => {
 		}, []);
 
 		const handleFaceVerificationSkip = () => {
+				setShowSkipConfirm(false);
 				setOpenModal(true);
 				uploadToFirestore()
 						.catch((e) => {
@@ -68,18 +71,17 @@ export const TakeASelfie: React.FC<OnboardingProps> = ({ goBack }) => {
 						console.log(data['date-of-birth']);
 						const userDocRef = doc(db, "users", auth.uid);
 
-						if(capturedImage){
-								await updateDoc(userDocRef, {
-										face_verification:{
-												retake_photo: false,
-												photo: capturedImage,
-												updated_at: Timestamp.now(),
-												challenge_id: challenge?.id ?? null,
-												challenge_image_url: challenge?.image_url ?? null,
-												status: 'pending_review',
-										}
-								});
-						}
+						await updateDoc(userDocRef, {
+
+								has_completed_onboarding: true,
+								...(capturedImage ? {
+										face_verification: buildFaceVerificationSubmission(
+												capturedImage,
+												challenge,
+												data.photos?.[0] ?? null,
+										)
+								} : {}),
+						});
 
 						toast.success("Account has been created successfully 🚀");
 						resetPhoto();
@@ -107,7 +109,7 @@ export const TakeASelfie: React.FC<OnboardingProps> = ({ goBack }) => {
 		return (
 				<OnboardingPage>
 						<section>
-								<Skip advance={handleFaceVerificationSkip} />
+								<Skip advance={() => setShowSkipConfirm(true)} />
 								<div className={`flex flex-col gap-y-[30px]`}>
 										<div className={`grid gap-y-4`}>
 												<h1 className={`text-[30px] font-neue-montreal font-bold`}>Take a Selfie</h1>
@@ -163,6 +165,31 @@ export const TakeASelfie: React.FC<OnboardingProps> = ({ goBack }) => {
 											</p>
 										</div>
 										<Lottie animationData={Cat} className="h-96" />
+									</div>
+								</Modal>
+						)}
+						{showSkipConfirm && (
+								<Modal>
+									<div className="bg-white w-[47rem] p-8 rounded-2xl text-center flex flex-col relative gap-y-6">
+										<h1 className="text-[2.4rem] font-bold">Skip verification for now?</h1>
+										<p className="text-[1.6rem] text-[#8A8A8E] leading-[130%]">
+												You can still browse Whossy without verifying, but you won't be able to
+												<span className="font-bold text-[#121212]"> like or message anyone </span>
+												until a reviewer approves your photo. You can come back and verify any time
+												from your profile.
+										</p>
+										<div className="flex gap-x-4">
+											<button
+													className="bg-[#F6F6F6] py-[1.3rem] w-full text-[1.6rem] font-bold text-center rounded-lg hover:bg-[#ececec] transition-all duration-300 cursor-pointer"
+													onClick={() => setShowSkipConfirm(false)}>
+												Verify now
+											</button>
+											<button
+													className="bg-gradient-to-br from-orange-400 to-red text-white py-[1.3rem] w-full text-[1.6rem] font-bold text-center rounded-lg hover:opacity-80 transition-all duration-300 cursor-pointer"
+													onClick={handleFaceVerificationSkip}>
+												Skip for now
+											</button>
+										</div>
 									</div>
 								</Modal>
 						)}

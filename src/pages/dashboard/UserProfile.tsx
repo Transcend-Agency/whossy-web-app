@@ -22,6 +22,7 @@ import toast from "react-hot-toast";
 import ProfileCreditButton from "@/components/dashboard/ProfileCreditButton.tsx";
 import ProfileBoostModal from "@/components/dashboard/ProfileBoostModal.tsx";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
+import { deriveVerificationStatus } from "@/utils/verification.ts";
 
 const UserProfile = () => {
     // const [activePage, setActivePage] = useState<'user-profile' | 'edit-profile' | 'add-credits' | 'profile-settings' | 'preferences' | 'safety-guide' | 'interests' | 'user-interests' | 'subscription-plans'>('user-profile');
@@ -134,7 +135,7 @@ const UserProfile = () => {
             <ProfileSettings
                 activePage={activePage == 'profile-settings'} closePage={() => setActivePage('user-profile')}
                 userSettings={{ incoming_messages: userData?.user_settings?.incoming_messages, public_search: userData?.user_settings?.public_search, online_status: userData?.user_settings?.online_status, read_receipts: userData?.user_settings?.read_receipts }}
-                prefetchUserData={refetchUserData} userShouldRetakePhoto={userData?.face_verification?.retake_photo as boolean} />
+                prefetchUserData={refetchUserData} userShouldRetakePhoto={['never_submitted', 'rejected', 'revoked'].includes(deriveVerificationStatus(userData?.face_verification))} />
             <Preferences activePage={activePage == 'preferences'} closePage={() => setActivePage('user-profile')} onInterests={() => setActivePage('interests')} userData={userData} userFilters={userFilters} refetchUserData={refetchUserData} refetchUserFilters={refetchUserFilters} />
             <PreviewProfile activePage={activePage} activeSubPage={activeSubPage} closePage={() => { setActivePage('edit-profile'); setActiveSubPage(0) }} setActiveSubPage={setActiveSubPage} userData={userData} />
             <PreferredInterestsDesktop activePage={activePage == 'interests'} closePage={() => setActivePage('preferences')} onInterests={() => setActivePage('interests')} userFilters={userFilters} refetchUserFilters={refetchUserFilters} />

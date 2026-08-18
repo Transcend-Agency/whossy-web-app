@@ -2,16 +2,19 @@ import {FC, useEffect, useRef, useState} from 'react'
 import {AnimatePresence, motion} from "framer-motion";
 import {captureImage, startCamera} from "@/utils/cameraUtils.ts";
 import toast from "react-hot-toast";
-import {doc, Timestamp, updateDoc} from "firebase/firestore";
+import {doc, updateDoc} from "firebase/firestore";
 import {db} from "@/firebase";
 import {useAuthStore} from "@/store/UserId.tsx";
 import {getRandomChallenge, VerificationChallenge} from "@/hooks/useVerificationChallenge.ts";
 import {PoseChallengeCard} from "@/components/ui/PoseChallengeCard.tsx";
+import {buildFaceVerificationSubmission} from "@/utils/verification.ts";
 
 interface FaceVerificationModalProps {
 		show: boolean
 		onCloseModal: () => void
 		refetchUserData: () => void
+		/** Current main profile photo, snapshotted into the submission the reviewer approves against. */
+		mainPhoto?: string | null
 }
 
 const modalVariants = {
@@ -20,7 +23,7 @@ const modalVariants = {
 		exit: { opacity: 0, }
 };
 
-export const FaceVerificationModal: FC<FaceVerificationModalProps> = ({show, onCloseModal, refetchUserData}) => {
+export const FaceVerificationModal: FC<FaceVerificationModalProps> = ({show, onCloseModal, refetchUserData, mainPhoto}) => {
 		const videoRef = useRef<HTMLVideoElement>(null);
 		const canvasRef = useRef<HTMLCanvasElement>(null);
 		const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -49,14 +52,11 @@ export const FaceVerificationModal: FC<FaceVerificationModalProps> = ({show, onC
 						const userDocRef = doc(db, "users", auth.uid);
 						if(capturedImage){
 								await updateDoc(userDocRef, {
-										face_verification:{
-												retake_photo: false,
-												photo: capturedImage,
-												updated_at: Timestamp.now(),
-												challenge_id: challenge?.id ?? null,
-												challenge_image_url: challenge?.image_url ?? null,
-												status: 'pending_review',
-										}
+										face_verification: buildFaceVerificationSubmission(
+												capturedImage,
+												challenge,
+												mainPhoto,
+										)
 								});
 						}
 

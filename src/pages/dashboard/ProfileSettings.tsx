@@ -148,7 +148,7 @@ const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, user
             <SettingsModal show={showModal == 'logout'} onCloseModal={() => setShowModal('hidden')} onLogout={logout}/>
             <HelpModal show={openModal} onCloseModal={() => setOpenModal(false)} />
             <DeleteAccountModal show={deleteModal} onCloseModal={() => setDeleteModal(false)} onDeleteAccount={deleteAccount} passwordRequired={currentUser?.auth_provider === 'local'} />
-            <FaceVerificationModal show={openFaceVModal} onCloseModal={() => setOpenFaceVModal(false)} refetchUserData={prefetchUserData} />
+            <FaceVerificationModal show={openFaceVModal} onCloseModal={() => setOpenFaceVModal(false)} refetchUserData={prefetchUserData} mainPhoto={currentUser?.photos?.[0]} />
 
             <motion.div animate={activePage ? { x: "-100%", opacity: 1 } : { x: 0 }} transition={{ duration: 0.25 }} className="dashboard-layout__main-app__body__secondary-page edit-profile settings-page z-20">
                 <div className="settings-page__container">

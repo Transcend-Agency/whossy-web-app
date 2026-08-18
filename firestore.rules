@@ -1,0 +1,232 @@
+rules_version = '2';
+
+// Whossy Firestore rules (pre-launch plan, A6).
+//
+// Before this repo had any rules file, every collection was open to any
+// authenticated Firebase client for both read and write — there was no
+// server between the apps and the database. This is the first version;
+// see whossy-pre-launch-plan.md A6 for the inventory and reasoning.
+//
+// NOT YET DEPLOYED. Test against the emulator before `firebase deploy
+// --only firestore:rules` — rules apply instantly and globally with no
+// gradual rollout, and there is no rollback but re-deploying the prior
+// version (which, until now, didn't exist).
+//
+// Known prerequisite: reviewVerification (functions/src/verification.ts)
+// must be wired into Retool BEFORE these rules ship, or Retool's direct
+// writes to face_verification.status/reviewed_by/reviewed_at/is_approved
+// will start failing (see A5). Cloud Functions use the Admin SDK and are
+// exempt from all rules below regardless.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function unchanged(field) {
+      return !(field in request.resource.data) ||
+             (field in resource.data && request.resource.data[field] == resource.data[field]);
+    }
+
+    // A3/A6 — the actual enforcement of the verification gate. Everything
+    // else gating like/message is UI only until this exists.
+    function isVerifiedUser(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.get('is_approved', false) == true;
+    }
+
+    // ---- users/{uid} ---------------------------------------------------
+    //
+    // Broad authenticated read: Explore/Swipe/matching all query across
+    // other users' full docs (geohash, gender, interests, etc.), and the
+    // pre-auth "does this email/phone already exist" checks need it too.
+    // Locking reads down to owner-only would require moving those checks
+    // into a Cloud Function first — flagged, not done here (A6 is scoped
+    // to writes per the plan; this is a follow-up).
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(uid)
+        && request.resource.data.get('is_approved', false) == false
+        && request.resource.data.get('is_banned', false) == false
+        && request.resource.data.get('is_premium', false) == false
+        && request.resource.data.get('credit_balance', 0) == 0
+        && request.resource.data.get('credits_on_hold', 0) == 0
+        && meetsPhotoMinimum();
+
+      // Fields only a Cloud Function (Admin SDK, bypasses rules) may set to
+      // a *more privileged* value: payment/credit state, ban/premium state,
+      // and the reviewer verdict half of face_verification. The client may
+      // still submit a new verification attempt (resets status to
+      // pending_review), self-revoke after changing its main photo (A4 —
+      // strictly a downgrade, never a privilege gain), and edit its own
+      // profile fields.
+      allow update: if isOwner(uid)
+        && unchanged('is_banned')
+        && unchanged('is_premium')
+        && unchanged('credit_balance')
+        && unchanged('credits_on_hold')
+        && unchanged('amount_paid_in_total')
+        && unchanged('paystack')
+        && isApprovedWriteValid()
+        && faceVerificationSubmissionOnly()
+        && meetsPhotoMinimum();
+
+      // The client may only ever flip is_approved to false (A4 self-revoke,
+      // safe because it's a downgrade) or leave it untouched. Only
+      // reviewVerification (Admin SDK) may set it true.
+      function isApprovedWriteValid() {
+        return unchanged('is_approved') || request.resource.data.is_approved == false;
+      }
+
+      // The user may only move face_verification into a fresh
+      // 'pending_review' submission, or self-revoke an existing 'approved'
+      // badge after an A4 main-photo change. Reviewed_by/reviewed_at never
+      // move via client write, and 'approved'/'rejected' are
+      // reviewVerification-only (A5).
+      function faceVerificationSubmissionOnly() {
+        let before = resource.data.get('face_verification', {});
+        let after = request.resource.data.get('face_verification', {});
+        return after == before ||
+          (
+            after.get('reviewed_by', null) == before.get('reviewed_by', null) &&
+            after.get('reviewed_at', null) == before.get('reviewed_at', null) &&
+            (
+              (after.get('status', null) == 'pending_review' && after.get('rejection_reason', null) == null) ||
+              (after.get('status', null) == 'revoked' && before.get('status', null) == 'approved')
+            )
+          );
+      }
+
+      // A2: the photo minimum is a completion invariant, enforced
+      // regardless of which app the write came from.
+      function meetsPhotoMinimum() {
+        return request.resource.data.get('has_completed_onboarding', false) != true ||
+          request.resource.data.get('photos', []).size() >= 2;
+      }
+
+      allow delete: if false; // account deletion goes through a controlled path, not a bare client delete
+
+      match /notifications/{notificationId} {
+        allow read: if isOwner(uid);
+        // Only the `seen` flag may move — creation isn't a client operation
+        // anywhere in the app today (see A6 inventory).
+        allow update: if isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen']);
+        allow create, delete: if false;
+      }
+    }
+
+    // ---- filters/{uid}, advancedSearchPreferences/{uid} ----------------
+    // Owner-only, no sensitive fields.
+    match /filters/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+    match /advancedSearchPreferences/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ---- likes/{likerId_likedId}, dislikes/{dislikerId_dislikedId} -----
+    match /likes/{likeId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.liker_id == request.auth.uid
+        && isVerifiedUser(request.auth.uid);
+      allow update, delete: if false;
+    }
+    match /dislikes/{dislikeId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.disliker_id == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.disliker_id == request.auth.uid;
+      allow update: if false;
+    }
+
+    // ---- matches/{matchId} ----------------------------------------------
+    // Client-computed on a mutual like (no server verification yet — see
+    // A6 inventory flag). At minimum: only one of the two participants can
+    // write it, and nobody can rewrite it after creation.
+    match /matches/{matchId} {
+      allow read: if isSignedIn() &&
+        (resource.data.user1_id == request.auth.uid || resource.data.user2_id == request.auth.uid);
+      allow create: if isSignedIn() &&
+        (request.resource.data.user1_id == request.auth.uid || request.resource.data.user2_id == request.auth.uid);
+      allow update, delete: if false;
+    }
+
+    // ---- chats/{chatId} --------------------------------------------------
+    // credit_status/initiator_id/hold_placed_at/connected_at/credit_held
+    // are exclusively written by the Cloud Functions in
+    // functions/src/index.ts (Reply-Gated Credits) — never by the client,
+    // including at creation.
+    match /chats/{chatId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.participants;
+
+      allow create: if isSignedIn()
+        && request.auth.uid in request.resource.data.participants
+        && request.resource.data.participants.size() == 2
+        && !('credit_status' in request.resource.data)
+        && !('initiator_id' in request.resource.data)
+        && !('hold_placed_at' in request.resource.data)
+        && !('connected_at' in request.resource.data)
+        && !('credit_held' in request.resource.data)
+        && (!('is_unlocked' in request.resource.data) || request.resource.data.is_unlocked == false)
+        && (!('expiration_time' in request.resource.data) || request.resource.data.expiration_time == null);
+
+      allow update: if isSignedIn()
+        && request.auth.uid in resource.data.participants
+        && unchanged('participants')
+        && unchanged('credit_status')
+        && unchanged('initiator_id')
+        && unchanged('hold_placed_at')
+        && unchanged('connected_at')
+        && unchanged('credit_held')
+        && unchanged('expiration_time')
+        && unchanged('is_unlocked')
+        && unchanged('unlock_time');
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow create: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+          && request.resource.data.sender_id == request.auth.uid
+          && isVerifiedUser(request.auth.uid);
+        // Only the recipient may flip a message to 'seen' (read receipt);
+        // only that field may move.
+        allow update: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+          && resource.data.sender_id != request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+        allow delete: if false;
+      }
+    }
+
+    // ---- Challenges/{id} --------------------------------------------------
+    // Verification pose pool — public read, admin-only write (no client
+    // write path exists in either app; managed out-of-band).
+    match /Challenges/{challengeId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ---- userReports/{id}, helpRequests/{id}, deletePicQueue/{uid} -----
+    // Write-only mailboxes for the owner; no legitimate client read path.
+    match /userReports/{reportId} {
+      allow create: if isSignedIn() && request.resource.data.reporterId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+    match /helpRequests/{requestId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+    match /deletePicQueue/{uid} {
+      allow create: if isOwner(uid);
+      allow read, update, delete: if false;
+    }
+  }
+}

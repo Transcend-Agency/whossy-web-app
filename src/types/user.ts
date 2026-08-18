@@ -82,9 +82,13 @@ export type User = {
     updated_at?: Timestamp | Date | null;
     challenge_id?: string | null;
     challenge_image_url?: string | null;
-    status?: 'pending_review' | 'approved' | 'rejected' | null;
+    status?: 'pending_review' | 'approved' | 'rejected' | 'revoked' | null;
     reviewed_by?: string | null;
     reviewed_at?: Timestamp | Date | null;
+    /** Main profile photo at the moment of submission — what the reviewer actually approved against. */
+    profile_photo_snapshot?: string | null;
+    /** Set by the reviewer on rejection so the user knows what to correct. */
+    rejection_reason?: string | null;
   }
   tour_guide?: {
     explore?: boolean;

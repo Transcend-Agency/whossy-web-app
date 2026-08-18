@@ -1,11 +1,11 @@
 import { FC } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { VerificationStatus } from '@/utils/verification';
 
 interface VerificationGateModalProps {
     show: boolean;
-    // True when the user has already submitted a selfie that's awaiting review,
-    // so we tell them to wait rather than offering to submit again.
-    isPending: boolean;
+    status: VerificationStatus;
+    rejectionReason?: string | null;
     onClose: () => void;
     onVerify: () => void;
 }
@@ -21,7 +21,36 @@ const modalVariants = {
  * verification requirement and, unless a review is already pending, offers a
  * button that takes them straight into the selfie-capture flow.
  */
-export const VerificationGateModal: FC<VerificationGateModalProps> = ({ show, isPending, onClose, onVerify }) => {
+const copy: Record<VerificationStatus, { title: string; body: string; cta: string | null }> = {
+    never_submitted: {
+        title: 'Verify it’s really you',
+        body: 'To keep Whossy safe, you need a verified selfie before you can like or message people. It only takes a moment.',
+        cta: 'Take selfie',
+    },
+    awaiting_review: {
+        title: 'Selfie under review',
+        body: 'Your verification selfie is being reviewed. You’ll be able to like and message people once it’s approved.',
+        cta: null,
+    },
+    rejected: {
+        title: 'Verification wasn’t approved',
+        body: 'Your last selfie wasn’t approved — retake it to unlock liking and messaging.',
+        cta: 'Retake selfie',
+    },
+    revoked: {
+        title: 'Re-verification needed',
+        body: 'Your verified badge was revoked after a profile photo change. Verify again to unlock liking and messaging.',
+        cta: 'Take selfie',
+    },
+    approved: {
+        title: 'Verify it’s really you',
+        body: 'To keep Whossy safe, you need a verified selfie before you can like or message people. It only takes a moment.',
+        cta: 'Take selfie',
+    },
+};
+
+export const VerificationGateModal: FC<VerificationGateModalProps> = ({ show, status, rejectionReason, onClose, onVerify }) => {
+    const { title, body, cta } = copy[status];
     return (
         <AnimatePresence mode="wait">
             {show && (
@@ -30,25 +59,21 @@ export const VerificationGateModal: FC<VerificationGateModalProps> = ({ show, is
                         <div className="flex justify-center">
                             <img src="/assets/icons/verified.svg" alt="" className="w-[6rem] h-[6rem]" />
                         </div>
-                        <h1 className="text-[2.6rem] font-bold">
-                            {isPending ? 'Selfie under review' : 'Verify it’s really you'}
-                        </h1>
+                        <h1 className="text-[2.6rem] font-bold">{title}</h1>
                         <p className="text-[1.6rem] text-[#8A8A8E] leading-[140%]">
-                            {isPending
-                                ? 'Your verification selfie is being reviewed. You’ll be able to like and message people once it’s approved.'
-                                : 'To keep Whossy safe, you need a verified selfie before you can like or message people. It only takes a moment.'}
+                            {status === 'rejected' && rejectionReason ? `${body} Reviewer note: ${rejectionReason}` : body}
                         </p>
                         <div className="flex gap-x-4">
                             <button
                                 onClick={onClose}
                                 className="bg-[#F6F6F6] py-[1.3rem] w-full text-[1.6rem] font-bold rounded-lg hover:bg-[#ececec] transition-all duration-300 cursor-pointer">
-                                {isPending ? 'Got it' : 'Not now'}
+                                {cta ? 'Not now' : 'Got it'}
                             </button>
-                            {!isPending && (
+                            {cta && (
                                 <button
                                     onClick={onVerify}
                                     className="bg-gradient-to-br from-orange-400 to-red text-white py-[1.3rem] w-full text-[1.6rem] font-bold rounded-lg hover:opacity-70 transition-all duration-300 whitespace-nowrap cursor-pointer">
-                                    Take selfie
+                                    {cta}
                                 </button>
                             )}
                         </div>

@@ -67,7 +67,10 @@ const ShareASnapshot: FC<OnboardingProps> = ({ advance, goBack }) => {
                 blockedIds: arrayUnion(),
                 credit_balance: 0,
                 is_banned: false,
-                has_completed_onboarding: true,
+                // has_completed_onboarding stays false until TakeASelfie (the last
+                // onboarding step) finishes — otherwise a user who closes the
+                // browser here is marked complete and can never reach the
+                // verification screen through signup again.
                 user_settings: {
                     ...userSettings
                 },

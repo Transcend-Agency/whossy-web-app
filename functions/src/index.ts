@@ -22,6 +22,8 @@ import * as admin from "firebase-admin";
 admin.initializeApp();
 const db = admin.firestore();
 
+export { reviewVerification } from "./verification";
+
 /** Hours the recipient has to reply before the hold is refunded (AC 5.1). */
 const HOLD_WINDOW_HOURS = 48;
 /** Hours of free chatting after the connection (AC 4.1). */

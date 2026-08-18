@@ -414,8 +414,10 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
 
         try {
             if (image.file) {
-                // Upload the image and get the URL
-                imgUrl = await upload(image.file);
+                // Upload the image and get the URL. Scoped per-sender so it
+                // can be secured by a storage rule (A6) — this used to land
+                // in a single flat, unscoped `images/` folder.
+                imgUrl = await upload(image.file, `users/${currentUser.uid}/chat_images`);
 
                 // Update the chat array with the real image URL after the upload is done
                 setChats(prevChats => prevChats.map(chat =>
