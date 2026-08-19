@@ -85,20 +85,25 @@ service cloud.firestore {
 
       // The user may only move face_verification into a fresh
       // 'pending_review' submission, or self-revoke an existing 'approved'
-      // badge after an A4 main-photo change. Reviewed_by/reviewed_at never
-      // move via client write, and 'approved'/'rejected' are
+      // badge after an A4 main-photo change. 'approved'/'rejected' are
       // reviewVerification-only (A5).
       function faceVerificationSubmissionOnly() {
         let before = resource.data.get('face_verification', {});
         let after = request.resource.data.get('face_verification', {});
         return after == before ||
+          // Fresh submission: both clients write the whole face_verification
+          // map (not a dot-path patch), so a resubmission naturally clears
+          // the prior reviewed_by/reviewed_at along with the old photo —
+          // that's correct, a new submission has no verdict yet. Don't
+          // require them unchanged here or every resubmit-after-rejection
+          // would be rejected.
+          (after.get('status', null) == 'pending_review' && after.get('rejection_reason', null) == null) ||
+          // Self-revoke (A4): a targeted status flip, not a resubmission —
+          // reviewed_by/reviewed_at must stay exactly as they were.
           (
+            after.get('status', null) == 'revoked' && before.get('status', null) == 'approved' &&
             after.get('reviewed_by', null) == before.get('reviewed_by', null) &&
-            after.get('reviewed_at', null) == before.get('reviewed_at', null) &&
-            (
-              (after.get('status', null) == 'pending_review' && after.get('rejection_reason', null) == null) ||
-              (after.get('status', null) == 'revoked' && before.get('status', null) == 'approved')
-            )
+            after.get('reviewed_at', null) == before.get('reviewed_at', null)
           );
       }
 

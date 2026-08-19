@@ -86,6 +86,31 @@ test("signup completes fine with 2+ photos", async () => {
   );
 });
 
+test("resubmitting after a rejection is allowed even though it clears reviewed_by/reviewed_at (both clients write the whole map)", async () => {
+  await seedUser("mallory", {
+    ...UNVERIFIED_USER,
+    face_verification: {
+      status: "rejected",
+      photo: "https://example.com/old-selfie.jpg",
+      reviewed_by: "admin-1",
+      reviewed_at: Date.now(),
+      rejection_reason: "blurry",
+    },
+  });
+  const mallory = testEnv.authenticatedContext("mallory").firestore();
+  await assertSucceeds(
+    updateDoc(doc(mallory, "users", "mallory"), {
+      face_verification: {
+        status: "pending_review",
+        photo: "https://example.com/new-selfie.jpg",
+        challenge_id: "c1",
+        challenge_image_url: "https://example.com/pose.jpg",
+        rejection_reason: null,
+      },
+    })
+  );
+});
+
 test("a like from an unverified account is rejected server-side (launch gate)", async () => {
   await seedUser("bob", UNVERIFIED_USER);
   const bob = testEnv.authenticatedContext("bob").firestore();
