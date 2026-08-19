@@ -32,6 +32,7 @@ import {formatFirebaseTimestampToTime, formatServerTimeStamps} from "@/constants
 import {useChatIdStore} from "@/store/ChatStore";
 import {Chat, Messages} from "@/types/chat";
 import {User} from "@/types/user";
+import {isRecentlyOnline} from "@/utils/presence";
 import toast from "react-hot-toast";
 import {useLocation, useNavigate} from "react-router-dom";
 import {useMatchStore} from "@/store/Matches.tsx";
@@ -586,7 +587,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                 <div className="space-y-1">
                                     {recipientDetails.name ? ( <p className="font-bold text-left">{recipientDetails.name}</p> ) : ( <Skeleton width="8rem" height="1.6rem"/>)}
                                     {recipientUser?.user_settings?.online_status ? (
-                                        recipientUser.status?.online ? (
+                                        isRecentlyOnline(recipientUser.status) ? (
                                             <p className="text-[#8A8A8E] text-left font-normal font-sans italic text-[1.5rem]">online</p>
                                         ) : (
                                             <p className="text-[#8A8A8E] font-normal italic text-[1.5rem]">

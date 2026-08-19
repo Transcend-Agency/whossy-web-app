@@ -16,6 +16,7 @@ import useDashboardStore from "@/store/useDashboardStore";
 import useProfileFetcher from "@/hooks/useProfileFetcher";
 import {useMatchStore} from "@/store/Matches.tsx";
 import {isChatWindowActive} from "@/utils/chatCreditState";
+import {isRecentlyOnline} from "@/utils/presence";
 import useSyncPeopleWhoLikedUser from "@/hooks/useSyncPeopleWhoLikedUser.tsx";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
 
@@ -269,7 +270,7 @@ const ChatPage = () => {
                                         <ChatListItem
                                             key={`${chat.last_sender_id}_${currentUserId}_${i}`}
                                             userData={currentUser as User}
-                                            onlineStatus={chat.user?.user_settings?.online_status && chat.user?.status?.online}
+                                            onlineStatus={chat.user?.user_settings?.online_status && isRecentlyOnline(chat.user?.status)}
                                             contactName={chat.user.first_name || "Unknown"}
                                             profileImage={chat.user.photos && chat.user.photos[0]}
                                             chatUnlocked={isChatWindowActive(chat)}

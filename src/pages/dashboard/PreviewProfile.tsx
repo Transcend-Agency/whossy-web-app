@@ -85,6 +85,9 @@ const PreviewProfile: React.FC<PreviewProfileProps> = ({ activePage, closePage, 
                         {/* <div className="bg-red-400 size-[60rem]"></div> */}
                         <div className="preview-profile__profile-details">
                             <div className="status-row">
+                                {/* This is the viewer's own profile preview (Edit Profile → Preview), not
+                                    another user's card — always-active-for-self is correct here, not the
+                                    hardcode C1 fixes elsewhere. See isRecentlyOnline for the real check. */}
                                 <div className="active-badge">Active</div>
                                 <p className="location">~ {userData?.distance} miles away</p>
                             </div>

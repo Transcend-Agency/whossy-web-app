@@ -32,6 +32,7 @@ import {uid} from 'react-uid';
 import Cat from "../../Cat.json";
 import {User} from "@/types/user";
 import {getYearFromFirebaseDate} from "@/utils/date";
+import {isRecentlyOnline} from "@/utils/presence";
 import useSyncUserLikes from "@/hooks/useSyncUserLikes";
 import useSyncUserDislikes from "@/hooks/useSyncUserDislikees";
 import {addMatch} from "@/components/dashboard/ViewProfile.tsx";
@@ -395,7 +396,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                         </div>
                         <div className="preview-profile__profile-details">
                             <div className="status-row">
-                                {item.status?.online && <div className="active-badge">Online</div>}
+                                {isRecentlyOnline(item.status) && <div className="active-badge">Online</div>}
                                 <p className="location">{ !Number.isNaN(distanceBetween) ? `~ ${distanceBetween.toFixed(1)} miles away` : `loading...`}</p>
                             </div>
                             <motion.div animate={expanded ? { marginBottom: '2.8rem' } : { marginBottom: '1.2rem' }} className="name-row">

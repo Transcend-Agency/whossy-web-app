@@ -4,6 +4,7 @@ import {db} from "@/firebase";
 import {User, UserFilters, UserProfile} from "@/types/user.ts";
 import useDashboardStore from "@/store/useDashboardStore.tsx";
 import {useAuthStore} from "@/store/UserId.tsx";
+import {RECENCY_WINDOW_MS} from "@/utils/presence.ts";
 
 function useProfileFetcher() {
 	const { user } = useAuthStore()
@@ -167,7 +168,7 @@ function useProfileFetcher() {
 				fetchQuery = query(q);
 				break;
 			case "Online":
-				fetchQuery = query(q, where("status.online", "==", true));
+				fetchQuery = query(q, where("status.lastSeen", ">=", Date.now() - RECENCY_WINDOW_MS));
 				break;
 			case "Popular in my area":
 				fetchQuery = query(q, where("country_of_origin", "==", user?.country_of_origin));

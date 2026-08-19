@@ -1,11 +1,11 @@
 {
   "name": "whossy-rules-tests",
   "private": true,
-  "description": "Emulator tests for firestore.rules/storage.rules (A6) and the notification Cloud Function triggers (B2). Requires Java for the emulators.",
+  "description": "Emulator tests for firestore.rules/storage.rules (A6) and the notification + presence Cloud Function triggers (B2, C1). Requires Java for the emulators.",
   "scripts": {
     "test": "npm run test:rules && npm run test:triggers",
     "test:rules": "firebase emulators:exec --project whossy-app --only firestore,storage \"node --test rules.test.js\"",
-    "test:triggers": "npm --prefix ../functions run build && firebase emulators:exec --project whossy-app --only firestore,functions \"node --test notifications.test.js\""
+    "test:triggers": "npm --prefix ../functions run build && firebase emulators:exec --project whossy-app --only firestore,functions,database \"node --test notifications.test.js presence.test.js\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.4",
