@@ -40,6 +40,12 @@ async function statusFor(uid) {
   return snap.exists ? snap.data().status ?? null : null;
 }
 
+// See notifications.test.js — without closing the app explicitly, node
+// --test hangs after all tests pass instead of exiting.
+test.after(async () => {
+  await app.delete();
+});
+
 test.beforeEach(async () => {
   const collections = await db.listCollections();
   for (const col of collections) {

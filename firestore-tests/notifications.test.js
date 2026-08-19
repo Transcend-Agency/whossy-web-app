@@ -36,6 +36,15 @@ async function seedUser(uid, data) {
   await db.collection("users").doc(uid).set({ first_name: "Test", photos: [], ...data });
 }
 
+// Without this, the Admin SDK's open gRPC connections keep the event loop
+// alive indefinitely after every assertion has already passed — `node
+// --test` never reports a summary or exits (discovered running this suite
+// for the first time; it had never actually been run before, no Java on
+// the machine that wrote it).
+test.after(async () => {
+  await app.delete();
+});
+
 test.beforeEach(async () => {
   // Emulator-only project — clearing the whole thing between tests is safe.
   const collections = await db.listCollections();

@@ -36,6 +36,12 @@ async function seedUser(uid, data = {}) {
   await db.collection("users").doc(uid).set({ first_name: "Test", photos: [], ...data });
 }
 
+// See notifications.test.js — without closing the app explicitly, node
+// --test hangs after all tests pass instead of exiting.
+test.after(async () => {
+  await app.delete();
+});
+
 test.beforeEach(async () => {
   const collections = await db.listCollections();
   for (const col of collections) {
@@ -79,11 +85,14 @@ test("pruning removes contributions older than 30 days and decrements the score"
   // The Functions emulator exposes onSchedule functions as a manually
   // invokable HTTPS endpoint precisely for this (see Firebase's "Trigger
   // scheduled functions" docs) — this actually runs prunePopularityScores
-  // rather than just asserting the query it's built on.
+  // rather than just asserting the query it's built on. The emulator
+  // registers scheduled/background triggers with a "-0" instance suffix
+  // (confirmed via its own 404 error listing valid function names) — HTTP
+  // callables like reviewVerification/initiateChat don't get one.
   const functionsHost = process.env.FIREBASE_FUNCTIONS_EMULATOR_HOST || "127.0.0.1:5001";
   const region = process.env.FUNCTIONS_REGION || "us-central1";
   const res = await fetch(
-    `http://${functionsHost}/${process.env.GCLOUD_PROJECT}/${region}/prunePopularityScores`,
+    `http://${functionsHost}/${process.env.GCLOUD_PROJECT}/${region}/prunePopularityScores-0`,
     { method: "POST" }
   );
   assert.ok(res.ok, `manual trigger failed: ${res.status} ${await res.text()}`);

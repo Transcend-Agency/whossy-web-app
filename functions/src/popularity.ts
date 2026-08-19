@@ -18,8 +18,13 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { logger } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
 // Lazy — see the comment in notifications.ts. Same init-order reasoning.
+// Timestamp/FieldValue are imported directly rather than via
+// admin.firestore.X for the same reason — confirmed the hard way here:
+// admin.firestore.Timestamp was undefined at call time in the emulator,
+// throwing "Cannot read properties of undefined (reading 'now')".
 const db = () => admin.firestore();
 
 const POPULARITY_WINDOW_DAYS = 30;
@@ -44,8 +49,8 @@ export const incrementPopularityOnLike = onDocumentCreated("likes/{likeId}", asy
       // retry is a harmless no-op rather than a second increment.
       if (ledgerSnap.exists) return;
 
-      tx.set(ledgerRef, { timestamp: admin.firestore.Timestamp.now() });
-      tx.set(userRef, { popularity_score_30d: admin.firestore.FieldValue.increment(1) }, { merge: true });
+      tx.set(ledgerRef, { timestamp: Timestamp.now() });
+      tx.set(userRef, { popularity_score_30d: FieldValue.increment(1) }, { merge: true });
     });
   } catch (err) {
     logger.error(`incrementPopularityOnLike: failed for like ${likeId} → ${likedId}`, err);
@@ -57,7 +62,7 @@ export const incrementPopularityOnLike = onDocumentCreated("likes/{likeId}", asy
  * score, same shape as releaseExpiredHolds's batch-and-transact pattern.
  */
 export const prunePopularityScores = onSchedule("every 24 hours", async () => {
-  const cutoff = admin.firestore.Timestamp.fromMillis(
+  const cutoff = Timestamp.fromMillis(
     Date.now() - POPULARITY_WINDOW_DAYS * 24 * 60 * 60 * 1000
   );
 

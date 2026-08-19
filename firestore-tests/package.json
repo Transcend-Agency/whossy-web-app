@@ -5,7 +5,7 @@
   "scripts": {
     "test": "npm run test:rules && npm run test:triggers",
     "test:rules": "firebase emulators:exec --project whossy-app --only firestore,storage \"node --test rules.test.js\"",
-    "test:triggers": "npm --prefix ../functions run build && firebase emulators:exec --project whossy-app --only firestore,functions,database \"node --test notifications.test.js presence.test.js popularity.test.js pagination.test.js\""
+    "test:triggers": "npm --prefix ../functions run build && firebase emulators:exec --project whossy-app --only firestore,functions,database \"node --test --test-concurrency=1 notifications.test.js presence.test.js popularity.test.js pagination.test.js\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.4",

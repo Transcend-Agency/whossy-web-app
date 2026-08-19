@@ -20,6 +20,12 @@ const db = app.firestore();
 
 const PAGE_SIZE = 24;
 
+// See notifications.test.js — without closing the app explicitly, node
+// --test hangs after all tests pass instead of exiting.
+test.after(async () => {
+  await app.delete();
+});
+
 test.beforeEach(async () => {
   const collections = await db.listCollections();
   for (const col of collections) {
