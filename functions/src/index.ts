@@ -32,6 +32,7 @@ export {
   notifyOnVerificationDecision,
 } from "./notifications";
 export { mirrorPresenceToFirestore } from "./presence";
+export { incrementPopularityOnLike, prunePopularityScores } from "./popularity";
 
 /** Hours the recipient has to reply before the hold is refunded (AC 5.1). */
 const HOLD_WINDOW_HOURS = 48;

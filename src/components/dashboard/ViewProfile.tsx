@@ -6,7 +6,8 @@ import { useMatchStore } from "@/store/Matches.tsx";
 import useDashboardStore from "@/store/useDashboardStore.tsx";
 import { useAuthStore } from '@/store/UserId';
 import { User } from '@/types/user';
-import { getYearFromFirebaseDate } from '@/utils/date';
+import { calculateAge } from '@/utils/age';
+import { distanceInMiles } from '@/utils/distance';
 import { isRecentlyOnline } from '@/utils/presence';
 import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { motion, useAnimationControls } from 'framer-motion';
@@ -336,12 +337,13 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                                             <div className="non-active-badge">{'Offline'}</div>
                                         )) : null
                                     }
-                                    {userData.location && user?.location &&
-                                        <p className="location">~ {userData.distance}</p>}
+                                    {typeof user?.latitude === 'number' && typeof user?.longitude === 'number' &&
+                                        typeof userData.latitude === 'number' && typeof userData.longitude === 'number' &&
+                                        <p className="location">~ {distanceInMiles([user.latitude, user.longitude], [userData.latitude, userData.longitude]).toFixed(1)} mi away</p>}
                                 </div>
                                 <motion.div initial={{ marginBottom: '2.8rem' }} className="name-row">
                                     <div className="left">
-                                        <p className="details">{userData.first_name}, <span className="age">{(new Date()).getFullYear() - getYearFromFirebaseDate(userData.date_of_birth)}</span></p>
+                                        <p className="details">{userData.first_name}, <span className="age">{calculateAge(userData.date_of_birth) ?? ''}</span></p>
                                         {userData.is_approved && <img src="/assets/icons/verified.svg" />}
                                     </div>
                                     {/* <AnimatePresence>

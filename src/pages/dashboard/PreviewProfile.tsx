@@ -2,7 +2,7 @@ import { family_goal, preference } from "@/constants";
 import { User } from "@/types/user";
 import { AnimatePresence, motion } from "framer-motion";
 import React, { useRef, useState } from "react";
-import {getYearFromFirebaseDate} from "@/utils/date.ts";
+import {calculateAge} from "@/utils/age.ts";
 
 interface PreviewProfileProps {
     activePage: string;
@@ -89,11 +89,14 @@ const PreviewProfile: React.FC<PreviewProfileProps> = ({ activePage, closePage, 
                                     another user's card — always-active-for-self is correct here, not the
                                     hardcode C1 fixes elsewhere. See isRecentlyOnline for the real check. */}
                                 <div className="active-badge">Active</div>
-                                <p className="location">~ {userData?.distance} miles away</p>
+                                {/* No distance line here — this is the viewer's own preview, and
+                                    "distance from yourself" is always 0 and not useful to show
+                                    (mobile's equivalent, EditProfileData.distance, is null for the
+                                    same reason). */}
                             </div>
                             <motion.div animate={expanded ? { marginBottom: '2.8rem' } : { marginBottom: '1.2rem' }} className="name-row">
                                 <div className="left">
-                                    <p className="details">{userData?.first_name}, <span className="age">{userData?.date_of_birth ? (new Date()).getFullYear() - getYearFromFirebaseDate(userData.date_of_birth) : 'NIL'}</span></p>
+                                    <p className="details">{userData?.first_name}, <span className="age">{calculateAge(userData?.date_of_birth) ?? 'NIL'}</span></p>
                                     <img src="/assets/icons/verified.svg" alt={``} />
                                 </div>
                                 <AnimatePresence>

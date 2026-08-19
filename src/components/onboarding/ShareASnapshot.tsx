@@ -1,5 +1,5 @@
 import { FC, useEffect } from "react";
-import {arrayUnion, doc, setDoc, Timestamp, updateDoc} from "firebase/firestore";
+import {arrayUnion, doc, setDoc, updateDoc} from "firebase/firestore";
 import { db } from "@/firebase";
 import { useOnboardingStore } from "@/store/OnboardingStore";
 import { PictureData, usePhotoStore } from "@/store/PhotoStore";
@@ -63,7 +63,10 @@ const ShareASnapshot: FC<OnboardingProps> = ({ advance, goBack }) => {
                     updated_at: null
                 },
                 paystack: {},
-                created_at: Timestamp.now(),
+                // created_at is set once at account creation (CreateAccount.tsx /
+                // Login.tsx) and must never move — the "New members" filter (C2)
+                // depends on it reflecting real signup date, not "reached this
+                // onboarding step".
                 blockedIds: arrayUnion(),
                 credit_balance: 0,
                 is_banned: false,

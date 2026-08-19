@@ -5,14 +5,15 @@ import {
     arrayRemove, arrayUnion,
     collection,
     doc,
-    endAt,
     GeoPoint,
     getDoc,
     getDocs,
+    limit,
     orderBy,
     query,
+    QueryDocumentSnapshot,
     setDoc,
-    startAt, updateDoc, deleteDoc,
+    startAfter, updateDoc, deleteDoc,
     where
 } from "firebase/firestore";
 import {
@@ -24,15 +25,17 @@ import {
     useMotionValue,
     useTransform
 } from 'framer-motion';
-import {distanceBetween, geohashForLocation, geohashQueryBounds} from 'geofire-common';
+import {geohashForLocation} from 'geofire-common';
 import Lottie from "lottie-react";
 import React, {Dispatch, SetStateAction, useCallback, useEffect, useRef, useState} from "react";
 import {useNavigate} from "react-router-dom";
 import {uid} from 'react-uid';
 import Cat from "../../Cat.json";
 import {User} from "@/types/user";
-import {getYearFromFirebaseDate} from "@/utils/date";
+import {calculateAge} from "@/utils/age";
+import {distanceInMiles} from "@/utils/distance";
 import {isRecentlyOnline} from "@/utils/presence";
+import DiscoveryStateMessage from "@/components/dashboard/DiscoveryStateMessage";
 import useSyncUserLikes from "@/hooks/useSyncUserLikes";
 import useSyncUserDislikes from "@/hooks/useSyncUserDislikees";
 import {addMatch} from "@/components/dashboard/ViewProfile.tsx";
@@ -135,33 +138,13 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
         }
     }
 
-    function degreesToRadians(degrees: number): number {
-        return degrees * (Math.PI / 180);
-    }
-
-    function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-        // Radius of the Earth in kilometers (use 3958.8 for miles)
-        const R = 6371.0;
-
-        // Convert latitude and longitude from degrees to radians
-        const lat1Rad = degreesToRadians(lat1);
-        const lon1Rad = degreesToRadians(lon1);
-        const lat2Rad = degreesToRadians(lat2);
-        const lon2Rad = degreesToRadians(lon2);
-
-        // Haversine formula
-        const dLat = lat2Rad - lat1Rad;
-        const dLon = lon2Rad - lon1Rad;
-
-        const a = Math.sin(dLat / 2) ** 2 +
-            Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.sin(dLon / 2) ** 2;
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-        // Distance in kilometers
-        return R * c;
-    }
-
-    const distanceBetween: number = haversineDistance(loggedUserData?.latitude as number, loggedUserData?.longitude as number, item.latitude as number, item.longitude as number);
+    // C3: this used to compute real kilometres (haversineDistance) but label
+    // them "miles" — distanceInMiles is the actual unit shown everywhere else.
+    const distanceAwayInMiles: number | null =
+        typeof loggedUserData?.latitude === 'number' && typeof loggedUserData?.longitude === 'number' &&
+        typeof item.latitude === 'number' && typeof item.longitude === 'number'
+            ? distanceInMiles([loggedUserData.latitude, loggedUserData.longitude], [item.latitude, item.longitude])
+            : null;
 
 
     x.on("change", latest => {
@@ -397,12 +380,11 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                         <div className="preview-profile__profile-details">
                             <div className="status-row">
                                 {isRecentlyOnline(item.status) && <div className="active-badge">Online</div>}
-                                <p className="location">{ !Number.isNaN(distanceBetween) ? `~ ${distanceBetween.toFixed(1)} miles away` : `loading...`}</p>
+                                <p className="location">{distanceAwayInMiles != null ? `~ ${distanceAwayInMiles.toFixed(1)} miles away` : `loading...`}</p>
                             </div>
                             <motion.div animate={expanded ? { marginBottom: '2.8rem' } : { marginBottom: '1.2rem' }} className="name-row">
                                 <div className="left">
-                                    <p className="details">{item?.first_name}, <span className="age">{(new Date()).getFullYear() - (getYearFromFirebaseDate(item?.date_of_birth) as number)}</span></p>
-                                    {/* <p className="details">{userData?.first_name}, <span className="age">{item?.date_of_birth ? (new Date()).getFullYear() - getYearFromFirebaseDate(item.date_of_birth) : 'NIL'}</span></p> */}
+                                    <p className="details">{item?.first_name}, <span className="age">{calculateAge(item?.date_of_birth) ?? ''}</span></p>
                                     <img src="/assets/icons/verified.svg" alt={``}/>
                                 </div>
                                 <AnimatePresence>
@@ -650,86 +632,110 @@ const SwipingAndMatching = () => {
     })
 
     const [profilesLoading, setProfilesLoading] = useState(true)
+    // C4 — a failed fetch used to be caught only at the call site
+    // (`.catch(console.log)`), so profilesLoading never reset and the deck
+    // could spin forever with no indication anything went wrong.
+    const [profilesError, setProfilesError] = useState<string | null>(null)
+    // C5 — cursor pagination (see also useProfileFetcher.tsx's Explore
+    // equivalent). Ordered by created_at since C6 removed the geohash bound
+    // this used to piggyback its ordering on.
+    const [profilesCursor, setProfilesCursor] = useState<QueryDocumentSnapshot | null>(null)
+    const [hasMoreProfiles, setHasMoreProfiles] = useState(true)
+    const [fetchingMoreProfiles, setFetchingMoreProfiles] = useState(false)
+    const PROFILES_PAGE_SIZE = 20;
 
-    const fetchUsersWithinSpecifiedRadius = async () => {
-        setProfilesLoading(true);
+    const fetchDiscoverableProfiles = async (reset: boolean) => {
+        if (reset) {
+            setProfilesLoading(true);
+            setProfilesCursor(null);
+            setHasMoreProfiles(true);
+        } else {
+            if (!hasMoreProfiles || fetchingMoreProfiles) return;
+            setFetchingMoreProfiles(true);
+        }
+        setProfilesError(null);
 
         if (!user || !loggedUserData) {
             console.error("User is not defined.");
             setProfilesLoading(false);
+            setFetchingMoreProfiles(false);
             return;
         }
 
-        const center = [loggedUserData.latitude as number, loggedUserData.longitude as number]
-        const radiusInM = (user.distance as number) * 1000;
+        try {
+            const usersCollection = collection(db, 'users');
+            const baseQuery = query(usersCollection, where("has_completed_onboarding", "==", true));
 
-        // Each item in 'bounds' represents a startAt/endAt pair. We have to issue
-        // a separate query for each pair. There can be up to 9 pairs of bounds
-        // depending on overlap, but in most cases there are 4.
-        // @ts-expect-error legacy type mismatch
-        const bounds = geohashQueryBounds(center, radiusInM);
+            // Add gender-specific filtering
+            let finalQuery;
+            const userGender = user.gender;
 
-        const usersCollection = collection(db, 'users');
-        const baseQuery = query(usersCollection, where("has_completed_onboarding", "==", true));
+            if (user.meet === 2) {
+                finalQuery = query(baseQuery, where("meet", "in", [2, userGender === "Male" ? 0 : 1]));
+            } else if (user.meet === 0 || user.meet === 1) {
+                const targetGender = user.meet === 0 ? "Male" : "Female";
+                finalQuery = query(baseQuery, where("gender", "==", targetGender));
+            } else {
+                throw new Error("Invalid meet value provided.");
+            }
 
-        // Add gender-specific filtering
-        let finalQuery;
-        const userGender = user.gender;
+            // C6: no geohash/radius bound — reach is unlimited by default, the
+            // distance preference only ranks results (below), never excludes.
+            finalQuery = query(finalQuery, orderBy('created_at'), limit(PROFILES_PAGE_SIZE));
+            if (!reset && profilesCursor) {
+                finalQuery = query(finalQuery, startAfter(profilesCursor));
+            }
 
-        if (user.meet === 2) {
-            finalQuery = query(baseQuery, where("meet", "in", [2, userGender === "Male" ? 0 : 1]));
-        } else if (user.meet === 0 || user.meet === 1) {
-            const targetGender = user.meet === 0 ? "Male" : "Female";
-            finalQuery = query(baseQuery, where("gender", "==", targetGender));
-        } else {
-            console.error("Invalid meet value provided.");
-            setProfilesLoading(false);
-            return;
-        }
+            const snapshot = await getDocs(finalQuery);
+            setHasMoreProfiles(snapshot.docs.length === PROFILES_PAGE_SIZE);
+            setProfilesCursor(snapshot.docs[snapshot.docs.length - 1] ?? null);
 
-        // Issue geohash queries for each bound
-        const promises = [];
-        for (const b of bounds) {
-            const geoQuery = query(finalQuery, orderBy('geohash'), startAt(b[0]), endAt(b[1]));
-            promises.push(getDocs(geoQuery));
-        }
+            const center: [number, number] | null =
+                typeof loggedUserData.latitude === 'number' && typeof loggedUserData.longitude === 'number'
+                    ? [loggedUserData.latitude, loggedUserData.longitude]
+                    : null;
 
-        const snapshots = await Promise.all(promises);
-        const matchingDocs = [];
-
-        for (const snap of snapshots) {
-            for (const doc of snap.docs
+            const page: { profile: User; distanceMiles: number | null }[] = [];
+            for (const doc of snapshot.docs
                 .filter(doc => doc.get('is_banned') !== true)
                 .filter(doc => doc.get('is_approved') === true)
                 .filter(doc => {
                     const userSettings = doc.get('user_settings');
                     return userSettings && userSettings.public_search === true;
                 })
-                .filter(doc =>
-                typeof doc.get('latitude') === 'number' &&
-                typeof doc.get('longitude') === 'number'
-            )) {
-                const lat = doc.get('latitude') as number;
-                const lng = doc.get('longitude') as number;
-                // @ts-expect-error legacy type mismatch
-                const distanceInKm = distanceBetween([lat, lng], center);
-                const distanceInM = distanceInKm * 1000;
-
-                // Apply geolocation and additional filters
+            ) {
                 const docData = doc.data() as User;
                 if (
-                    distanceInM <= radiusInM &&
                     userLikes.every(like => like.liked_id !== docData.uid) &&
                     userDislikes.every(dislike => dislike.disliked_id !== docData.uid) &&
                     !blockedUsers.includes(docData.uid as string) &&
                     docData.uid !== user.uid
                 ) {
-                    matchingDocs.push(docData);
+                    const lat = doc.get('latitude');
+                    const lng = doc.get('longitude');
+                    const distanceMiles = center && typeof lat === 'number' && typeof lng === 'number'
+                        ? distanceInMiles(center, [lat, lng])
+                        : null;
+                    page.push({ profile: docData, distanceMiles });
                 }
             }
+            // Nearer-first within the page (C6: a ranking signal, not a cut —
+            // profiles with unknown coordinates aren't excluded, just sorted
+            // after ones we can rank). Sorting is per-page rather than global
+            // across the whole result set, since the server-side cursor orders
+            // by created_at, not distance.
+            page.sort((a, b) => (a.distanceMiles ?? Infinity) - (b.distanceMiles ?? Infinity));
+            const newProfiles = page.map(p => p.profile);
+
+            setProfiles(prev => reset ? newProfiles : [...prev, ...newProfiles]);
+        } catch (error) {
+            console.error("Error fetching profiles:", error);
+            setProfilesError(error instanceof Error ? error.message : "Something went wrong loading profiles.");
+            if (reset) setProfiles([]);
+        } finally {
+            setProfilesLoading(false);
+            setFetchingMoreProfiles(false);
         }
-        setProfilesLoading(false);
-        setProfiles(matchingDocs);
     };
 
     const saveUserLocationToFirebase = async (latitude: number, longitude: number) => {
@@ -764,9 +770,17 @@ const SwipingAndMatching = () => {
 
     useEffect(() => {
         if (profilesLoading && !likesLoading && !dislikesLoading) {
-            fetchUsersWithinSpecifiedRadius().catch(err => console.log(err))
+            fetchDiscoverableProfiles(true).catch((err: unknown) => console.log(err))
         }
     }, [profilesLoading, dislikesLoading, likesLoading])
+
+    // C5 — top up the deck before it runs dry rather than waiting for it to
+    // hit zero and show an empty state the user could otherwise never escape.
+    useEffect(() => {
+        if (!profilesLoading && hasMoreProfiles && !fetchingMoreProfiles && profiles.length > 0 && profiles.length <= 3) {
+            fetchDiscoverableProfiles(false).catch((err: unknown) => console.log(err))
+        }
+    }, [profiles.length, profilesLoading, hasMoreProfiles, fetchingMoreProfiles])
 
     useEffect(() => {
         if (navigator.geolocation) {
@@ -834,13 +848,25 @@ const SwipingAndMatching = () => {
             </motion.div>
             }
 
-            {!profilesLoading && profiles.length === 0 &&
+            {!profilesLoading && profilesError &&
+                <motion.div initial={{opacity: 0}} animate={{opacity: 1}}
+                            className="w-full h-full flex items-center justify-center flex-col dashboard-layout__main-app__body">
+                    <DiscoveryStateMessage
+                        title="Couldn't load profiles"
+                        subtitle={profilesError}
+                        actionLabel="Try again"
+                        onAction={() => fetchDiscoverableProfiles(true).catch((err: unknown) => console.log(err))}
+                    />
+                </motion.div>
+            }
+
+            {!profilesLoading && !profilesError && profiles.length === 0 &&
                 <motion.div initial={{opacity: 0}} animate={{opacity: 1}}
                             className="w-full h-full flex items-center justify-center flex-col dashboard-layout__main-app__body">
                     <motion.div initial={{opacity: 0}} animate={{opacity: 1, scale: 1}} transition={{duration: 0.15}}
                                 key={'empty-state'} exit={{opacity: 0}} className="matches-page__empty-state">
                         <img className="" src="/assets/icons/like-empty-state.png" alt={``}/>
-                        <p className="matches-page__empty-state-text">No New Profiles Within Your Area</p>
+                        <p className="matches-page__empty-state-text">No New Profiles Right Now</p>
                         </motion.div>
                     </motion.div>
                 }

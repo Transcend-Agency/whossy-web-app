@@ -1,5 +1,5 @@
 import { User } from '@/types/user';
-import { getYearFromFirebaseDate } from '@/utils/date';
+import { calculateAge } from '@/utils/age';
 import React, {useEffect} from 'react';
 import { LazyLoadImage } from 'react-lazy-load-image-component';
 import 'react-lazy-load-image-component/src/effects/opacity.css';
@@ -71,7 +71,7 @@ export const MatchItem: React.FC<MatchesProps> = ({ userData, isLazyLoaded}) => 
                                 : ''}
                               {userData?.date_of_birth ? ',' : ''}
                           </span>{userData?.date_of_birth && (
-                                <span className='age'>{(new Date()).getFullYear() - getYearFromFirebaseDate(userData.date_of_birth)}</span>
+                                <span className='age'>{calculateAge(userData.date_of_birth) ?? ''}</span>
                             )}{userData?.is_approved && <img src="/assets/icons/verified.svg" alt=""/>}
                         </div>
 

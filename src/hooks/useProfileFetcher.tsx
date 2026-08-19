@@ -1,14 +1,28 @@
-import {useCallback} from "react";
-import {collection, doc, getDoc, getDocs, query, Query, Timestamp, where} from "firebase/firestore";
+import {useCallback, useRef, useState} from "react";
+import {collection, doc, getDoc, getDocs, limit, orderBy, query, Query, QueryDocumentSnapshot, startAfter, Timestamp, where} from "firebase/firestore";
 import {db} from "@/firebase";
 import {User, UserFilters, UserProfile} from "@/types/user.ts";
 import useDashboardStore from "@/store/useDashboardStore.tsx";
 import {useAuthStore} from "@/store/UserId.tsx";
 import {RECENCY_WINDOW_MS} from "@/utils/presence.ts";
+import {NEW_MEMBER_WINDOW_DAYS, DEFAULT_DISCOVERY_RADIUS_MILES} from "@/constants";
+import {milesToKm} from "@/utils/units.ts";
+import {fetchProfilesWithinRadius} from "@/utils/geoProfiles.ts";
+
+// C5 — Discover/Online/New members/Looking to date are simple where()-only
+// queries and paginate cleanly with a cursor. Similar interest, Advanced
+// Search, Outside my country and Popular in my area all re-sort or
+// client-filter the result set, which doesn't compose with a server cursor
+// without a lot more machinery — they get one generous page instead of true
+// "load more" for now (capped, not silently unbounded).
+const PROFILES_PAGE_SIZE = 24;
+const UNPAGINATED_BRANCH_LIMIT = 60;
 
 function useProfileFetcher() {
 	const { user } = useAuthStore()
-	const { blockedUsers, setBlockedUsers, setProfiles , selectedOption, setExploreDataLoading, advancedSearchPreferences} = useDashboardStore()
+	const { profiles, blockedUsers, setBlockedUsers, setProfiles, selectedOption, setExploreDataLoading, setExploreError, setExploreEmptyReason, hasMoreProfiles, setHasMoreProfiles, advancedSearchPreferences} = useDashboardStore()
+	const cursorRef = useRef<QueryDocumentSnapshot | null>(null);
+	const [loadingMoreProfiles, setLoadingMoreProfiles] = useState(false);
 
 	const calculateDOBRange = (minAge: number, maxAge: number) => {
 		const today = new Date();
@@ -42,42 +56,50 @@ function useProfileFetcher() {
 		return userData.filter(u => !blockedUsers.includes(u.uid as string) && u.uid !== user?.uid);
 	};
 
-	const fetchBlockedAndFilteredProfiles = async (queryParam: Query) => {
-		try {
+	const fetchBlockedAndFilteredProfiles = async (queryParam: Query, options: { append?: boolean, paginated?: boolean } = {}) => {
+		const { append = false, paginated = false } = options;
+		if (append) {
+			setLoadingMoreProfiles(true);
+		} else {
 			setExploreDataLoading(true);
-			let data
+			cursorRef.current = null;
+			setHasMoreProfiles(false);
+		}
+		setExploreError(null);
+		setExploreEmptyReason(null);
+		try {
+			let data: UserProfile[]
+			let nextCursor: QueryDocumentSnapshot | null = null;
 			if (!user?.uid) return [];
 			const userRef = doc(db, "users", user.uid);
 			const userDoc = await getDoc(userRef);
 			const userInfo = userDoc.exists() ? userDoc.data() : {};
-			const userInterest = userInfo.interests || []
+			const userInterest: string[] = userInfo.interests || []
+			const interestsFilter: boolean = userInterest.length > 0;
 
-			const interestsFilter: boolean = userInterest && userInterest.length > 0;
+			if (selectedOption === "Similar interest") {
+				if (!interestsFilter) {
+					// Falling through to an unfiltered query here used to silently
+					// show everyone under a filter labeled "Similar interest" — tell
+					// the viewer why instead.
+					setExploreEmptyReason("no-interests");
+					data = [];
+				} else {
+					const querySnapshot = await getDocs(query(getUsers(user), where("interests", "array-contains-any", userInterest), limit(UNPAGINATED_BRANCH_LIMIT)))
+					const matched = querySnapshot.docs.map(doc => doc.data() as UserFilters)
 
-			let querySnapshot = await getDocs(queryParam);
-			let userData = querySnapshot.docs.map(doc => doc.data() as User);
-
-			if (selectedOption === "Similar interest" && interestsFilter) {
-				const currentUserInterests2 = userInterest || [];
-				const initialQuery = getUsers(user)
-				querySnapshot = await getDocs(query(initialQuery, where("interests", "array-contains-any", userInterest || [])))
-				userData = querySnapshot.docs.map(doc => doc.data() as UserProfile)
-
-				data = userData.sort((a , b) => {
-					const interestsA = (a as UserFilters).interests || [];
-					const interestsB = (b as UserFilters).interests || [];
-
-					const sharedInterestsA = currentUserInterests2.filter((interest: string) => interestsA.includes(interest)).length;
-					const sharedInterestsB = currentUserInterests2.filter((interest: string) => interestsB.includes(interest)).length;
-
-					return sharedInterestsB - sharedInterestsA;
-				});
+					data = matched.sort((a, b) => {
+						const interestsA = a.interests || [];
+						const interestsB = b.interests || [];
+						const sharedA = userInterest.filter((interest) => interestsA.includes(interest)).length;
+						const sharedB = userInterest.filter((interest) => interestsB.includes(interest)).length;
+						return sharedB - sharedA;
+					});
+				}
 			} else if (selectedOption === "Advanced Search") {
 				let q = getUsers(user)
-				console.log("Advanced Search Preferences:", advancedSearchPreferences);
 
 				if (advancedSearchPreferences.gender) {
-					console.log("Filtering by gender:", advancedSearchPreferences.gender);
 					q = query(q, where("gender", "==", advancedSearchPreferences.gender));
 				}
 
@@ -88,34 +110,70 @@ function useProfileFetcher() {
 				}
 
 				if (advancedSearchPreferences.country) {
-					console.log("Filtering by country:", advancedSearchPreferences.country);
 					q = query(q, where("country", "==", advancedSearchPreferences.country));
 				}
 
-				if (advancedSearchPreferences.relationship_preference) {
-					console.log("Filtering by relationship preference:", advancedSearchPreferences.relationship_preference);
+				// `relationship_preference`/`religion` are enum indices where 0 is
+				// a real, meaningful first option — a truthiness check silently
+				// dropped the filter whenever someone chose it. Check for
+				// "unset" explicitly instead.
+				if (advancedSearchPreferences.relationship_preference != null) {
 					q = query(q, where("preference", "==", advancedSearchPreferences.relationship_preference));
 				}
 
-				if (advancedSearchPreferences.religion) {
-					console.log("Filtering by Religion:", advancedSearchPreferences.religion);
+				if (advancedSearchPreferences.religion != null) {
 					q = query(q, where("religion", "==", advancedSearchPreferences.religion));
 				}
 
-				try {
-					const querySnapshot = await getDocs(q);
-					data = querySnapshot.docs.map((doc) => doc.data() as UserProfile);
-					console.log("Advanced Search results:", data);
-				} catch (error) {
-					console.error("Error fetching Advanced Search results:", error);
+				const querySnapshot = await getDocs(query(q, limit(UNPAGINATED_BRANCH_LIMIT)));
+				data = querySnapshot.docs.map((doc) => doc.data() as UserProfile);
+			} else if (selectedOption === "Outside my country") {
+				const querySnapshot = await getDocs(query(queryParam, limit(UNPAGINATED_BRANCH_LIMIT)));
+				const userData = querySnapshot.docs.map(doc => doc.data() as User);
+				// Firestore's `!=` excludes documents where the field is missing
+				// entirely, so a profile with no country recorded used to vanish
+				// from this filter instead of counting as "outside". Filtering
+				// client-side treats "missing" the same as "different".
+				data = userData.filter(u => u.country_of_origin !== user?.country_of_origin);
+			} else if (selectedOption === "Popular in my area") {
+				// A real area bound (the viewer's saved search radius) and a real
+				// popularity signal (functions/src/popularity.ts's rolling 30-day
+				// like count) — this used to just re-run the "same country" query
+				// under a different label.
+				if (typeof user?.latitude !== "number" || typeof user?.longitude !== "number") {
+					data = [];
+				} else {
+					const radiusKm = milesToKm(user.distance ?? DEFAULT_DISCOVERY_RADIUS_MILES);
+					const results = await fetchProfilesWithinRadius(getUsers(user), [user.latitude, user.longitude], radiusKm);
+					data = results
+						.sort((a, b) => (b.profile.popularity_score_30d ?? 0) - (a.profile.popularity_score_30d ?? 0) || a.distanceKm - b.distanceKm)
+						.map(r => r.profile);
 				}
-			} else { data = userData }
+			} else {
+				// Discover / Online / New members / Looking to date — plain
+				// where()-only queries, paginate cleanly with a cursor.
+				let pagedQuery = paginated ? query(queryParam, limit(PROFILES_PAGE_SIZE)) : queryParam;
+				if (paginated && append && cursorRef.current) {
+					pagedQuery = query(queryParam, startAfter(cursorRef.current), limit(PROFILES_PAGE_SIZE));
+				}
+				const querySnapshot = await getDocs(pagedQuery);
+				data = querySnapshot.docs.map(doc => doc.data() as User);
+				if (paginated) {
+					nextCursor = querySnapshot.docs[querySnapshot.docs.length - 1] ?? null;
+					setHasMoreProfiles(querySnapshot.docs.length === PROFILES_PAGE_SIZE);
+				}
+			}
 
-			setProfiles(filterBlockedAndCurrentUser(data as User[], blockedUsers));
+			cursorRef.current = nextCursor;
+			const filtered = filterBlockedAndCurrentUser(data as User[], blockedUsers);
+			setProfiles(append ? [...profiles, ...filtered] : filtered);
 		} catch (error) {
 			console.error("Error fetching profiles:", error);
+			setExploreError(error instanceof Error ? error.message : "Something went wrong loading profiles.");
+			if (!append) setProfiles([]);
 		} finally {
 			setExploreDataLoading(false);
+			setLoadingMoreProfiles(false);
 		}
 	};
 
@@ -156,33 +214,49 @@ function useProfileFetcher() {
 		return q;
 	};
 
-	const fetchProfilesBasedOnOption = async () => {
+	// Branches that paginate need an orderBy matching whichever field (if any)
+	// carries the range filter — Firestore requires the first orderBy to be
+	// the inequality's own field.
+	const fetchProfilesBasedOnOption = async (append = false) => {
 		let fetchQuery;
-		let fourteenDaysAgo;
+		let paginated = false;
 		const q = getUsers(user);
 		switch (selectedOption) {
 			case "Discover":
-				fetchQuery = query(q);
+				fetchQuery = query(q, orderBy("created_at"));
+				paginated = true;
 				break;
 			case "Similar interest":
+				// Handled entirely inside fetchBlockedAndFilteredProfiles (needs
+				// the viewer's own interests, fetched there).
 				fetchQuery = query(q);
 				break;
 			case "Online":
-				fetchQuery = query(q, where("status.lastSeen", ">=", Date.now() - RECENCY_WINDOW_MS));
+				fetchQuery = query(q, where("status.lastSeen", ">=", Date.now() - RECENCY_WINDOW_MS), orderBy("status.lastSeen"));
+				paginated = true;
 				break;
 			case "Popular in my area":
-				fetchQuery = query(q, where("country_of_origin", "==", user?.country_of_origin));
+				// Handled entirely inside fetchBlockedAndFilteredProfiles — a real
+				// geo-bounded query sorted by popularity, not expressible as a
+				// single where() clause here.
+				fetchQuery = query(q);
 				break;
-			case "New members":
-				fourteenDaysAgo = new Date();
-				fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-				fetchQuery = query(q, where("created_at", ">=", Timestamp.fromDate(fourteenDaysAgo)));
+			case "New members": {
+				const cutoff = new Date();
+				cutoff.setDate(cutoff.getDate() - NEW_MEMBER_WINDOW_DAYS);
+				fetchQuery = query(q, where("created_at", ">=", Timestamp.fromDate(cutoff)), orderBy("created_at"));
+				paginated = true;
 				break;
+			}
 			case "Looking to date":
-				fetchQuery = query(q, where("preference", "==", 0));
+				fetchQuery = query(q, where("preference", "==", 0), orderBy("created_at"));
+				paginated = true;
 				break;
 			case "Outside my country":
-				fetchQuery = query(q, where("country_of_origin", "!=", user?.country_of_origin));
+				// Handled entirely inside fetchBlockedAndFilteredProfiles — a
+				// server-side `!=` silently drops profiles with no country
+				// recorded, so exclusion happens client-side instead.
+				fetchQuery = query(q);
 				break;
 			case "Advanced Search":
 				fetchQuery = query(q)
@@ -191,11 +265,17 @@ function useProfileFetcher() {
 				console.log("Option not recognized");
 				return;
 		}
-		await fetchBlockedAndFilteredProfiles(fetchQuery);
+		await fetchBlockedAndFilteredProfiles(fetchQuery, { append, paginated });
 	};
 
+	const loadMoreProfiles = useCallback(async () => {
+		if (!hasMoreProfiles || loadingMoreProfiles) return;
+		await fetchProfilesBasedOnOption(true);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [hasMoreProfiles, loadingMoreProfiles, selectedOption]);
 
-	return { refreshProfiles, fetchBlockedUsers, fetchProfilesBasedOnOption, fetchBlockedAndFilteredProfiles }
+
+	return { refreshProfiles, fetchBlockedUsers, fetchProfilesBasedOnOption, fetchBlockedAndFilteredProfiles, loadMoreProfiles, hasMoreProfiles, loadingMoreProfiles }
 }
 
 export default useProfileFetcher;

@@ -4,6 +4,14 @@ import { doc, getDoc } from "firebase/firestore";
 
 const filterOptions = ["Discover", "Similar interest", "Online", "New members", "Popular in my area", "Looking to date", "Outside my country"]
 
+// C2: one shared window, replacing the filter's old 14-day cutoff and the
+// "New" badge's old, independent 2-day cutoff — they used to disagree.
+const NEW_MEMBER_WINDOW_DAYS = 7;
+
+// C2: default search radius for "Popular in my area" when the viewer hasn't
+// set a distance preference — same default the onboarding slider starts at.
+const DEFAULT_DISCOVERY_RADIUS_MILES = 50;
+
 const alphabet = [
   {
     letter: "a",
@@ -1253,5 +1261,6 @@ export {
   marital_status,
   family_goal, preference, formatServerTimeStamps,
   religion, love_language, zodiac, communication_style, education, countries, getTime, getUserDetails, formatTime12Hour, formatDate, checkUserProfileCompletion, formatFirebaseTimestampToTime,
-  formatFirebaseTimestampToDate, filterOptions, cmToFeetAndInches, getFormattedDateFromFirebaseDate, kilogramsToPounds, addCommasToNumber
+  formatFirebaseTimestampToDate, filterOptions, cmToFeetAndInches, getFormattedDateFromFirebaseDate, kilogramsToPounds, addCommasToNumber,
+  NEW_MEMBER_WINDOW_DAYS, DEFAULT_DISCOVERY_RADIUS_MILES
 };

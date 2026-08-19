@@ -36,10 +36,10 @@ const Preferences: React.FC<ProfileSettingsProps> = ({ activePage, closePage, on
         refetchUserData()
     }, s).catch(e => console.error(e)) }
     const updateUserPreferences = async (s: UserFilters) => { updateUserProfile("filters", auth?.uid as string, () => { hideModal(); refetchUserFilters() }, s).catch(e => console.error(e)) }
-    const [toggle, setToggle] = useState({ similar_interest: userFilters?.similar_interest, has_bio: userFilters?.has_bio, outreach: userFilters?.outreach })
+    const [toggle, setToggle] = useState({ similar_interest: userFilters?.similar_interest, has_bio: userFilters?.has_bio })
     const [userValue, setUserValue] = useState({ distance: userFilters?.distance, age_range: userFilters?.age_range })
 
-    useEffect(() => { setToggle({ similar_interest: userFilters?.similar_interest as boolean, has_bio: userFilters?.has_bio as boolean, outreach: userFilters?.outreach as boolean }) }, [userFilters?.similar_interest, userFilters?.has_bio, userFilters?.outreach])
+    useEffect(() => { setToggle({ similar_interest: userFilters?.similar_interest as boolean, has_bio: userFilters?.has_bio as boolean }) }, [userFilters?.similar_interest, userFilters?.has_bio])
     useEffect(() => { setUserValue({ distance: userFilters?.distance as number, age_range: userFilters?.age_range }) }, [userFilters?.distance, userFilters?.age_range])
 
 
@@ -84,7 +84,11 @@ const Preferences: React.FC<ProfileSettingsProps> = ({ activePage, closePage, on
                                 </div>
                                 <SliderBar val={userValue?.distance} getValue={(val) => setUserValue((prev) => ({ ...prev, distance: val }))} />
                             </div>
-                            <SettingsToggleItem title="Show people outside my distance radius and country for better reach" isActive={toggle?.outreach as boolean} onButtonToggle={() => { setToggle((prev) => ({ ...prev, outreach: !toggle.outreach })); updateUserPreferences({ outreach: !userFilters?.outreach }).catch(e => console.error(e)) }} />
+                            {/* C6: "outreach" toggle removed — it was saved but never read by any
+                                query, and now that distance is a ranking signal rather than a hard
+                                radius (the swipe deck shows everyone by default, nearer first), a
+                                toggle promising to bypass a cap that no longer exists would be its
+                                own new instance of exactly the bug this plan exists to fix. */}
                             <div className="px-5 pt-4">
                                 <div className="flex justify-between">
                                     <div className="flex gap-x-4 items-center"> <p>Age range</p> <div className="bg-white py-2 px-3 rounded-[4px]">{userValue?.age_range?.min ?? 'NIL'} - {userValue?.age_range?.max ?? "NIL"}</div></div>

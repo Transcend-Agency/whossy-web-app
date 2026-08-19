@@ -72,6 +72,11 @@ service cloud.firestore {
         && unchanged('credits_on_hold')
         && unchanged('amount_paid_in_total')
         && unchanged('paystack')
+        // C1/C2 — Cloud-Function-maintained, client-readable but not
+        // client-writable: presence.ts mirrors status, popularity.ts
+        // maintains the rolling like count.
+        && unchanged('status')
+        && unchanged('popularity_score_30d')
         && isApprovedWriteValid()
         && faceVerificationSubmissionOnly()
         && meetsPhotoMinimum();
@@ -123,6 +128,13 @@ service cloud.firestore {
         allow update: if isOwner(uid)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen']);
         allow create, delete: if false;
+      }
+
+      // C2 — popularity.ts's per-like ledger backing popularity_score_30d.
+      // Entirely Admin-SDK-maintained; clients never read or write it
+      // directly, only the summed score on the user doc above.
+      match /popularity_ledger/{likeId} {
+        allow read, write: if false;
       }
     }
 

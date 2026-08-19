@@ -8,14 +8,15 @@ import DashboardPageContainer from '../../components/dashboard/DashboardPageCont
 import ExploreGridProfile from '../../components/dashboard/ExploreGridProfile';
 import { AgeRangeModal, CountrySettingsModal, GenderSettingsModal, RelationshipPreferenceSettingsModal, ReligionSettingsModal } from '@/components/dashboard/EditProfileModals';
 import SettingsGroup from '@/components/dashboard/SettingsGroup';
-import { filterOptions, preference, religion } from '@/constants';
+import { filterOptions, preference, religion, NEW_MEMBER_WINDOW_DAYS } from '@/constants';
 import useSyncUserLikes from '@/hooks/useSyncUserLikes';
 import { getAdvancedSearchPreferences, updateAdvancedSearchPreferences } from '@/hooks/useUser';
 import { useAuthStore } from '@/store/UserId';
 import { Like } from '@/types/likingAndMatching';
 import { AdvancedSearchPreferences, User } from '@/types/user';
-import { getYearFromFirebaseDate } from '@/utils/date';
+import { calculateAge } from '@/utils/age';
 import { Oval } from 'react-loader-spinner';
+import DiscoveryStateMessage from '@/components/dashboard/DiscoveryStateMessage';
 import { db } from "@/firebase";
 import useLikesAndMatchesStore from "@/store/LikesAndMatches.tsx";
 import CustomIcon from "@/components/dashboard/CustomIcon.tsx";
@@ -40,10 +41,12 @@ const Explore = () => {
         selectedOption,
         setSelectedOption,
         exploreDataLoading,
+        exploreError,
+        exploreEmptyReason,
         advancedSearchPreferences,
         setAdvancedSearchPreferences
     } = useDashboardStore()
-    const { fetchBlockedUsers, fetchProfilesBasedOnOption, refreshProfiles } = useProfileFetcher()
+    const { fetchBlockedUsers, fetchProfilesBasedOnOption, refreshProfiles, loadMoreProfiles, hasMoreProfiles, loadingMoreProfiles } = useProfileFetcher()
 
     const { auth, user } = useAuthStore();
     const { setLikes } = useLikesAndMatchesStore()
@@ -88,10 +91,10 @@ const Explore = () => {
     }, [selectedOption, blockedUsers]);
 
     const isNewUserFromDate = (timestampDate: string) => {
-        const twoDaysAgo = new Date();
-        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - NEW_MEMBER_WINDOW_DAYS);
         // @ts-expect-error Firebase timestamp comparison
-        return timestampDate >= Timestamp.fromDate(twoDaysAgo);
+        return timestampDate >= Timestamp.fromDate(cutoff);
     };
 
     const fetchSearchPreferences = async () => {
@@ -175,7 +178,25 @@ const Explore = () => {
                             </div>
                             <div className='explore-grid-container'>
                                 <AnimatePresence>
-                                    {noSearchResults(profiles) === 0 && !exploreDataLoading &&
+                                    {!exploreDataLoading && exploreError &&
+                                        <DiscoveryStateMessage
+                                            key="explore-error"
+                                            title="Couldn't load profiles"
+                                            subtitle={exploreError}
+                                            actionLabel="Try again"
+                                            onAction={() => fetchProfilesBasedOnOption().catch((err) => console.error("An error occurred while trying to fetch profiles: ", err))}
+                                        />
+                                    }
+
+                                    {!exploreDataLoading && !exploreError && exploreEmptyReason === 'no-interests' &&
+                                        <DiscoveryStateMessage
+                                            key="explore-no-interests"
+                                            title="Add some interests to use this filter"
+                                            subtitle="You haven't added any interests to your profile yet, so we can't find people who share them."
+                                        />
+                                    }
+
+                                    {noSearchResults(profiles) === 0 && !exploreDataLoading && !exploreError && !exploreEmptyReason &&
                                         <motion.div key={`no-search-result`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className='empty-state'>
                                             <img className="empty-state__icon" src="/assets/icons/like-empty-state.png" alt={``} />
                                             <div className='empty-state__text'>No Search Results</div>
@@ -232,7 +253,7 @@ const Explore = () => {
                                                                 isNewUser={isNewUserFromDate(profile.created_at as string)}
                                                                 profile_image={profile.photos ? profile.photos![0] : undefined}
                                                                 first_name={profile!.first_name!}
-                                                                age={(new Date()).getFullYear() - getYearFromFirebaseDate(profile.date_of_birth)}
+                                                                age={calculateAge(profile.date_of_birth) ?? 0}
                                                                 onProfileClick={() => {
                                                                     setSelectedProfile(profile?.uid as string)
                                                                 }}
@@ -260,7 +281,7 @@ const Explore = () => {
                                                             // isNewUser={false}
                                                             profile_image={profile.photos ? profile.photos![0] : undefined}
                                                             first_name={profile!.first_name!}
-                                                                age={(new Date()).getFullYear() - getYearFromFirebaseDate(profile.date_of_birth)}
+                                                                age={calculateAge(profile.date_of_birth) ?? 0}
                                                             onProfileClick={() => setSelectedProfile(profile?.uid as string)}
                                                             isVerified={profile!.is_approved as boolean}
                                                             hasBeenLiked={hasUserBeenLiked(profile.uid!)}
@@ -272,6 +293,17 @@ const Explore = () => {
                                         </motion.div>
                                     </>}
                                 </AnimatePresence>
+                                {!exploreDataLoading && hasMoreProfiles &&
+                                    <div className="w-full flex justify-center py-[1.6rem]">
+                                        <button
+                                            onClick={() => loadMoreProfiles().catch((err) => console.error("An error occurred while trying to load more profiles: ", err))}
+                                            disabled={loadingMoreProfiles}
+                                            className="text-[1.4rem] font-medium text-[#485FE6] disabled:opacity-50"
+                                        >
+                                            {loadingMoreProfiles ? 'Loading…' : 'Load more'}
+                                        </button>
+                                    </div>
+                                }
                             </div>
                         </div>
                     </DashboardPageContainer>

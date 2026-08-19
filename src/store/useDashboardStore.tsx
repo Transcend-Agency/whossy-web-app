@@ -14,6 +14,17 @@ interface DashboardState {
 	setSelectedOption: (option: string) => void;
 	exploreDataLoading: boolean;
 	setExploreDataLoading: (exploreDataLoading: boolean) => void;
+	// C4 — a failed fetch used to leave the previous (now stale) results on
+	// screen with no indication anything went wrong. null = no error.
+	exploreError: string | null;
+	setExploreError: (exploreError: string | null) => void;
+	// C2 — "Similar interest" with zero interests recorded used to silently
+	// fall through to showing everyone. null = ordinary empty results.
+	exploreEmptyReason: "no-interests" | null;
+	setExploreEmptyReason: (exploreEmptyReason: "no-interests" | null) => void;
+	// C5 — whether another page of results exists for the current filter.
+	hasMoreProfiles: boolean;
+	setHasMoreProfiles: (hasMoreProfiles: boolean) => void;
 	peopleWhoLiked: PopulatedLikeData[]
 	setPeopleWhoLiked: (likes: PopulatedLikeData[]) => void;
 	peopleYouLiked: PopulatedLikedByData[];
@@ -44,6 +55,15 @@ const useDashboardStore = create<DashboardState>((set) => ({
 
 	exploreDataLoading: true,
 	setExploreDataLoading: (exploreDataLoading) => set({ exploreDataLoading }),
+
+	exploreError: null,
+	setExploreError: (exploreError) => set({ exploreError }),
+
+	exploreEmptyReason: null,
+	setExploreEmptyReason: (exploreEmptyReason) => set({ exploreEmptyReason }),
+
+	hasMoreProfiles: false,
+	setHasMoreProfiles: (hasMoreProfiles) => set({ hasMoreProfiles }),
 
 	peopleWhoLiked: [],
 	setPeopleWhoLiked: (likes) => set({ peopleWhoLiked: likes }),

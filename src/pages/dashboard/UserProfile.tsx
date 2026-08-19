@@ -12,7 +12,7 @@ import SafetyGuide from './SafetyGuide';
 import { useAuthStore } from '@/store/UserId';
 import PreferredInterestsDesktop from './PreferredInterestsDesktop';
 import UserInterestsDesktop from './UserInterestsDesktop';
-import { getYearFromFirebaseDate } from '@/utils/date';
+import { calculateAge } from '@/utils/age';
 import SubscriptionPlans from './SubscriptionPlans';
 import Skeleton from 'react-loading-skeleton';
 import Circle from '@/components/dashboard/Circle';
@@ -93,7 +93,7 @@ const UserProfile = () => {
                             {/*    <img src="/assets/icons/verified-badge.svg" alt={``} />*/}
                             {/*</p> : <Skeleton width='21rem' height='2.9rem' />}*/}
                             {userData ? (
-                                <p> {userData?.first_name}, <span className='user-profile__profile-details__age'> {userData?.date_of_birth ? (new Date()).getFullYear() - getYearFromFirebaseDate(userData.date_of_birth) : 'NIL'} </span>
+                                <p> {userData?.first_name}, <span className='user-profile__profile-details__age'> {calculateAge(userData?.date_of_birth) ?? 'NIL'} </span>
                                     {userData?.is_approved && <img src="/assets/icons/verified-badge.svg" alt="verified" />}
                                 </p>
                             ) : ( <Skeleton width='21rem' height='2.9rem' /> )}
