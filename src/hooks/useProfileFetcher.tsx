@@ -97,36 +97,44 @@ function useProfileFetcher() {
 					});
 				}
 			} else if (selectedOption === "Advanced Search") {
-				let q = getUsers(user)
+				// Every optional filter here (gender/age/country/preference/
+				// religion) is a distinct field combination Firestore needs its
+				// own composite index for — with 5 independent optional filters
+				// that's an impractical number of indexes to declare and keep in
+				// sync. Fetch the same base set as every other branch (server-
+				// side has_completed_onboarding + gender/meet, already indexed)
+				// and apply the fine-grained filters client-side, same pattern as
+				// "Similar interest" and "Outside my country" below.
+				const querySnapshot = await getDocs(query(getUsers(user), limit(UNPAGINATED_BRANCH_LIMIT)));
+				const fetched = querySnapshot.docs.map((doc) => doc.data() as User);
 
-				if (advancedSearchPreferences.gender) {
-					q = query(q, where("gender", "==", advancedSearchPreferences.gender));
-				}
+				const { minDOB, maxDOB } = advancedSearchPreferences.age_range?.min && advancedSearchPreferences.age_range?.max
+					? calculateDOBRange(advancedSearchPreferences.age_range.min, advancedSearchPreferences.age_range.max)
+					: { minDOB: null, maxDOB: null };
 
-				if (advancedSearchPreferences.age_range?.min && advancedSearchPreferences.age_range?.max) {
-					const { minDOB, maxDOB } = calculateDOBRange(advancedSearchPreferences.age_range.min, advancedSearchPreferences.age_range.max);
-					q = query(q, where("date_of_birth", ">=", minDOB));
-					q = query(q, where("date_of_birth", "<=", maxDOB));
-				}
+				data = fetched.filter((u) => {
+					if (advancedSearchPreferences.gender && u.gender !== advancedSearchPreferences.gender) return false;
 
-				if (advancedSearchPreferences.country) {
-					q = query(q, where("country", "==", advancedSearchPreferences.country));
-				}
+					if (minDOB && maxDOB) {
+						const dob = u.date_of_birth;
+						const dobMillis = dob instanceof Timestamp ? dob.toMillis() : dob instanceof Date ? dob.getTime() : null;
+						if (dobMillis == null || dobMillis < minDOB.toMillis() || dobMillis > maxDOB.toMillis()) return false;
+					}
 
-				// `relationship_preference`/`religion` are enum indices where 0 is
-				// a real, meaningful first option — a truthiness check silently
-				// dropped the filter whenever someone chose it. Check for
-				// "unset" explicitly instead.
-				if (advancedSearchPreferences.relationship_preference != null) {
-					q = query(q, where("preference", "==", advancedSearchPreferences.relationship_preference));
-				}
+					// The user document records this as `country_of_origin` — the
+					// filter preference's field is just named `country`.
+					if (advancedSearchPreferences.country && u.country_of_origin !== advancedSearchPreferences.country) return false;
 
-				if (advancedSearchPreferences.religion != null) {
-					q = query(q, where("religion", "==", advancedSearchPreferences.religion));
-				}
+					// `relationship_preference`/`religion` are enum indices where 0
+					// is a real, meaningful first option — a truthiness check
+					// silently dropped the filter whenever someone chose it. Check
+					// for "unset" explicitly instead.
+					if (advancedSearchPreferences.relationship_preference != null && u.preference !== advancedSearchPreferences.relationship_preference) return false;
 
-				const querySnapshot = await getDocs(query(q, limit(UNPAGINATED_BRANCH_LIMIT)));
-				data = querySnapshot.docs.map((doc) => doc.data() as UserProfile);
+					if (advancedSearchPreferences.religion != null && u.religion !== advancedSearchPreferences.religion) return false;
+
+					return true;
+				});
 			} else if (selectedOption === "Outside my country") {
 				const querySnapshot = await getDocs(query(queryParam, limit(UNPAGINATED_BRANCH_LIMIT)));
 				const userData = querySnapshot.docs.map(doc => doc.data() as User);
