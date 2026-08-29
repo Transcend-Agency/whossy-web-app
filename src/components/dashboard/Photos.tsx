@@ -54,7 +54,15 @@ type PhotoModal = "hidden" | "photo-one" | "photo-two" | "photo-three" | "photo-
 const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
   const [photo, setPhoto] = useState<string[]>([]);
   const [mutatedPhoto, setMutatedPhoto] = useState<string[]>([]);
-  const [fileMap, setFileMap] = useState<Map<number, File>>(new Map());
+  // Keyed by the data-URI value itself (what actually sits in `mutatedPhoto`
+  // for a not-yet-uploaded file), not by array index — an index shifts under
+  // deletion/reorder, which previously left `finalizePhotos` looking up the
+  // wrong (or no) file for a slot and silently saving the raw base64 string
+  // instead of an uploaded URL.
+  const [fileMap, setFileMap] = useState<Map<string, File>>(new Map());
+  // Set while a "Re-upload" is in flight: the next file picked replaces this
+  // slot in place instead of being appended as a new one.
+  const [replacingIndex, setReplacingIndex] = useState<number | null>(null);
   const [faceVerification, setFaceVerification] = useState<User["face_verification"]>();
   const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
 
@@ -105,7 +113,12 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
       }
 
     } catch (error) {
+      // Previously left `isUpdating` stuck true forever on any failure (e.g.
+      // Firestore rejecting an oversized payload) — the spinner would never
+      // stop and the user got no indication anything had gone wrong.
       console.error("Error updating photos or queuing deletion:", error);
+      setIsUpdating(false);
+      toast.error("Couldn't save your photos — please try again.");
     }
   };
 
@@ -145,14 +158,41 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    // Reset now so picking the same file again still fires a change event.
+    event.target.value = '';
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setMutatedPhoto((prev) => [...prev, reader.result as string]);
-        setFileMap((prev) => new Map(prev).set(prev.size, file));
+        const dataUri = reader.result as string;
+        setMutatedPhoto((prev) =>
+          replacingIndex !== null && replacingIndex < prev.length
+            ? prev.map((p, i) => (i === replacingIndex ? dataUri : p))
+            : [...prev, dataUri]
+        );
+        setFileMap((prev) => new Map(prev).set(dataUri, file));
+        setReplacingIndex(null);
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  // Opens the picker to replace an existing slot's photo in place — used by
+  // "Re-upload" so the old photo stays put until a new one is actually
+  // chosen, instead of being deleted immediately and the replacement then
+  // landing at the end of the list as a new slot.
+  const startReplacePhoto = (index: number) => {
+    setReplacingIndex(index);
+    setPhotoModalShowing('hidden');
+    handleButtonClick();
+  };
+
+  // Opens the picker to add a new photo into a currently-empty slot — clears
+  // any stale replace-intent (e.g. a previous "Re-upload" whose file picker
+  // was cancelled) so this add can't be mistaken for that replacement.
+  const startAddPhoto = () => {
+    setReplacingIndex(null);
+    setPhotoModalShowing('hidden');
+    handleButtonClick();
   };
 
   const handleButtonClick = () => {
@@ -161,34 +201,42 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
 
   const finalizePhotos = async () => {
     setIsUpdating(true)
-    const newMutatedPhotos = await Promise.all(
-      mutatedPhoto.map(async (photo, index) => {
-        if (!photo.startsWith("https://")) {
-          const file = fileMap.get(index);
-          if (file) {
-            return await uploadImage(file);
+    try {
+      const newMutatedPhotos = await Promise.all(
+        mutatedPhoto.map(async (photo) => {
+          if (!photo.startsWith("https://")) {
+            const file = fileMap.get(photo);
+            if (file) {
+              return await uploadImage(file);
+            }
           }
-        }
-        return photo;
-      })
-    );
-    updateUserPhotos(newMutatedPhotos);
+          return photo;
+        })
+      );
+      await updateUserPhotos(newMutatedPhotos);
+    } catch (error) {
+      // Covers an upload failure specifically — updateUserPhotos handles its
+      // own failure (and its own spinner reset) internally.
+      console.error("Error uploading photos:", error);
+      toast.error("Couldn't upload your photos — please try again.");
+      setIsUpdating(false);
+    }
   };
 
   return (
     <>
-    <PhotoModal showing={photoModalShowing === 'photo-one'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[0]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => {setPhotoModalShowing('hidden'); handleButtonClick()}}/>
-    <PhotoModal showing={photoModalShowing === 'photo-two'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[1]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => {setPhotoModalShowing('hidden'); handleButtonClick()}}/>
-    <PhotoModal showing={photoModalShowing === 'photo-three'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[2]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => {setPhotoModalShowing('hidden'); handleButtonClick()}}/>
-    <PhotoModal showing={photoModalShowing === 'photo-four'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[3]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => {setPhotoModalShowing('hidden'); handleButtonClick()}}/>
-    <PhotoModal showing={photoModalShowing === 'photo-five'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[4]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => {setPhotoModalShowing('hidden'); handleButtonClick()}}/>
-    <PhotoModal showing={photoModalShowing === 'photo-six'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[5]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => {setPhotoModalShowing('hidden'); handleButtonClick()}}/>
-    <UploadPhotoModal showing={photoModalShowing === 'photo-one-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={() => {handleButtonClick(); setPhotoModalShowing('hidden')}}/>
-    <UploadPhotoModal showing={photoModalShowing === 'photo-two-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={() => {handleButtonClick(); setPhotoModalShowing('hidden')}}/>
-    <UploadPhotoModal showing={photoModalShowing === 'photo-three-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={() => {handleButtonClick(); setPhotoModalShowing('hidden')}}/>
-    <UploadPhotoModal showing={photoModalShowing === 'photo-four-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={() => {handleButtonClick(); setPhotoModalShowing('hidden')}}/>
-    <UploadPhotoModal showing={photoModalShowing === 'photo-five-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={() => {handleButtonClick(); setPhotoModalShowing('hidden')}}/>
-    <UploadPhotoModal showing={photoModalShowing === 'photo-six-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={() => {handleButtonClick(); setPhotoModalShowing('hidden')}}/>
+    <PhotoModal showing={photoModalShowing === 'photo-one'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[0]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => startReplacePhoto(0)}/>
+    <PhotoModal showing={photoModalShowing === 'photo-two'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[1]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => startReplacePhoto(1)}/>
+    <PhotoModal showing={photoModalShowing === 'photo-three'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[2]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => startReplacePhoto(2)}/>
+    <PhotoModal showing={photoModalShowing === 'photo-four'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[3]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => startReplacePhoto(3)}/>
+    <PhotoModal showing={photoModalShowing === 'photo-five'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[4]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => startReplacePhoto(4)}/>
+    <PhotoModal showing={photoModalShowing === 'photo-six'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[5]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => startReplacePhoto(5)}/>
+    <UploadPhotoModal showing={photoModalShowing === 'photo-one-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={startAddPhoto}/>
+    <UploadPhotoModal showing={photoModalShowing === 'photo-two-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={startAddPhoto}/>
+    <UploadPhotoModal showing={photoModalShowing === 'photo-three-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={startAddPhoto}/>
+    <UploadPhotoModal showing={photoModalShowing === 'photo-four-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={startAddPhoto}/>
+    <UploadPhotoModal showing={photoModalShowing === 'photo-five-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={startAddPhoto}/>
+    <UploadPhotoModal showing={photoModalShowing === 'photo-six-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={startAddPhoto}/>
 
 
       <section className="bg-[#F6F6F6] py-[1.2rem] px-[1.6rem] flex flex-col">

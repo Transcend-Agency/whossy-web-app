@@ -88,8 +88,19 @@ export const notifyOnNewMatch = onDocumentCreated("matches/{matchId}", async (ev
   ]);
 
   await Promise.all([
-    sendPush(user1_id, "You've matched! 🎉", `You matched with ${u2.name}.`, { type: "match" }),
-    sendPush(user2_id, "You've matched! 🎉", `You matched with ${u1.name}.`, { type: "match" }),
+    // partnerId lets a tap on the push route straight to the other person's
+    // profile (B3) — the Firestore doc stores user1_id/user2_id symmetrically
+    // for both recipients, which isn't itself enough to say "the other one"
+    // without knowing which recipient is reading it, so each push gets the
+    // resolved id directly instead of leaving the client to guess.
+    sendPush(user1_id, "You've matched! 🎉", `You matched with ${u2.name}.`, {
+      type: "match",
+      partnerId: user2_id,
+    }),
+    sendPush(user2_id, "You've matched! 🎉", `You matched with ${u1.name}.`, {
+      type: "match",
+      partnerId: user1_id,
+    }),
   ]);
 });
 
@@ -132,9 +143,16 @@ export const notifyOnNewMessage = onDocumentCreated(
       senderProfilePicture: sender.photo,
     });
 
+    // senderId/senderName/senderProfilePicture ride along so a push tap (B3)
+    // can open the conversation directly — the same fields already written
+    // to the Firestore notification doc above, just also on the push data so
+    // routing a tap doesn't need an extra read first.
     await sendPush(recipientId, `New message from ${sender.name}`, preview, {
       type: "message",
       chatId,
+      senderId,
+      senderName: sender.name,
+      senderProfilePicture: sender.photo ?? "",
     });
   }
 );
