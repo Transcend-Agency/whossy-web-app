@@ -79,6 +79,10 @@ export type User = {
   } | null;
   currency?: string | null;
   is_banned?: boolean | null;
+  // Nullable (not just optional): a client can explicitly clear a stale
+  // pending submission back to never-submitted (see Photos.tsx's
+  // cancels_pending_review case) — that's a distinct write from the field
+  // simply never having been set, which firestore.rules also distinguishes.
   face_verification?: {
     retake_photo?: boolean | null;
     photo?: string | null;
@@ -92,7 +96,7 @@ export type User = {
     profile_photo_snapshot?: string | null;
     /** Set by the reviewer on rejection so the user knows what to correct. */
     rejection_reason?: string | null;
-  }
+  } | null
   tour_guide?: {
     explore?: boolean;
     "swipe-and-match"?: boolean;

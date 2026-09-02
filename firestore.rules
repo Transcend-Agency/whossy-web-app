@@ -89,12 +89,18 @@ service cloud.firestore {
       }
 
       // The user may only move face_verification into a fresh
-      // 'pending_review' submission, or self-revoke an existing 'approved'
-      // badge after an A4 main-photo change. 'approved'/'rejected' are
-      // reviewVerification-only (A5).
+      // 'pending_review' submission, self-revoke an existing 'approved'
+      // badge after an A4 main-photo change, or self-cancel a
+      // 'pending_review' submission that a main-photo change just made
+      // stale. 'approved'/'rejected' are reviewVerification-only (A5).
+      //
+      // `null` defaults (not `{}`) so a client explicitly clearing the field
+      // is distinguishable from the field simply never having been set —
+      // needed for the self-cancel case below, which only fires from a real
+      // 'pending_review' map, never from an absent one.
       function faceVerificationSubmissionOnly() {
-        let before = resource.data.get('face_verification', {});
-        let after = request.resource.data.get('face_verification', {});
+        let before = resource.data.get('face_verification', null);
+        let after = request.resource.data.get('face_verification', null);
         return after == before ||
           // Fresh submission: both clients write the whole face_verification
           // map (not a dot-path patch), so a resubmission naturally clears
@@ -102,14 +108,20 @@ service cloud.firestore {
           // that's correct, a new submission has no verdict yet. Don't
           // require them unchanged here or every resubmit-after-rejection
           // would be rejected.
-          (after.get('status', null) == 'pending_review' && after.get('rejection_reason', null) == null) ||
+          (after != null && after.get('status', null) == 'pending_review' && after.get('rejection_reason', null) == null) ||
           // Self-revoke (A4): a targeted status flip, not a resubmission —
           // reviewed_by/reviewed_at must stay exactly as they were.
           (
+            after != null && before != null &&
             after.get('status', null) == 'revoked' && before.get('status', null) == 'approved' &&
             after.get('reviewed_by', null) == before.get('reviewed_by', null) &&
             after.get('reviewed_at', null) == before.get('reviewed_at', null)
-          );
+          ) ||
+          // Self-cancel: only ever out of 'pending_review' — an 'approved'
+          // badge must go through the self-revoke branch above (which
+          // requires the proper 'revoked' status and preserves the
+          // reviewer's verdict fields), not be erased via this escape hatch.
+          (before != null && before.get('status', null) == 'pending_review' && after == null);
       }
 
       // A2: the photo minimum is a completion invariant, enforced

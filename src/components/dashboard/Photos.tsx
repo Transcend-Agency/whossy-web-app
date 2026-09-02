@@ -8,7 +8,7 @@ import {Oval} from "react-loader-spinner";
 import {User} from "@/types/user";
 import {doc, getDoc, setDoc} from "firebase/firestore";
 import {db} from "@/firebase";
-import {deriveVerificationStatus} from "@/utils/verification";
+import {deriveVerificationStatus, MainPhotoChangeConsequence} from "@/utils/verification";
 import Modal from "@/components/ui/Modal";
 interface CardProps {
   photo?: string;
@@ -54,17 +54,13 @@ type PhotoModal = "hidden" | "photo-one" | "photo-two" | "photo-three" | "photo-
 const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
   const [photo, setPhoto] = useState<string[]>([]);
   const [mutatedPhoto, setMutatedPhoto] = useState<string[]>([]);
-  // Keyed by the data-URI value itself (what actually sits in `mutatedPhoto`
-  // for a not-yet-uploaded file), not by array index — an index shifts under
-  // deletion/reorder, which previously left `finalizePhotos` looking up the
-  // wrong (or no) file for a slot and silently saving the raw base64 string
-  // instead of an uploaded URL.
+
   const [fileMap, setFileMap] = useState<Map<string, File>>(new Map());
-  // Set while a "Re-upload" is in flight: the next file picked replaces this
-  // slot in place instead of being appended as a new one.
+
   const [replacingIndex, setReplacingIndex] = useState<number | null>(null);
   const [faceVerification, setFaceVerification] = useState<User["face_verification"]>();
-  const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
+
+  const [pendingConsequence, setPendingConsequence] = useState<MainPhotoChangeConsequence>('none');
 
   const { auth } = useAuthStore();
 
@@ -75,12 +71,29 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
     setPhoto(data?.photos as string[] || [])
     setFaceVerification(data?.face_verification)
   }
-
-  // The main photo is what a reviewer approved against — changing it (a new
-  // upload in slot 1, or moving an existing photo into slot 1) invalidates
-  // that approval. Adding/removing/reordering any other slot doesn't.
   const isMainPhotoChange = (newPhotos: string[]) => newPhotos[0] !== photo[0];
-  const isCurrentlyVerified = deriveVerificationStatus(faceVerification) === 'approved';
+
+  // `faceVerification` (React state) is only as fresh as the last
+  // fetchUserPhotos() call, which races the page's own interactivity —
+  // there's no loading gate on the photo grid, so a user who reuploads
+  // before that fetch resolves would have this evaluate against `undefined`
+  // (never_submitted) and silently skip the warning entirely. It can also go
+  // stale on its own if a reviewer's verdict lands while this screen is
+  // already open. Reading the document directly, right before acting,
+  // removes the race instead of just narrowing it.
+  const getLatestFaceVerification = async (): Promise<User["face_verification"]> => {
+    if (!auth?.uid) return faceVerification;
+    const fresh = await getUserProfile("users", auth.uid) as User | undefined;
+    return fresh?.face_verification;
+  };
+
+  const mainPhotoChangeConsequence = (newPhotos: string[], fv: User["face_verification"]): MainPhotoChangeConsequence => {
+    if (!isMainPhotoChange(newPhotos)) return 'none';
+    const status = deriveVerificationStatus(fv);
+    if (status === 'approved') return 'revokes_approval';
+    if (status === 'awaiting_review') return 'cancels_pending_review';
+    return 'none';
+  };
 
   const updateUserPhotos = async (s: string[]) => {
     if (!auth?.uid) {
@@ -90,7 +103,12 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
 
     const userId = auth.uid;
     const deletePicRef = doc(db, `deletePicQueue/${userId}`);
-    const revokesVerification = isMainPhotoChange(s) && isCurrentlyVerified;
+    // Independently re-derived here rather than trusted from whatever
+    // requestSave decided — this is the function that actually constructs
+    // the write, so it's the one place that must never act on stale data,
+    // regardless of what triggered the call.
+    const freshFv = await getLatestFaceVerification();
+    const consequence = mainPhotoChangeConsequence(s, freshFv);
 
     try {
       await updateUserProfile("users", userId, async () => {
@@ -99,9 +117,12 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
         setIsUpdating(false);
       }, {
         photos: s,
-        ...(revokesVerification ? {
+        ...(consequence === 'revokes_approval' ? {
           is_approved: false,
-          face_verification: { ...faceVerification, status: 'revoked' },
+          face_verification: { ...freshFv, status: 'revoked' },
+        } : {}),
+        ...(consequence === 'cancels_pending_review' ? {
+          face_verification: null,
         } : {}),
       });
 
@@ -122,13 +143,15 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
     }
   };
 
-  const requestSave = () => {
+  const requestSave = async () => {
     if (mutatedPhoto.length < 2) {
       toast.error("A minumum of 2 images is required");
       return;
     }
-    if (isMainPhotoChange(mutatedPhoto) && isCurrentlyVerified) {
-      setShowRevokeConfirm(true);
+    const freshFv = await getLatestFaceVerification();
+    const consequence = mainPhotoChangeConsequence(mutatedPhoto, freshFv);
+    if (consequence !== 'none') {
+      setPendingConsequence(consequence);
       return;
     }
     finalizePhotos();
@@ -251,24 +274,36 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
         </div>
         {JSON.stringify(mutatedPhoto) !== JSON.stringify(photo) && <button className="text-center modal__body__header__save-button mt-4 flex justify-center" onClick={requestSave}>{!isUpdating ? 'Save' : <Oval color="#485FE6" secondaryColor="#485FE6" width={20} height={20} />}</button>}
       </section>
-      {showRevokeConfirm && (
+      {pendingConsequence !== 'none' && (
         <Modal>
           <div className="bg-white w-[47rem] p-8 rounded-2xl text-center flex flex-col relative gap-y-6">
-            <h1 className="text-[2.4rem] font-bold">Change your main photo?</h1>
+            <h1 className="text-[2.4rem] font-bold">
+              {pendingConsequence === 'revokes_approval' ? 'Change your main photo?' : 'Cancel your pending review?'}
+            </h1>
             <p className="text-[1.6rem] text-[#8A8A8E] leading-[130%]">
-              Your verified badge was approved against your current main photo. Changing it
-              will <span className="font-bold text-[#121212]">remove your verified badge</span> and
-              stop liking and messaging until a reviewer approves your profile again.
+              {pendingConsequence === 'revokes_approval' ? (
+                <>
+                  Your verified badge was approved against your current main photo. Changing it
+                  will <span className="font-bold text-[#121212]">remove your verified badge</span> and
+                  stop liking and messaging until a reviewer approves your profile again.
+                </>
+              ) : (
+                <>
+                  Your selfie is still under review against your current main photo. Changing it
+                  now will <span className="font-bold text-[#121212]">cancel that review</span> —
+                  you'll need to retake your selfie to verify again.
+                </>
+              )}
             </p>
             <div className="flex gap-x-4">
               <button
                 className="bg-[#F6F6F6] py-[1.3rem] w-full text-[1.6rem] font-bold text-center rounded-lg hover:bg-[#ececec] transition-all duration-300 cursor-pointer"
-                onClick={() => setShowRevokeConfirm(false)}>
+                onClick={() => setPendingConsequence('none')}>
                 Cancel
               </button>
               <button
                 className="bg-gradient-to-br from-orange-400 to-red text-white py-[1.3rem] w-full text-[1.6rem] font-bold text-center rounded-lg hover:opacity-80 transition-all duration-300 cursor-pointer"
-                onClick={() => { setShowRevokeConfirm(false); finalizePhotos(); }}>
+                onClick={() => { setPendingConsequence('none'); finalizePhotos(); }}>
                 Change photo
               </button>
             </div>

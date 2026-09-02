@@ -155,6 +155,28 @@ test("self-revoke after a main-photo change is allowed (A4) — approved -> revo
   );
 });
 
+test("self-cancel a pending review after a main-photo change is allowed — pending_review -> null", async () => {
+  await seedUser("iris", UNVERIFIED_USER);
+  const iris = testEnv.authenticatedContext("iris").firestore();
+  await assertSucceeds(
+    updateDoc(doc(iris, "users", "iris"), {
+      photos: ["https://example.com/new-main.jpg", "https://example.com/b.jpg"],
+      face_verification: null,
+    })
+  );
+});
+
+test("a hand-crafted write clearing an approved badge via null (bypassing self-revoke) is rejected", async () => {
+  await seedUser("jack", APPROVED_USER);
+  const jack = testEnv.authenticatedContext("jack").firestore();
+  await assertFails(
+    updateDoc(doc(jack, "users", "jack"), {
+      photos: ["https://example.com/new-main.jpg", "https://example.com/b.jpg"],
+      face_verification: null,
+    })
+  );
+});
+
 test("a user cannot un-ban or un-revoke themselves via credit_balance/is_banned writes", async () => {
   await seedUser("henry", { ...UNVERIFIED_USER, is_banned: true });
   const henry = testEnv.authenticatedContext("henry").firestore();

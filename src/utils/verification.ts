@@ -5,6 +5,13 @@ import { VerificationChallenge } from "@/hooks/useVerificationChallenge";
 
 export type VerificationStatus = 'never_submitted' | 'awaiting_review' | 'approved' | 'rejected' | 'revoked';
 
+// What changing the main photo does to whatever verification state is
+// currently live — 'approved' has a badge to revoke, 'awaiting_review' has
+// a pending submission that goes stale (see Photos.tsx for why that's
+// cleared rather than left to resolve on its own). Every other status has
+// nothing live to invalidate.
+export type MainPhotoChangeConsequence = 'none' | 'revokes_approval' | 'cancels_pending_review';
+
 export const deriveVerificationStatus = (fv?: User['face_verification'] | null): VerificationStatus => {
   switch (fv?.status) {
     case 'approved':
