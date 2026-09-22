@@ -9,6 +9,7 @@ import {
     getDoc,
     getDocs,
     limit,
+    onSnapshot,
     orderBy,
     query,
     QueryDocumentSnapshot,
@@ -493,7 +494,6 @@ const SwipingAndMatching = () => {
     const x = useMotionValue(0)
     const controls = useAnimationControls()
     const { user, auth } = useAuthStore()
-
     const [loggedUserData, setLoggedUserData] = useState<User | null>(null);
     const { setActivePage: setPage } = useNavigationStore()
 
@@ -501,19 +501,21 @@ const SwipingAndMatching = () => {
         setPage('user-profile')
     }, []);
 
-    const fetchLoggedUserData = async () => {
-        const data = await getUserProfile("users", auth?.uid as string) as User;
-        setLoggedUserData(data);
-    }
-
     useEffect(() => {
-        fetchLoggedUserData().catch(err => console.error(err));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+        if (!auth?.uid) return;
+        return onSnapshot(
+            doc(db, 'users', auth.uid),
+            (snap) => setLoggedUserData((snap.data() as User) ?? null),
+            (error) => console.error('Verification gate user subscription failed:', error),
+        );
+    }, [auth?.uid]);
 
     // Blocks liking/messaging until the user's selfie is approved, and routes
     // them into the capture flow when they still need to submit one.
-    const { requireVerification, modals: verificationModals } = useVerificationGate(loggedUserData, fetchLoggedUserData);
+    const { requireVerification, modals: verificationModals } = useVerificationGate(
+        loggedUserData,
+        () => { /* live onSnapshot keeps loggedUserData fresh */ },
+    );
 
     const { fetchMatches } = useMatchStore()
     const { updateUser } = useAuthStore()

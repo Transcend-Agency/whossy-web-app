@@ -91,9 +91,6 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
     const { fetchMatches } = useMatchStore()
     const navigate = useNavigate()
 
-    // Verification gate for sending messages. Seeded from the `currentUser`
-    // prop (so it's accurate immediately) and refreshed so an approval/submit
-    // is reflected without a full reload.
     const [loggedInUser, setLoggedInUser] = useState<User | null>(currentUser ?? null);
     const fetchLoggedInUser = async () => {
         if (!currentUser?.uid) return;
@@ -101,8 +98,12 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         setLoggedInUser(data);
     };
     useEffect(() => {
-        fetchLoggedInUser().catch(err => console.error(err));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        if (!currentUser?.uid) return;
+        return onSnapshot(
+            doc(db, 'users', currentUser.uid),
+            (snap) => setLoggedInUser((snap.data() as User) ?? null),
+            (error) => console.error('Verification gate user subscription failed:', error),
+        );
     }, [currentUser?.uid]);
     const { isVerified, requireVerification, modals: verificationModals } = useVerificationGate(loggedInUser, fetchLoggedInUser);
 

@@ -9,7 +9,7 @@ import { User } from '@/types/user';
 import { calculateAge } from '@/utils/age';
 import { distanceInMiles } from '@/utils/distance';
 import { isRecentlyOnline } from '@/utils/presence';
-import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { motion, useAnimationControls } from 'framer-motion';
 import React, { useEffect, useRef, useState } from "react";
 import toast from 'react-hot-toast';
@@ -20,7 +20,6 @@ import {createOrFetchChat} from "@/utils/chatService.ts";
 import {isChatWindowActive} from "@/utils/chatCreditState";
 import {Chat} from "@/types/chat.ts";
 import { serverTimestamp } from 'firebase/firestore';
-import { getUserProfile } from "@/hooks/useUser";
 import { useVerificationGate } from "@/hooks/useVerificationGate.tsx";
 
 interface ViewProfileProps {
@@ -58,18 +57,25 @@ const ViewProfile: React.FC<ViewProfileProps> = (
     const { setChatId } = useChatIdStore()
     const [openModal, setOpenModal] = useState(false);
 
-    // Freshly fetch the signed-in user so the verification gate reflects the
-    // latest `is_approved` (callers don't pass loggedUserData here).
+    // Live listener, not a one-time fetch (callers don't pass loggedUserData
+    // here) — the gate's decision needs the server truth at the moment of
+    // the click, not whatever it was when this screen mounted. A one-time
+    // fetch was wrong in both directions for as long as the page stayed
+    // open: a user revoked elsewhere still looked verified here until a
+    // refresh, and a user just approved elsewhere kept getting blocked.
     const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
-    const fetchLoggedInUser = async () => {
-        const data = await getUserProfile("users", auth?.uid as string) as User;
-        setLoggedInUser(data);
-    };
     useEffect(() => {
-        fetchLoggedInUser().catch(err => console.error(err));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-    const { requireVerification, modals: verificationModals } = useVerificationGate(loggedInUser, fetchLoggedInUser);
+        if (!auth?.uid) return;
+        return onSnapshot(
+            doc(db, 'users', auth.uid),
+            (snap) => setLoggedInUser((snap.data() as User) ?? null),
+            (error) => console.error('Verification gate user subscription failed:', error),
+        );
+    }, [auth?.uid]);
+    const { requireVerification, modals: verificationModals } = useVerificationGate(
+        loggedInUser,
+        () => { /* live onSnapshot keeps loggedInUser fresh */ },
+    );
 
     const goToNextPost = () => {
         if (currentImage < userData.photos!.length - 1) {

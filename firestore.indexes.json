@@ -116,6 +116,39 @@
         { "fieldPath": "has_completed_onboarding", "order": "ASCENDING" },
         { "fieldPath": "geography.geohash", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "has_completed_onboarding", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "has_completed_onboarding", "order": "ASCENDING" },
+        { "fieldPath": "date_of_birth", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "has_completed_onboarding", "order": "ASCENDING" },
+        { "fieldPath": "bio", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "has_completed_onboarding", "order": "ASCENDING" },
+        { "fieldPath": "gender", "order": "ASCENDING" },
+        { "fieldPath": "bio", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [
