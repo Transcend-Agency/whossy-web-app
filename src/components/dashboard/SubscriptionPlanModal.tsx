@@ -2,16 +2,13 @@ import React, { useState } from 'react';
 import DashboardSettingsModal from './DashboardSettingsModal'
 // import StripeCheckoutForm from './StripeCheckoutForm';
 import toast from 'react-hot-toast';
-import { doc, updateDoc } from 'firebase/firestore';
-import { auth as firebaseAuth, db } from '@/firebase';
+import { auth as firebaseAuth } from '@/firebase';
 import { useAuthStore } from '@/store/UserId';
 import { Oval } from 'react-loader-spinner';
-import { useGetCustomerInformation, useSubscribe, useUnsubscribe } from '@/hooks/usePaystack';
 import { useNavigate } from 'react-router-dom';
 import { User } from '@/types/user';
 import { addCommasToNumber } from '@/constants';
-import { useNombaRecurringPayment } from '@/hooks/useNomba';
-import { useNombaStore } from '@/store/Nomba';
+import { useCancelSubscription, useCreateTransaction } from '@/hooks/usePayments';
 
 
 interface SubscriptionPlanModalProps {
@@ -26,10 +23,7 @@ export const SubscriptionPlanModal: React.FC<SubscriptionPlanModalProps & { setC
 
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'ngn' | 'kes' | 'usd'>('ngn');
 
-  const makeRecurringPayment = useNombaRecurringPayment();
-  const { auth_response } = useNombaStore();
-
-  const { user } = useAuthStore();
+  const { mutate: createTransaction } = useCreateTransaction();
 
   const [ isLoading, setIsLoading ] = useState(false);
 
@@ -38,43 +32,24 @@ export const SubscriptionPlanModal: React.FC<SubscriptionPlanModalProps & { setC
       setCurrency(selectedPaymentMethod);
       advance( 'payment-detail' );
     } else {
-      toast.success('This is a dollar payment');
       setIsLoading(true);
-      // obtainAccessToken.mutate({ grant_type: "client_credentials", client_id: import.meta.env.VITE_NOMBA_CLIENT_ID, client_secret: import.meta.env.VITE_NOMBA_CLIENT_SECRET }, {
-      //   onSuccess: (res) => {
-      //     setAuthResponse(res.data);
-      //     makeRecurringPayment.mutate({
-      //       order: { amount: 30, callbackUrl: "http://localhost:5173/dashboard/user-profile", currency: "USD", customerEmail: user?.email as string }, 
-      //         }, {
-      //             onSuccess: (paymentRes) => {
-      //             window.open(paymentRes.data.checkoutLink);
-      //             setIsLoading(false);
-      //             },
-      //             onError: () => {
-      //               setIsLoading(false);
-      //             }
-      //     })
-      //   },
-      //   onError: () => {
-      //     setIsLoading(false);
-      //   }
-      // })
-      makeRecurringPayment.mutate({
-        order: { amount: 30, callbackUrl: "http://localhost:5173/dashboard/user-profile", currency: "USD", customerEmail: user?.email as string }, 
-          }, {
-              onSuccess: (paymentRes) => {
-              window.open(paymentRes.data.checkoutLink);
-              setIsLoading(false);
-              // window.open(paymentRes.data.checkoutLink, '_blank');
-              },
-              onError: () => {
-                setIsLoading(false);
-              }
-      })
+      createTransaction(
+        { purpose: 'subscription', currency: 'usd' },
+        {
+          onSuccess: (data) => {
+            window.open(data.checkoutUrl, '_self');
+          },
+          onError: (err) => {
+            console.error(err);
+            setIsLoading(false);
+            toast.error("Couldn't start payment. Please try again.");
+          },
+        }
+      );
     }
   }
 
-  
+
 
   return (
     <DashboardSettingsModal showing={show} title="Select a payment option" hideModal={hide}>
@@ -92,7 +67,7 @@ export const SubscriptionPlanModal: React.FC<SubscriptionPlanModalProps & { setC
         <div className='cursor-pointer text-[1.8rem] font-medium bg-[#FFFFFF] px-[1.8rem] py-[1.8rem] flex items-center gap-x-2 rounded-[0.8rem] hover:bg-[#fafafa] transition duration-300 hover:scale-[1.01] ' style={{border: '1px solid', borderColor: selectedPaymentMethod === 'usd' ? '#f46a1afa' : '#ececec'}}
           onClick={() => setSelectedPaymentMethod('usd')}>
             <div className={`size-[2rem] rounded-full transition-all duration-300 ${selectedPaymentMethod === 'usd' ? 'bg-[#f46a1afa]' : 'bg-white'}`} style={{border: '1px solid #ececec'}}/>
-            <p className='text-center w-full text-[#8A8A8E]'>Pay using Dollars (USD) {auth_response?.data.access_token} </p>
+            <p className='text-center w-full text-[#8A8A8E]'>Pay using Dollars (USD)</p>
         </div>
         <button className="bg-[#ff5e00f7] w-full py-[1.5rem] text-center flex justify-center rounded-[0.8rem] text-[1.8rem] text-white font-medium tracking-wide cursor-pointer hover:scale-[1.01] active:scale-[0.99] transition-all duration-300" onClick={
           handlePayment
@@ -109,7 +84,7 @@ const navigate = useNavigate();
 
 const { reset } = useAuthStore();
 
-const { mutate } = useSubscribe(currency === 'ngn' ? import.meta.env.VITE_PAYSTACK_SECRET_TEST_KEY_NGN : import.meta.env.VITE_PAYSTACK_SECRET_TEST_KEY_KES);
+const { mutate: createTransaction } = useCreateTransaction();
 
 const logout = () => {
   firebaseAuth.signOut().then(
@@ -123,33 +98,23 @@ const [isLoading, setIsLoading] = useState(false);
 
 return (
   <DashboardSettingsModal showing={show} title="Details" hideModal={hide}>
-    <form className="flex flex-col gap-y-6" 
-      onSubmit= { (e) => { 
-        e.preventDefault(); 
+    <form className="flex flex-col gap-y-6"
+      onSubmit= { (e) => {
+        e.preventDefault();
         if (userData) {
         setIsLoading(true);
 
         if (currency === 'ngn') {
-          mutate({email: userData?.email as string, amount: 50000, plan: 'PLN_pmtergy4o4vv216', metadata: { userId: userData?.uid as string } }, { onSuccess: async(res) => {  
-            // const userDocRef = doc(db, "users", user?.uid as string);
-            // await updateDoc(userDocRef, {
-            //   paystack: {
-            //     reference: res.data.reference
-            //   },
-            //   currency: 'ngn'
-            // });
-  
-            // setTimeout(() => { 
-              window.open(res.data.authorization_url, '_blank');
+          createTransaction({ purpose: 'subscription', currency: 'ngn' }, { onSuccess: (data) => {
+              window.open(data.checkoutUrl, '_blank');
               logout();
-            //  }, 2000)
           }, onError: () => { toast.error('Payment failed. Please try again'); setIsLoading(false); }});
         }
         else {
           toast.error('Plan for kenyan shellings hasn\'t been created');
           setIsLoading(false);
         }
-        
+
         } else {
             toast.error("Please fill in all fields");
           }
@@ -188,61 +153,25 @@ return (
 //   )
 // }
 
-export const CancelPlanModal: React.FC<SubscriptionPlanModalProps & { userData: User }> = ({ show, hide, refetchUserData, userData}) => {
-
-  const { auth, user } = useAuthStore();
-
-  const userDoc = doc(db, "users", auth?.uid as string );
+export const CancelPlanModal: React.FC<SubscriptionPlanModalProps & { userData: User }> = ({ show, hide, refetchUserData }) => {
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const sk = userData?.paystack?.charge_success?.currency === 'NGN' ? import.meta.env.VITE_PAYSTACK_SECRET_TEST_KEY_NGN : import.meta.env.VITE_PAYSTACK_SECRET_TEST_KEY_KES;
+  const { mutate: cancelSubscription } = useCancelSubscription();
 
-  const { mutate } = useUnsubscribe();
-  const fetchCustomerInfo = useGetCustomerInformation();
-
-  const handleUnsubscription = async () => {
+  const handleUnsubscription = () => {
     setIsLoading(true);
 
-    if (user) {
-      fetchCustomerInfo.mutate({email_or_code: user.email as string, sk}, {onSuccess: (res) => {
-        console.log(res);
-        mutate ({
-          code: res.data.subscriptions[0].subscription_code,
-          token: res.data.subscriptions[0].email_token,
-          sk
-          }, { onSuccess: async() => {
-          await updateDoc(userDoc, {
-            is_premium: false,
-            paystack: {}
-          });
-          refetchUserData && refetchUserData();
-          toast.success('Subscription cancelled successfully');
-          window.location.reload();
-          hide();
-          }, onError: () => { setIsLoading(false); toast.error('An error occurred while trying to cancel subscription. Please try again later') }})
-      }})
-    }
+    cancelSubscription(undefined, {
+      onSuccess: () => {
+        refetchUserData && refetchUserData();
+        toast.success('Subscription cancelled successfully');
+        window.location.reload();
+        hide();
+      },
+      onError: () => { setIsLoading(false); toast.error('An error occurred while trying to cancel subscription. Please try again later') },
+    });
   }
-
-  //   if (userData) {
-  //     console.log(userData)
-  //     mutate ({
-  //       code: userData.paystack?.subscription_code as string,
-  //       token: userData.paystack?.email_token as string,
-  //       sk
-  //     }, { onSuccess: async() => {
-  //       await updateDoc(userDoc, {
-  //         is_premium: false,
-  //         paystack: {}
-  //       });
-  //       refetchUserData && refetchUserData();
-  //       toast.success('Subscription cancelled successfully');
-  //       window.location.reload();
-  //       hide();
-  //     }, onError: () => { setIsLoading(false); toast.error('An error occurred while trying to cancel subscription. Please try again later') }})
-  //   } 
-  // } 
 
   return (
     <DashboardSettingsModal showing={show} title="Select a payment option" hideModal={hide}>

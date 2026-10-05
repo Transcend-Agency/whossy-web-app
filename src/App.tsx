@@ -41,6 +41,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import {updateUserProfile} from "@/hooks/useUser.ts";
 import { User } from "@/types/user.ts";
 import DeleteAccount from "./pages/DeleteAccount";
+import PaymentCallback from "./pages/PaymentCallback";
 
 const queryClient = new QueryClient();
 
@@ -229,6 +230,11 @@ function App() {
             <Route path="/contact" element={<Contact />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/delete-account" element={<DeleteAccount />} />
+            <Route path="/payment-callback" element={
+              <ProtectedDashboard>
+                <PaymentCallback />
+              </ProtectedDashboard>
+            } />
           </Routes>
           <ToastContainer />
         </AnimatePresence>
