@@ -46,8 +46,9 @@ const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, user
 
         try {
             const updatedSettings = { ...profileSettings, [settingName]: value };
+            // Only user_settings: `currentUser` is a login-time snapshot, and
+            // writing it back reverts server-managed fields like credit_balance.
             await updateUserProfile("users", user?.uid as string, prefetchUserData, {
-                ...currentUser,
                 user_settings: updatedSettings,
             });
         } catch (err) {
