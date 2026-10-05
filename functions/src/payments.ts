@@ -1,9 +1,8 @@
-
-
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { defineSecret, defineString } from "firebase-functions/params";
 import { logger } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 const db = () => admin.firestore();
 
@@ -16,7 +15,6 @@ const NOMBA_ACCOUNT_ID = "5909f326-c021-4fa9-b1d4-f5e5e83936f3";
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 const NOMBA_BASE_URL = "https://api.nomba.com";
-
 
 const CREDIT_OPTIONS = [
   { credits: 50, usd: 10, ngn: 10000, kes: 800 },
@@ -59,9 +57,22 @@ interface PaymentDoc {
   currency: Currency;
   amount: number; // major units (naira, KES, or dollars) — matches what the provider is charged
   credits?: number;
-  status: "pending" | "completed";
-  created_at: admin.firestore.FieldValue;
-  verified_at?: admin.firestore.FieldValue;
+  status: "pending" | "completed" | "failed";
+  created_at: FieldValue;
+  verified_at?: FieldValue;
+}
+
+const AMOUNT_PAID_KEY: Record<Currency, string> = {
+  ngn: "naira",
+  kes: "kenyan_shillings",
+  usd: "usd",
+};
+
+// Server-only: no rule matches users/{uid}/private, so clients can neither
+// read nor write it. Holds what cancelSubscription needs to find the
+// subscription without trusting anything the client can edit.
+function billingRef(uid: string) {
+  return db().collection("users").doc(uid).collection("private").doc("billing");
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -145,7 +156,10 @@ export const createTransaction = onCall<CreateTransactionRequest>(
 
     const userSnap = await db().collection("users").doc(uid).get();
     if (!userSnap.exists) throw new HttpsError("not-found", "User profile not found.");
-    const email = userSnap.get("email") as string | undefined;
+    // The profile email is client-editable, so it is only a fallback for
+    // accounts with no email on their sign-in (phone signups). It is used
+    // as the receipt address and never to decide who owns a payment.
+    const email = request.auth?.token.email ?? (userSnap.get("email") as string | undefined);
     if (!email) throw new HttpsError("failed-precondition", "Account has no email on file.");
 
     let amount: number;
@@ -167,26 +181,49 @@ export const createTransaction = onCall<CreateTransactionRequest>(
     const reference = `whossy_${uid}_${Date.now()}`;
     const callbackUrl = `${frontendUrl()}/payment-callback?reference=${reference}`;
 
-    let checkoutUrl: string;
+    // Recorded before the provider is called: if this write fails, nothing
+    // has been charged, and a payment can never exist without its record.
+    const paymentRef = db().collection("payments").doc(reference);
+    const paymentDoc: PaymentDoc = {
+      uid,
+      purpose,
+      provider,
+      currency,
+      amount,
+      status: "pending",
+      created_at: FieldValue.serverTimestamp(),
+      ...(credits !== undefined ? { credits } : {}),
+    };
+    await paymentRef.create(paymentDoc);
 
-    if (provider === "paystack") {
-      const initBody: Record<string, unknown> = {
-        email,
-        amount: amount * 100, // kobo/cents
-        currency: currency.toUpperCase(),
-        reference,
-        callback_url: callbackUrl,
-        metadata: { uid, purpose, credits },
-      };
-      if (purpose === "subscription" && currency === "ngn") {
-        initBody.plan = SUBSCRIPTION_PLANS.ngn.plan;
+    try {
+      return { checkoutUrl: await startCheckout(), reference };
+    } catch (err) {
+      await paymentRef.update({ status: "failed" });
+      throw err;
+    }
+
+    async function startCheckout(): Promise<string> {
+
+      if (provider === "paystack") {
+        const initBody: Record<string, unknown> = {
+          email,
+          amount: amount * 100, // kobo/cents
+          currency: currency.toUpperCase(),
+          reference,
+          callback_url: callbackUrl,
+          metadata: { uid, purpose, ...(credits !== undefined ? { credits } : {}) },
+        };
+        if (purpose === "subscription" && currency === "ngn") {
+          initBody.plan = SUBSCRIPTION_PLANS.ngn.plan;
+        }
+        const result = await paystackFetch("/transaction/initialize", {
+          method: "POST",
+          body: JSON.stringify(initBody),
+        });
+        return result.data.authorization_url as string;
       }
-      const result = await paystackFetch("/transaction/initialize", {
-        method: "POST",
-        body: JSON.stringify(initBody),
-      });
-      checkoutUrl = result.data.authorization_url;
-    } else {
+
       const orderPath = purpose === "subscription" ? "/v1/checkout/tokenized-card-payment" : "/v1/checkout/order";
       const result = await nombaFetch(orderPath, {
         method: "POST",
@@ -195,26 +232,13 @@ export const createTransaction = onCall<CreateTransactionRequest>(
           merchantTxRef: reference,
         }),
       });
-      checkoutUrl = result.data?.checkoutLink ?? result.data?.data?.checkoutLink;
-      if (!checkoutUrl) {
+      const checkoutLink = result.data?.checkoutLink ?? result.data?.data?.checkoutLink;
+      if (!checkoutLink) {
         logger.error("Nomba response missing checkoutLink", { result });
         throw new HttpsError("internal", "Nomba did not return a checkout link.");
       }
+      return checkoutLink as string;
     }
-
-    const paymentDoc: PaymentDoc = {
-      uid,
-      purpose,
-      provider,
-      currency,
-      amount,
-      credits,
-      status: "pending",
-      created_at: admin.firestore.FieldValue.serverTimestamp(),
-    };
-    await db().collection("payments").doc(reference).set(paymentDoc);
-
-    return { checkoutUrl, reference };
   }
 );
 
@@ -243,14 +267,26 @@ export const verifyTransaction = onCall<{ reference?: string }>(
     }
 
     let paid = false;
+    let amountPaid = payment.amount;
+    let paystackCustomerCode: string | null = null;
 
     if (payment.provider === "paystack") {
       const result = await paystackFetch(`/transaction/verify/${encodeURIComponent(reference)}`, { method: "GET" });
       const data = result.data;
+      // A transaction initialised with a plan is charged the plan's own
+      // amount, not the one we sent, so a subscription is matched on the
+      // plan code instead and the amount actually charged is recorded.
+      const isPlanCharge = payment.purpose === "subscription" && payment.currency === "ngn";
+      const planCode = typeof data?.plan === "string" ? data.plan : data?.plan_object?.plan_code;
+      const chargeMatches = isPlanCharge
+        ? planCode === SUBSCRIPTION_PLANS.ngn.plan
+        : data?.amount === payment.amount * 100;
       paid =
         data?.status === "success" &&
-        data?.amount === payment.amount * 100 &&
+        chargeMatches &&
         data?.currency === payment.currency.toUpperCase();
+      if (paid && isPlanCharge) amountPaid = Number(data.amount) / 100;
+      paystackCustomerCode = (data?.customer?.customer_code as string | undefined) ?? null;
     } else {
       const result = await nombaFetch(`/v1/transaction/verify/${encodeURIComponent(reference)}`, { method: "GET" });
       const data = result.data;
@@ -269,24 +305,31 @@ export const verifyTransaction = onCall<{ reference?: string }>(
       const userSnap = await tx.get(userRef);
       if (!userSnap.exists) throw new HttpsError("not-found", "User profile not found.");
 
+      const amountPaidField = `amount_paid_in_total.${AMOUNT_PAID_KEY[payment.currency]}`;
+
       if (payment.purpose === "credits") {
         tx.update(userRef, {
-          credit_balance: admin.firestore.FieldValue.increment(payment.credits ?? 0),
-          [`amount_paid_in_total.${payment.currency === "ngn" ? "naira" : payment.currency === "kes" ? "kenyan_shillings" : "dollars"}`]:
-            admin.firestore.FieldValue.increment(payment.amount),
+          credit_balance: FieldValue.increment(payment.credits ?? 0),
+          [amountPaidField]: FieldValue.increment(amountPaid),
         });
       } else {
         tx.update(userRef, {
           is_premium: true,
-          [`amount_paid_in_total.${payment.currency === "ngn" ? "naira" : "dollars"}`]:
-            admin.firestore.FieldValue.increment(payment.amount),
+          [amountPaidField]: FieldValue.increment(amountPaid),
           paystack: payment.provider === "paystack" ? { reference } : {},
+        });
+        tx.set(billingRef(uid), {
+          provider: payment.provider,
+          reference,
+          paystack_customer_code: paystackCustomerCode,
+          updated_at: FieldValue.serverTimestamp(),
         });
       }
 
       tx.update(paymentRef, {
         status: "completed",
-        verified_at: admin.firestore.FieldValue.serverTimestamp(),
+        amount_paid: amountPaid,
+        verified_at: FieldValue.serverTimestamp(),
       });
     });
 
@@ -301,13 +344,20 @@ export const cancelSubscription = onCall(
     if (!uid) throw new HttpsError("unauthenticated", "Sign in to manage your subscription.");
 
     const userRef = db().collection("users").doc(uid);
-    const userSnap = await userRef.get();
-    if (!userSnap.exists) throw new HttpsError("not-found", "User profile not found.");
-    const email = userSnap.get("email") as string | undefined;
-    if (!email) throw new HttpsError("failed-precondition", "Account has no email on file.");
+    const billingSnap = await billingRef(uid).get();
 
-    const customer = await paystackFetch(`/customer/${encodeURIComponent(email)}`, { method: "GET" });
-    const subscription = customer?.data?.subscriptions?.[0];
+    // Looked up by the customer code Paystack gave us at purchase, or by the
+    // email on the sign-in token for subscriptions that predate that record.
+    // Never by the profile email: it is client-editable, so it would let one
+    // user cancel another's subscription.
+    const customerKey =
+      (billingSnap.get("paystack_customer_code") as string | undefined) ?? request.auth?.token.email;
+    if (!customerKey) throw new HttpsError("not-found", "No subscription found for this account.");
+
+    const customer = await paystackFetch(`/customer/${encodeURIComponent(customerKey)}`, { method: "GET" });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const subscriptions: any[] = customer?.data?.subscriptions ?? [];
+    const subscription = subscriptions.find((s) => s?.status === "active");
     if (!subscription) throw new HttpsError("not-found", "No active subscription found.");
 
     await paystackFetch("/subscription/disable", {

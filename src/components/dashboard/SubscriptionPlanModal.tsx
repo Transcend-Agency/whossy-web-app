@@ -1,11 +1,7 @@
 import React, { useState } from 'react';
 import DashboardSettingsModal from './DashboardSettingsModal'
-// import StripeCheckoutForm from './StripeCheckoutForm';
 import toast from 'react-hot-toast';
-import { auth as firebaseAuth } from '@/firebase';
-import { useAuthStore } from '@/store/UserId';
 import { Oval } from 'react-loader-spinner';
-import { useNavigate } from 'react-router-dom';
 import { User } from '@/types/user';
 import { addCommasToNumber } from '@/constants';
 import { useCancelSubscription, useCreateTransaction } from '@/hooks/usePayments';
@@ -80,19 +76,7 @@ export const SubscriptionPlanModal: React.FC<SubscriptionPlanModalProps & { setC
 
 export const PaystackPaymentDetailsModal: React.FC<SubscriptionPlanModalProps & { currency: 'ngn' | 'kes' | 'usd', userData: User }> = ({ show, hide, currency, userData}) => {
 
-const navigate = useNavigate();
-
-const { reset } = useAuthStore();
-
 const { mutate: createTransaction } = useCreateTransaction();
-
-const logout = () => {
-  firebaseAuth.signOut().then(
-      () => { console.log('signed out'); reset(); navigate('/')}
-  ).catch((err) =>{
-      console.log("An error occurred while trying to logout", err); toast.error("Error Logging out")
-})
-}
 
 const [isLoading, setIsLoading] = useState(false);
 
@@ -106,8 +90,9 @@ return (
 
         if (currency === 'ngn') {
           createTransaction({ purpose: 'subscription', currency: 'ngn' }, { onSuccess: (data) => {
-              window.open(data.checkoutUrl, '_blank');
-              logout();
+              // Same tab, and stay signed in: /payment-callback is behind
+              // auth and is what calls verifyTransaction.
+              window.open(data.checkoutUrl, '_self');
           }, onError: () => { toast.error('Payment failed. Please try again'); setIsLoading(false); }});
         }
         else {
