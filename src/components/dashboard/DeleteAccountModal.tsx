@@ -20,7 +20,7 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({show, onCloseMod
 	const [loading, setLoading] = useState<boolean>(false);
 
 	const handleDeleteAccount = async () => {
-		if (!password.trim()) {
+		if (passwordRequired && !password.trim()) {
 			toast.error("Please enter your password");
 			return;
 		}
@@ -36,7 +36,7 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({show, onCloseMod
 			setPassword("");
 		}
 	};
-	const disabledButton = loading || password.trim() === ""
+	const disabledButton = loading || (passwordRequired && password.trim() === "")
 
 	return (
 		<AnimatePresence mode='wait'>
@@ -70,7 +70,7 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({show, onCloseMod
 
 								<div className={`p-4 bg-red bg-opacity-20 rounded-md flex gap-4 items-center my-3`}>
 									<img className={`size-[20px]`} src={`/assets/icons/danger.svg`} alt={``}/>
-									<p className={`leading-relaxed`}>Deleting this Account will delete all of its data and this action is not irreversible</p>
+									<p className={`leading-relaxed`}>Deleting this Account will delete all of its data and this action cannot be undone</p>
 								</div>
 									{passwordRequired &&
 										<>
