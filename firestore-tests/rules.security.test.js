@@ -18,7 +18,7 @@ const {
   assertSucceeds,
 } = require("@firebase/rules-unit-testing");
 const {
-  doc, setDoc, updateDoc, deleteDoc, getDoc, getDocs, collection, query, where,
+  doc, setDoc, updateDoc, deleteDoc, getDoc, getDocs, collection, query, where, or, and, limit,
   deleteField, serverTimestamp, writeBatch, Timestamp,
 } = require("firebase/firestore");
 
@@ -268,6 +268,28 @@ test("matches are readable only by their two participants", async () => {
   await assertSucceeds(getDoc(doc(as("alice"), "matches/alice_bob")));
   await assertSucceeds(getDocs(query(collection(as("bob"), "matches"), where("user2_id", "==", "bob"))));
   await assertFails(getDoc(doc(as("mallory"), "matches/alice_bob")));
+});
+
+test("the match queries both apps run still work: either-side OR, and the pair lookup", async () => {
+  await seed("matches/alice_bob", { user1_id: "alice", user2_id: "bob" });
+  await seed("matches/carol_alice", { user1_id: "carol", user2_id: "alice" });
+  const mine = (uid) => query(collection(as(uid), "matches"), or(where("user1_id", "==", uid), where("user2_id", "==", uid)));
+  assert.equal((await assertSucceeds(getDocs(mine("alice")))).size, 2);
+  assert.equal((await assertSucceeds(getDocs(mine("bob")))).size, 1);
+  // mobile isMutualMatch
+  await assertSucceeds(getDocs(query(collection(as("alice"), "matches"), or(
+    and(where("user1_id", "==", "alice"), where("user2_id", "==", "bob")),
+    and(where("user1_id", "==", "bob"), where("user2_id", "==", "alice")),
+  ), limit(1))));
+  // Not your own pair.
+  await assertFails(getDocs(query(collection(as("mallory"), "matches"), or(where("user1_id", "==", "alice"), where("user2_id", "==", "alice")))));
+});
+
+test("mobile's old reciprocity query (likes where uid == pair id) is refused; the lookup by id that replaces it works", async () => {
+  await seed("likes/bob_alice", { uid: "bob_alice", liker_id: "bob", liked_id: "alice" });
+  await assertFails(getDocs(query(collection(as("alice"), "likes"), where("uid", "==", "bob_alice"), limit(1))));
+  assert.equal((await assertSucceeds(getDoc(doc(as("alice"), "likes/bob_alice")))).exists(), true);
+  assert.equal((await assertSucceeds(getDoc(doc(as("alice"), "likes/carol_alice")))).exists(), false);
 });
 
 // ------------------------------------------------------------------- chats
