@@ -14,10 +14,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 
-const SECRET = "sk_test_emulator_only";
+const SECRET = "sk_test_emulator_only_ngn";
+const SECRET_KES = "sk_test_emulator_only_kes";
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || "whossy-app";
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
-process.env.PAYSTACK_SECRET_KEY = SECRET;
+process.env.PAYSTACK_SECRET_KEY_NGN = SECRET;
+process.env.PAYSTACK_SECRET_KEY_KES = SECRET_KES;
 process.env.NOMBA_CLIENT_SECRET = "nomba_emulator_only";
 process.env.APP_FRONTEND_URL = "https://app.example.test";
 
@@ -36,7 +38,7 @@ function stubFetch() {
   fetchCalls = [];
   global.fetch = async (url, init = {}) => {
     const path = String(url).replace("https://api.paystack.co", "");
-    fetchCalls.push({ path, method: init.method });
+    fetchCalls.push({ path, method: init.method, key: init.headers?.Authorization });
     const respond = (body) => ({ ok: true, status: 200, json: async () => body });
     if (path === "/transaction/initialize") {
       return respond({ status: true, data: { authorization_url: "https://checkout.example.test/abc" } });
@@ -59,9 +61,9 @@ async function seedUser(uid, data = {}) {
 
 const user = async (uid) => (await db.collection("users").doc(uid).get()).data();
 
-function webhookRequest(body, { signature } = {}) {
+function webhookRequest(body, { signature, secret = SECRET } = {}) {
   const rawBody = Buffer.from(JSON.stringify(body));
-  const validSignature = crypto.createHmac("sha512", SECRET).update(rawBody).digest("hex");
+  const validSignature = crypto.createHmac("sha512", secret).update(rawBody).digest("hex");
   const headers = { "x-paystack-signature": signature === undefined ? validSignature : signature };
   return {
     method: "POST",
@@ -273,6 +275,29 @@ test("webhook: grants a real payment when the customer never returns to the call
 
   assert.equal(res.status, 200);
   assert.equal((await user("alice")).credit_balance, 50);
+});
+
+test("Kenyan-shilling payments use the Kenyan integration's key, for the request and the webhook", async () => {
+  await seedUser("wanjiru");
+  const { reference } = await fns.createTransaction.run({
+    ...callAs("wanjiru", "wanjiru@example.test"),
+    data: { purpose: "credits", currency: "kes", creditOptionIndex: 0 },
+  });
+  assert.equal(fetchCalls.at(-1).key, `Bearer ${SECRET_KES}`);
+
+  paystack.verify = { status: "success", amount: 800 * 100, currency: "KES" };
+  const res = await postWebhook({ event: "charge.success", data: { reference } }, { secret: SECRET_KES });
+
+  assert.equal(res.status, 200);
+  assert.equal(fetchCalls.at(-1).key, `Bearer ${SECRET_KES}`);
+  const user = await db.collection("users").doc("wanjiru").get();
+  assert.equal(user.get("credit_balance"), 50);
+  assert.equal(user.get("amount_paid_in_total.kenyan_shillings"), 800);
+
+  // And a Naira payment never goes out with the Kenyan key.
+  await seedUser("ade");
+  await fns.createTransaction.run({ ...callAs("ade", "ade@example.test"), data: { purpose: "credits", currency: "ngn", creditOptionIndex: 0 } });
+  assert.equal(fetchCalls.at(-1).key, `Bearer ${SECRET}`);
 });
 
 test("webhook and callback racing for the same payment credit it once", async () => {

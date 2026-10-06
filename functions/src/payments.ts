@@ -8,7 +8,16 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
 const db = () => admin.firestore();
 
-const PAYSTACK_SECRET_KEY = defineSecret("PAYSTACK_SECRET_KEY");
+// Naira and Kenyan shillings run on two separate Paystack integrations,
+// each with its own key. A request, and a webhook signature, has to use the
+// key of the integration the money went through.
+const PAYSTACK_SECRET_KEY_NGN = defineSecret("PAYSTACK_SECRET_KEY_NGN");
+const PAYSTACK_SECRET_KEY_KES = defineSecret("PAYSTACK_SECRET_KEY_KES");
+const PAYSTACK_SECRETS = [PAYSTACK_SECRET_KEY_NGN, PAYSTACK_SECRET_KEY_KES];
+
+function paystackKey(currency: Currency): string {
+  return (currency === "kes" ? PAYSTACK_SECRET_KEY_KES : PAYSTACK_SECRET_KEY_NGN).value();
+}
 const NOMBA_CLIENT_SECRET = defineSecret("NOMBA_CLIENT_SECRET");
 const APP_FRONTEND_URL = defineString("APP_FRONTEND_URL");
 
@@ -98,11 +107,11 @@ function premiumExpiry(nextPaymentDate?: string | null): Timestamp {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function paystackFetch(path: string, init: RequestInit): Promise<any> {
+async function paystackFetch(currency: Currency, path: string, init: RequestInit): Promise<any> {
   const res = await fetch(`${PAYSTACK_BASE_URL}${path}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${PAYSTACK_SECRET_KEY.value()}`,
+      Authorization: `Bearer ${paystackKey(currency)}`,
       "Content-Type": "application/json",
       ...(init.headers ?? {}),
     },
@@ -163,7 +172,7 @@ interface CreateTransactionRequest {
 }
 
 export const createTransaction = onCall<CreateTransactionRequest>(
-  { secrets: [PAYSTACK_SECRET_KEY, NOMBA_CLIENT_SECRET] },
+  { secrets: [...PAYSTACK_SECRETS, NOMBA_CLIENT_SECRET] },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Sign in to pay.");
@@ -239,7 +248,7 @@ export const createTransaction = onCall<CreateTransactionRequest>(
         if (purpose === "subscription" && currency === "ngn") {
           initBody.plan = SUBSCRIPTION_PLANS.ngn.plan;
         }
-        const result = await paystackFetch("/transaction/initialize", {
+        const result = await paystackFetch(currency, "/transaction/initialize", {
           method: "POST",
           body: JSON.stringify(initBody),
         });
@@ -296,7 +305,11 @@ async function settlePayment(reference: string, expectedUid?: string): Promise<S
   let paystackCustomerCode: string | null = null;
 
   if (payment.provider === "paystack") {
-    const verified = await paystackFetch(`/transaction/verify/${encodeURIComponent(reference)}`, { method: "GET" });
+    const verified = await paystackFetch(
+      payment.currency,
+      `/transaction/verify/${encodeURIComponent(reference)}`,
+      { method: "GET" }
+    );
     const data = verified.data;
     // A transaction initialised with a plan is charged the plan's own
     // amount, not the one we sent, so a subscription is matched on the
@@ -370,7 +383,7 @@ async function settlePayment(reference: string, expectedUid?: string): Promise<S
 }
 
 export const verifyTransaction = onCall<{ reference?: string }>(
-  { secrets: [PAYSTACK_SECRET_KEY, NOMBA_CLIENT_SECRET] },
+  { secrets: [...PAYSTACK_SECRETS, NOMBA_CLIENT_SECRET] },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Sign in to verify a payment.");
@@ -386,10 +399,12 @@ export const verifyTransaction = onCall<{ reference?: string }>(
 
 function hasValidPaystackSignature(rawBody: Buffer | undefined, signature: string | undefined): boolean {
   if (!rawBody || !signature) return false;
-  const expected = createHmac("sha512", PAYSTACK_SECRET_KEY.value()).update(rawBody).digest("hex");
   const given = Buffer.from(signature, "utf8");
-  const wanted = Buffer.from(expected, "utf8");
-  return given.length === wanted.length && timingSafeEqual(given, wanted);
+  // Either integration may be the sender; the signature is made with its key.
+  return PAYSTACK_SECRETS.some((secret) => {
+    const wanted = Buffer.from(createHmac("sha512", secret.value()).update(rawBody).digest("hex"), "utf8");
+    return given.length === wanted.length && timingSafeEqual(given, wanted);
+  });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -453,7 +468,7 @@ async function recordRenewal(reference: string, data: any): Promise<void> {
  * "charge.success" and grant themselves premium.
  */
 export const paystackWebhook = onRequest(
-  { secrets: [PAYSTACK_SECRET_KEY], cors: false },
+  { secrets: PAYSTACK_SECRETS, cors: false },
   async (req, res) => {
     if (req.method !== "POST") {
       res.status(405).send("Method Not Allowed");
@@ -542,7 +557,7 @@ export const expirePremium = onSchedule("every 24 hours", async () => {
 });
 
 export const cancelSubscription = onCall(
-  { secrets: [PAYSTACK_SECRET_KEY] },
+  { secrets: [PAYSTACK_SECRET_KEY_NGN] },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Sign in to manage your subscription.");
@@ -558,13 +573,14 @@ export const cancelSubscription = onCall(
       (billingSnap.get("paystack_customer_code") as string | undefined) ?? request.auth?.token.email;
     if (!customerKey) throw new HttpsError("not-found", "No subscription found for this account.");
 
-    const customer = await paystackFetch(`/customer/${encodeURIComponent(customerKey)}`, { method: "GET" });
+    // Subscriptions exist only on the Naira integration.
+    const customer = await paystackFetch("ngn", `/customer/${encodeURIComponent(customerKey)}`, { method: "GET" });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const subscriptions: any[] = customer?.data?.subscriptions ?? [];
     const subscription = subscriptions.find((s) => s?.status === "active");
     if (!subscription) throw new HttpsError("not-found", "No active subscription found.");
 
-    await paystackFetch("/subscription/disable", {
+    await paystackFetch("ngn", "/subscription/disable", {
       method: "POST",
       body: JSON.stringify({
         code: subscription.subscription_code,
