@@ -29,18 +29,6 @@ interface ViewProfileProps {
     onBlockChange: () => void;
 }
 
-export const addMatch = async (likerId: string, likedId: string) => {
-    const matchesRef = collection(db, 'matches');
-    const matchId = likerId < likedId ? `${likerId}_${likedId}` : `${likedId}_${likerId}`;
-    await setDoc(doc(matchesRef, matchId), {
-        user1_id: likerId < likedId ? likerId : likedId,
-        user2_id: likerId > likedId ? likerId : likedId,
-        timestamp: serverTimestamp()
-    });
-
-    console.log('Match created:', matchId);
-};
-
 const ViewProfile: React.FC<ViewProfileProps> = (
     { onBackClick, userData, onBlockChange }
 ) => {
@@ -107,10 +95,10 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                 const mutualLikeSnapshot = await getDocs(q);
 
                 if (!mutualLikeSnapshot.empty) {
-                    // Mutual like detected, create a match
-                    await addMatch(user?.uid as string, userData?.uid as string);
+                    // The server writes the match from the two likes; give
+                    // it a moment before refreshing the list.
                     toast.success(`You're Matched With ${userData.first_name}`);
-                    fetchMatches(user?.uid as string);
+                    setTimeout(() => fetchMatches(user?.uid as string), 2500);
                 }
             }).catch(err => console.error("An error occured while updating likes: ", err));
             toast.success(`Your Like has been sent to ${userData.first_name}`);

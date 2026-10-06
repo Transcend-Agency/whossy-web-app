@@ -39,7 +39,6 @@ import {isRecentlyOnline} from "@/utils/presence";
 import DiscoveryStateMessage from "@/components/dashboard/DiscoveryStateMessage";
 import useSyncUserLikes from "@/hooks/useSyncUserLikes";
 import useSyncUserDislikes from "@/hooks/useSyncUserDislikees";
-import {addMatch} from "@/components/dashboard/ViewProfile.tsx";
 import useDashboardStore from "@/store/useDashboardStore.tsx";
 import toast from "react-hot-toast";
 import {useMatchStore} from "@/store/Matches.tsx";
@@ -179,10 +178,10 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                 const mutualLikeSnapshot = await getDocs(q);
 
                 if (!mutualLikeSnapshot.empty) {
-                    // Mutual like detected, create a match
-                    await addMatch(user?.uid as string, item?.uid as string);
+                    // The server writes the match from the two likes; give
+                    // it a moment before refreshing the list.
                     toast.success(`You're Matched With ${item.first_name}`);
-                    fetchMatches(user?.uid as string);
+                    setTimeout(() => fetchMatches(user?.uid as string), 2500);
                 }
             }).catch(err => console.error("An error occurred while updating likes: ", err));
             toast.success(`Your Like has been sent to ${item.first_name}`);
@@ -585,9 +584,7 @@ const SwipingAndMatching = () => {
             const mutualLikeSnapshot = await getDocs(q);
 
             if (!mutualLikeSnapshot.empty) {
-                // Mutual like detected, create a match
-                await addMatch(user?.uid as string, swipedUser as string);
-                fetchMatches(user?.uid as string);
+                setTimeout(() => fetchMatches(user?.uid as string), 2500);
             }
         }).catch(err => console.error("An error occured while updating likes: ", err));
 

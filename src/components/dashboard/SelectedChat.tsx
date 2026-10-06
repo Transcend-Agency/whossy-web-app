@@ -342,6 +342,12 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
             } else if (message.includes("ALREADY_PENDING_BY_OTHER")) {
                 // They initiated first — our reply is free; just send.
                 return true;
+            } else if (message.includes("NOT_VERIFIED")) {
+                toast.error("Verify your photo to start chatting.");
+            } else if (message.includes("BLOCKED") || message.includes("RECIPIENT_UNAVAILABLE")) {
+                toast.error("You can't message this person.");
+            } else if (message.includes("ACCOUNT_BANNED")) {
+                toast.error("Your account has been suspended.");
             } else {
                 console.error("Error starting chat:", err);
                 toast.error("Couldn't start the chat. Please try again.");

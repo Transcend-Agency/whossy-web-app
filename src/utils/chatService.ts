@@ -1,4 +1,4 @@
-import {collection, doc, getDoc, getDocs, orderBy, query, setDoc, Timestamp} from "firebase/firestore";
+import {collection, doc, getDoc, getDocs, orderBy, query, setDoc} from "firebase/firestore";
 import { db } from "@/firebase";
 import {checkIfUserBlocked} from "@/components/dashboard/SelectedChat.tsx";
 import {Chat, Messages} from "@/types/chat.ts";
@@ -14,21 +14,17 @@ export const createOrFetchChat = async ( currentUserId: string,  recipientUserId
 		const recipientBlockedCurrentUser = await checkIfUserBlocked(recipientUserId, currentUserId);
 		const userBlockedStatus = [currentUserBlockedRecipient, recipientBlockedCurrentUser];
 
-		const getExpirationTime = () => {
-			const oneWeekInMs = 7 * 24 * 60 * 60 * 1000;
-			return Timestamp.fromMillis(Date.now() + oneWeekInMs);
-		};
-
+		// Only the empty shell. Whether the chat is unlocked, and until when,
+		// is decided by the initiateChat Cloud Function; the rules reject a
+		// client that tries to set any of it.
 		await setDoc(chatDocRef, {
 			last_message: null,
 			last_message_id: null,
 			last_sender_id: null,
 			user_blocked: userBlockedStatus,
-			participants: [currentUserId, recipientUserId],
+			participants: [currentUserId, recipientUserId].sort(),
 			status: 'inactive',
 			last_message_timestamp: null,
-			unlock_time: Timestamp.now(),
-			expiration_time: getExpirationTime(),
 			is_unlocked: false,
 		});
 	}
