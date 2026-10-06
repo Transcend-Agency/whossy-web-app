@@ -1,9 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { RecaptchaVerifier, getAuth, signInWithPhoneNumber } from 'firebase/auth'
+import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth'
 import {
-    collection,
-    getDocs, query,
-    where
+    collection, getDocs, query, where, doc, getDoc
 } from 'firebase/firestore'
 import { AnimatePresence, motion } from "framer-motion"
 import React, { useState } from "react"
@@ -51,7 +49,6 @@ const FillInPhoneNumber: React.FC<PhoneNumberPageProps> = ({ advance, key }) => 
     const setVerificationId = usePhoneNumberStore(state => state.setVerificationId)
     const setConfirmationResult = usePhoneNumberStore(state => state.setConfirmationResult)
     const [loading, setLoading] = useState(false)
-    const firebaseAuth = getAuth();
 
     const {
         handleSubmit,
@@ -70,35 +67,17 @@ const FillInPhoneNumber: React.FC<PhoneNumberPageProps> = ({ advance, key }) => 
     const onFormSubmit = async (data: FormData) => {
         try {
             setLoading(true)
-            const q = query(collection(db, "users"), where("phone_number", "==", data.phone_number));
-            const result = await getDocs(q);
-            if (result.docs.length !== 0 && result.docs[0].data().auth_provider !== 'phone') {
-                setRequestError("Sign In Using Another Method")
-            } else {
-                console.log(data.phone_number, firebaseAuth)
-                const recaptcha = new RecaptchaVerifier(auth, 'recaptcha', {
-                    'size': 'invisible',
-                    'callback': () => {
-                        // reCAPTCHA solved, allow signInWithPhoneNumber.
-                        // onSignInSubmit();
-                        console.log('captcha solved')
-                    }
-                    // 'expired-callback': () => {
-                    //     grecaptcha.reset(window.recaptchaWidgetId);
-                    // }
-                })
-                const confirmationResult = await signInWithPhoneNumber(
-                    auth,
-                    data.phone_number!,
-                    recaptcha
-                );
-                setVerificationId(confirmationResult.verificationId)
-                setConfirmationResult(confirmationResult)
-                console.log(confirmationResult)
-                advance()
-                setPhoneNumber(data.phone_number!)
-                updateAccountSetupUserData({ phone_number: data.phone_number! })
-            }
+            const recaptcha = new RecaptchaVerifier(auth, 'recaptcha', { 'size': 'invisible' })
+            const confirmationResult = await signInWithPhoneNumber(
+                auth,
+                data.phone_number!,
+                recaptcha
+            );
+            setVerificationId(confirmationResult.verificationId)
+            setConfirmationResult(confirmationResult)
+            advance()
+            setPhoneNumber(data.phone_number!)
+            updateAccountSetupUserData({ phone_number: data.phone_number! })
 
         } catch (err: unknown) {
             const code = err && typeof err === 'object' && 'code' in err ? String(err.code) : undefined;
@@ -166,11 +145,22 @@ const FillInPhoneNumberOtp: React.FC<PhoneNumberPageProps> = ({ goBack, key }) =
             setLoading(true)
             const verificationData = await confirmationResult.confirm(data.code!)
 
-            const q = query(collection(db, "users"), where("uid", "==", verificationData.user.uid));
-            const result = await getDocs(q);
-            console.log(result)
-            if (result.docs.length !== 0 && result.docs[0].data().auth_provider == 'phone') {
-                const user = result.docs[0].data()
+            const ownDoc = await getDoc(doc(db, "users", verificationData.user.uid));
+            if (!ownDoc.exists()) {
+                // The number may already belong to an account that signs in
+                // another way. This check used to run before sign-in, which
+                // needed the users collection readable by anyone; now that we
+                // are signed in it is an ordinary query. The phone login just
+                // created is removed so it does not linger as an empty account.
+                const sameNumber = await getDocs(query(collection(db, "users"), where("phone_number", "==", verificationData.user.phoneNumber)));
+                if (sameNumber.docs.some(d => d.data().auth_provider !== 'phone')) {
+                    await verificationData.user.delete()
+                    setRequestError("Sign In Using Another Method")
+                    return
+                }
+            }
+            if (ownDoc.exists() && ownDoc.data().auth_provider == 'phone') {
+                const user = ownDoc.data()
                 if (!user.has_completed_account_creation) {
                     navigate('/auth/account-setup')
                     setId(verificationData.user.uid)
