@@ -5,7 +5,7 @@
 //
 //   node scripts/data-repair.cjs                 dry run: prints what would change
 //   node scripts/data-repair.cjs --apply         makes the changes
-//   node scripts/data-repair.cjs --only=defaults,legacyApproval
+//   node scripts/data-repair.cjs --only=defaults,reverifyDeadline --grace-days=14
 //
 // It is safe to run twice: every step looks for the broken shape and does
 // nothing where it is already fixed. No balance is ever lowered and nothing
@@ -18,7 +18,7 @@
 // accident.
 
 const admin = require("../functions/node_modules/firebase-admin");
-const { FieldValue } = admin.firestore;
+const { FieldValue, Timestamp } = admin.firestore;
 
 const SERVER_DEFAULTS = { is_banned: false, is_premium: false, credit_balance: 0, credits_on_hold: 0 };
 const PAIR_ID = /^[^_/]+_[^_/]+$/;
@@ -26,7 +26,12 @@ const PAIR_ID = /^[^_/]+_[^_/]+$/;
 function parseArgs(argv) {
   const flag = (name) => argv.includes(`--${name}`);
   const value = (name) => argv.find((a) => a.startsWith(`--${name}=`))?.split("=")[1];
-  return { apply: flag("apply"), only: value("only")?.split(","), confirmProject: value("confirm-project") };
+  return {
+    apply: flag("apply"),
+    only: value("only")?.split(","),
+    confirmProject: value("confirm-project"),
+    graceDays: value("grace-days") ? Number(value("grace-days")) : undefined,
+  };
 }
 
 /**
@@ -52,21 +57,22 @@ const STEPS = {
     return changes;
   },
 
-  // Decision D4: accounts approved from the admin dashboard with no reviewed
-  // selfie on record must verify again. 'revoked' is the status both apps
-  // already show as "re-verification needed"; without a status, web reads a
-  // stored selfie as approved.
-  async legacyApproval(db) {
+  // Decision D4 (revised 2026-10-07): accounts approved from the admin
+  // dashboard with no selfie on file get a date to verify by, not an
+  // immediate lockout. enforceReverification ends the approval if the date
+  // passes; the apps show the deadline. Accounts that do have a selfie on
+  // file are left alone here: a reviewer clears those in Retool without the
+  // user doing anything (see `report`).
+  async reverifyDeadline(db, { graceDays = 14 } = {}) {
     const changes = [];
+    const deadline = Timestamp.fromMillis(Date.now() + graceDays * 24 * 60 * 60 * 1000);
     for (const doc of (await db.collection("users").where("is_approved", "==", true).get()).docs) {
       const fv = doc.get("face_verification");
-      if (fv?.status === "approved") continue;
-      const update = { is_approved: false };
-      if (fv && typeof fv === "object") update["face_verification.status"] = "revoked";
+      if (fv?.status || fv?.photo || doc.get("reverify_by")) continue;
       changes.push({
         path: doc.ref.path,
-        reason: "approved with no reviewed selfie: reset to require verification",
-        write: (batch) => batch.update(doc.ref, update),
+        reason: `approved with no selfie on file: must verify within ${graceDays} days`,
+        write: (batch) => batch.update(doc.ref, { reverify_by: deadline }),
       });
     }
     return changes;
@@ -180,6 +186,13 @@ async function report(db) {
   const lines = [];
   const add = (kind, docs, note) => docs.length && lines.push({ kind, count: docs.length, ids: docs.map((d) => d.id), note });
 
+  const unreviewed = users.filter((d) => d.get("is_approved") === true && !d.get("face_verification.status") && d.get("face_verification.photo"));
+  add("selfie_on_file_never_reviewed", unreviewed,
+    "Review these in Retool through reviewVerification. No action needed from the user; they stay approved meanwhile.");
+  add("paying_accounts_needing_verification",
+    users.filter((d) => d.get("is_approved") === true && d.get("face_verification.status") !== "approved"
+      && (d.get("is_premium") === true || (d.get("credit_balance") ?? 0) > 0)),
+    "Review or contact these first: they have paid and lose liking and messaging if their approval ends.");
   add("premium_without_expiry", users.filter((d) => d.get("is_premium") === true && !d.get("premium_expires_at")),
     "Stays premium indefinitely: expirePremium only ends premium that has an expiry. Decide per account.");
   add("onboarded_short_of_photos", users.filter((d) => d.get("has_completed_onboarding") === true && (d.get("photos") ?? []).length < 2),
@@ -192,11 +205,11 @@ async function report(db) {
   return lines;
 }
 
-async function run(db, { apply = false, only } = {}, log = console.log) {
+async function run(db, { apply = false, only, ...options } = {}, log = console.log) {
   const summary = {};
   for (const [step, plan] of Object.entries(STEPS)) {
     if (only && !only.includes(step)) continue;
-    const changes = await plan(db);
+    const changes = await plan(db, options);
     summary[step] = changes.length;
     for (const change of changes) log(JSON.stringify({ step, applied: apply, path: change.path, reason: change.reason }));
 

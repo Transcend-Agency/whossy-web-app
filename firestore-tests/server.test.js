@@ -18,6 +18,7 @@ process.env.FIREBASE_STORAGE_EMULATOR_HOST ||= "127.0.0.1:9199";
 process.env.FIREBASE_AUTH_EMULATOR_HOST ||= "127.0.0.1:9099";
 process.env.PAYSTACK_SECRET_KEY ||= "sk_test_emulator_only";
 process.env.NOMBA_CLIENT_SECRET ||= "emulator_only";
+process.env.VERIFICATION_REVIEW_SECRET ||= "emulator_only";
 process.env.APP_FRONTEND_URL ||= "http://localhost:5173";
 // What a deployed function is given; the Admin SDK reads the default bucket
 // and database from it.
@@ -274,6 +275,75 @@ test("a reply to a pending chat captures the held credit and opens the window", 
   assert.ok(after.expiration_time.toMillis() > Date.now());
   assert.equal((await user(alice)).credit_balance, 2);
   assert.equal((await user(alice)).credits_on_hold, 0);
+});
+
+// ---------------------------------------------------------- re-verification
+
+async function review(body) {
+  const result = {};
+  const res = { status(c) { result.status = c; return res; }, json(o) { result.json = o; return res; }, send() { return res; }, setHeader() {}, on() {} };
+  const headers = { authorization: `Bearer ${process.env.VERIFICATION_REVIEW_SECRET}` };
+  await fns.reviewVerification({ method: "POST", body, headers, get: (n) => headers[n.toLowerCase()] }, res);
+  return result;
+}
+
+test("a reviewer can clear a selfie that was on file but never reviewed, without the user resubmitting", async () => {
+  run++;
+  const [kept, declined, none] = [uid("kept"), uid("declined"), uid("none")];
+  await seedUser(kept, { photos: ["main.jpg"], face_verification: { photo: "selfie.jpg", retake_photo: false } });
+  await seedUser(declined, { photos: ["main.jpg"], face_verification: { photo: "selfie.jpg" } });
+  await seedUser(none, { face_verification: { retake_photo: true } });
+
+  assert.equal((await review({ uid: kept, decision: "approved", reviewerId: "admin-1" })).json.status, "APPROVED");
+  assert.equal((await review({ uid: declined, decision: "rejected", rejectionReason: "not the same person" })).json.status, "REJECTED");
+  assert.equal((await review({ uid: none, decision: "approved" })).status, 409); // nothing on file to review
+
+  assert.equal((await user(kept)).face_verification.status, "approved");
+  assert.equal((await user(kept)).is_approved, true);
+  assert.equal((await user(declined)).is_approved, false);
+  assert.equal((await user(none)).is_approved, true);
+});
+
+test("the deadline ends approval only for accounts that still have not submitted a selfie", async () => {
+  run++;
+  const past = admin.firestore.Timestamp.fromMillis(Date.now() - 1000);
+  const future = admin.firestore.Timestamp.fromMillis(Date.now() + 86400000);
+  const [lapsed, submitted, stillTime] = [uid("lapsed"), uid("submitted"), uid("stillTime")];
+  await seedUser(lapsed, { reverify_by: past, credit_balance: 7 });
+  await seedUser(submitted, { reverify_by: past, face_verification: { status: "pending_review", photo: "s.jpg" } });
+  await seedUser(stillTime, { reverify_by: future });
+
+  await fns.enforceReverification.run({});
+
+  const l = await user(lapsed);
+  assert.equal(l.is_approved, false);
+  assert.equal(l.face_verification.status, "revoked");
+  assert.equal("reverify_by" in l, false);
+  assert.equal(l.credit_balance, 7);
+  const s = await user(submitted);
+  assert.equal(s.is_approved, true);
+  assert.equal("reverify_by" in s, false);
+  assert.equal((await user(stillTime)).is_approved, true);
+  assert.ok((await user(stillTime)).reverify_by);
+  const notes = await db.collection(`users/${lapsed}/notifications`).get();
+  assert.equal(notes.docs.some((d) => d.get("title") === "Verification needed"), true);
+});
+
+test("setting a deadline tells the user once, with the date", async () => {
+  run++;
+  const u = uid("deadline");
+  await seedUser(u);
+  await db.doc(`users/${u}`).update({ reverify_by: admin.firestore.Timestamp.fromDate(new Date("2026-11-20T12:00:00Z")) });
+
+  const notes = await waitFor(async () => {
+    const snap = await db.collection(`users/${u}/notifications`).get();
+    return snap.size ? snap.docs.map((d) => d.data()) : null;
+  });
+  await db.doc(`users/${u}`).update({ bio: "unrelated edit" });
+  await settle(3000);
+
+  assert.match(notes[0].body, /20 November/);
+  assert.equal((await db.collection(`users/${u}/notifications`).get()).size, 1);
 });
 
 // ---------------------------------------------------------------- clean-up

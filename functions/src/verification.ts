@@ -21,7 +21,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
-import { Timestamp } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
 // Not called at module scope: `index.ts`'s `admin.initializeApp()` runs after
 // this module's imports are resolved (imports hoist above it in the compiled
@@ -81,7 +81,12 @@ export const reviewVerification = onRequest(
         const user = snap.data() ?? {};
         const fv = (user.face_verification ?? {}) as Record<string, unknown>;
 
-        if (fv.status !== "pending_review") {
+        // A selfie on file with no status is one that was never reviewed:
+        // the account was approved from the dashboard without anyone
+        // looking at it. Those are reviewable here too, so they can be
+        // cleared without making the user submit again.
+        const neverReviewed = fv.status === undefined && Boolean(fv.photo);
+        if (fv.status !== "pending_review" && !neverReviewed) {
           // Already reviewed, revoked since, or never submitted — nothing to
           // do. Prevents double-processing a decision (e.g. a Retool retry).
           return { outcome: "NOT_PENDING" as const, currentStatus: fv.status };
@@ -107,6 +112,7 @@ export const reviewVerification = onRequest(
         if (decision === "approved") {
           tx.set(userRef, {
             is_approved: true,
+            reverify_by: FieldValue.delete(),
             face_verification: {
               ...fv,
               status: "approved",
@@ -121,6 +127,7 @@ export const reviewVerification = onRequest(
 
         tx.set(userRef, {
           is_approved: false,
+          reverify_by: FieldValue.delete(),
           face_verification: {
             ...fv,
             status: "rejected",

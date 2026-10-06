@@ -92,6 +92,14 @@ test("R2: premium, plan and expiry fields are not client-writable", async () => 
   await assertFails(updateDoc(me, { isPremium: true }));
   await assertFails(updateDoc(me, { credit_balance: 999 }));
   await assertFails(updateDoc(me, { popularity_score_30d: 9000 }));
+  await assertFails(updateDoc(me, { reverify_by: inFuture() }));
+});
+
+test("a user cannot push back or remove their own re-verification deadline", async () => {
+  await seedUser("late", { reverify_by: inPast() });
+  await assertFails(updateDoc(doc(as("late"), "users/late"), { reverify_by: inFuture() }));
+  await assertFails(updateDoc(doc(as("late"), "users/late"), { reverify_by: deleteField() }));
+  await assertSucceeds(updateDoc(doc(as("late"), "users/late"), { bio: "still editable" }));
 });
 
 test("R2: uid, created_at and auth_provider cannot be changed after signup", async () => {

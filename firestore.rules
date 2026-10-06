@@ -62,7 +62,8 @@ service cloud.firestore {
           'amount_paid_in_total', 'paystack',
           'current_plan', 'payment_platform', 'purchase_token', 'customer_code',
           'status', 'popularity_score_30d',
-          'isPremium', 'is_verified'
+          'isPremium', 'is_verified',
+          'reverify_by'
         ];
       }
 
@@ -85,7 +86,7 @@ service cloud.firestore {
         && !request.resource.data.keys().hasAny([
              'premium_expires_at', 'amount_paid_in_total', 'paystack',
              'current_plan', 'payment_platform', 'purchase_token', 'customer_code',
-             'status', 'popularity_score_30d', 'isPremium', 'is_verified'
+             'status', 'popularity_score_30d', 'isPremium', 'is_verified', 'reverify_by'
            ])
         && newAccountVerificationValid()
         && meetsPhotoMinimum();

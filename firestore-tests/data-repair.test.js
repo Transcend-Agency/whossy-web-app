@@ -85,7 +85,7 @@ test("a dry run reports the changes and writes nothing", async () => {
 
   assert.deepEqual(await snapshotAll(), before);
   assert.deepEqual(summary, {
-    defaults: 2, legacyApproval: 2, amountPaidShape: 2, paystackPayloads: 1,
+    defaults: 2, reverifyDeadline: 1, amountPaidShape: 2, paystackPayloads: 1,
     strayPremiumFlag: 1, malformedReactions: 3, chatParticipants: 1, stalePhotoQueue: 1,
   });
 });
@@ -99,14 +99,17 @@ test("applying repairs each known shape and leaves a healthy account untouched",
   const old = await get("users/old");
   assert.deepEqual([old.is_banned, old.is_premium, old.credit_balance, old.credits_on_hold], [false, false, 0, 0]);
 
+  // Selfie on file, never reviewed: untouched, left for a reviewer.
   const legacy = await get("users/legacyApproved");
-  assert.equal(legacy.is_approved, false);
-  assert.equal(legacy.face_verification.status, "revoked");
-  assert.equal(legacy.face_verification.photo, "s.jpg");
-  assert.equal(legacy.credit_balance, 40); // a real balance is never touched
+  assert.equal(legacy.is_approved, true);
+  assert.equal("reverify_by" in legacy, false);
+  assert.equal("status" in legacy.face_verification, false);
+  // No selfie at all: still approved, with about 14 days to verify.
   const noSelfie = await get("users/approvedNoSelfie");
-  assert.equal(noSelfie.is_approved, false);
-  assert.equal("face_verification" in noSelfie, false);
+  assert.equal(noSelfie.is_approved, true);
+  const daysLeft = (noSelfie.reverify_by.toMillis() - Date.now()) / 86400000;
+  assert.ok(daysLeft > 13.9 && daysLeft <= 14, `deadline was ${daysLeft} days out`);
+  assert.equal((await get("users/ok")).reverify_by, undefined);
 
   const s = await get("users/badAmountString");
   assert.deepEqual(s.amount_paid_in_total, { naira: 0, kenyan_shillings: 0 });
@@ -146,13 +149,21 @@ test("a second run finds nothing left to do", async () => {
 test("--only limits the run to the named steps", async () => {
   await run(db, { apply: true, only: ["stalePhotoQueue"] }, quiet);
   assert.equal(await get("deletePicQueue/old"), undefined);
-  assert.equal((await get("users/legacyApproved")).is_approved, true);
+  assert.equal("reverify_by" in (await get("users/approvedNoSelfie")), false);
+});
+
+test("the grace period is configurable", async () => {
+  await run(db, { apply: true, only: ["reverifyDeadline"], graceDays: 3 }, quiet);
+  const daysLeft = ((await get("users/approvedNoSelfie")).reverify_by.toMillis() - Date.now()) / 86400000;
+  assert.ok(daysLeft > 2.9 && daysLeft <= 3);
 });
 
 test("the report lists what needs a human decision and changes nothing", async () => {
   const before = await snapshotAll();
   const kinds = Object.fromEntries((await report(db)).map((line) => [line.kind, line.ids.sort()]));
 
+  assert.deepEqual(kinds.selfie_on_file_never_reviewed, ["legacyApproved"]);
+  assert.deepEqual(kinds.paying_accounts_needing_verification, ["legacyApproved"]);
   assert.deepEqual(kinds.premium_without_expiry, ["rawPayload"]);
   assert.deepEqual(kinds.onboarded_short_of_photos, ["shortPhotos"]);
   assert.deepEqual(kinds.profile_without_uid_field, ["noUidField"]);
