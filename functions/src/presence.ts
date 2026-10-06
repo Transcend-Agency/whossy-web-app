@@ -34,11 +34,11 @@ export const mirrorPresenceToFirestore = onValueWritten(
     const lastSeen = typeof after?.lastSeen === "number" ? after.lastSeen : Date.now();
 
     try {
-      await db()
-        .collection("users")
-        .doc(uid)
-        .set({ status: { online, lastSeen } }, { merge: true });
+      // update(), not set-with-merge: a presence write that lands after the
+      // account was deleted must not recreate the user document.
+      await db().collection("users").doc(uid).update({ status: { online, lastSeen } });
     } catch (err) {
+      if ((err as { code?: number }).code === 5) return; // NOT_FOUND
       logger.error(`mirrorPresenceToFirestore: failed to mirror presence for ${uid}`, err);
     }
   }

@@ -55,7 +55,10 @@ test.beforeEach(async () => {
   await rtdb.ref("users").remove();
 });
 
+// The mirror only updates an existing user document: creating one would
+// resurrect a deleted account from a late presence write.
 test("going online in RTDB mirrors a numeric-lastSeen status onto the Firestore user doc", async () => {
+  await db.collection("users").doc("marge").set({ first_name: "Marge" });
   const lastSeen = Date.now();
   await rtdb.ref("users/marge/presence").set({ online: true, lastSeen });
 
@@ -70,6 +73,7 @@ test("going online in RTDB mirrors a numeric-lastSeen status onto the Firestore 
 });
 
 test("disconnecting flips the mirrored status to offline", async () => {
+  await db.collection("users").doc("homer").set({ first_name: "Homer" });
   await rtdb.ref("users/homer/presence").set({ online: true, lastSeen: Date.now() });
   await waitFor(async () => (await statusFor("homer"))?.online === true ? true : null);
 

@@ -32,6 +32,10 @@ export {
   notifyOnVerificationDecision,
 } from "./notifications";
 export { mirrorPresenceToFirestore } from "./presence";
+export { deleteAccount, cleanUpUserData } from "./account";
+export { createMatchOnMutualLike } from "./matches";
+export { markMessageSent } from "./messages";
+export { cleanUpProfilePictures, cleanUpFaceVerification } from "./cleanup";
 export { incrementPopularityOnLike, prunePopularityScores } from "./popularity";
 export {
   createTransaction,
@@ -95,10 +99,25 @@ export const initiateChat = onCall<{ chatId?: string }>(async (request) => {
 
   return db.runTransaction(async (tx) => {
     // All reads before writes (Firestore transaction requirement).
-    const [chatSnap, userSnap] = await Promise.all([
+    const [chatSnap, userSnap, otherSnap] = await Promise.all([
       tx.get(chatRef),
       tx.get(userRef),
+      tx.get(db.collection("users").doc(otherUid)),
     ]);
+
+    // The same gates the message rule applies, checked here first so nobody
+    // places a hold on a message they will not be allowed to send. Blocking
+    // is enforced here rather than by the sender's own app.
+    if (userSnap.get("is_banned") === true) throw new HttpsError("permission-denied", "ACCOUNT_BANNED");
+    if (userSnap.get("is_approved") !== true) throw new HttpsError("failed-precondition", "NOT_VERIFIED");
+    if (!otherSnap.exists || otherSnap.get("is_banned") === true) {
+      throw new HttpsError("failed-precondition", "RECIPIENT_UNAVAILABLE");
+    }
+    const blocked = (snap: typeof userSnap, target: string) =>
+      ((snap.get("blockedIds") as string[] | undefined) ?? []).includes(target);
+    if (blocked(otherSnap, uid) || blocked(userSnap, otherUid)) {
+      throw new HttpsError("failed-precondition", "BLOCKED");
+    }
 
     const now = admin.firestore.Timestamp.now();
     const chat = (chatSnap.data() ?? {}) as ChatCreditFields;
