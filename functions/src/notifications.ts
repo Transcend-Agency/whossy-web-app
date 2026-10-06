@@ -32,6 +32,18 @@ function notificationsRef(uid: string) {
   return db().collection("users").doc(uid).collection("notifications");
 }
 
+/**
+ * Writes one in-app notification. Two things here exist for the mobile app,
+ * including builds already installed: it requires an `id` field inside the
+ * document (it does not use the document's own id), and older builds work
+ * out what kind of notification it is from the title being exactly "Like",
+ * "Match" or "Message". Newer builds use `type`.
+ */
+export async function addNotification(uid: string, data: Record<string, unknown>): Promise<void> {
+  const ref = notificationsRef(uid).doc();
+  await ref.set({ id: ref.id, ...data });
+}
+
 /** New like → notifies the person who was liked. */
 export const notifyOnNewLike = onDocumentCreated("likes/{likeId}", async (event) => {
   const snap = event.data;
@@ -45,9 +57,9 @@ export const notifyOnNewLike = onDocumentCreated("likes/{likeId}", async (event)
   const liker = await firstNameAndPhoto(likerId);
   const body = `${liker.name} liked your profile.`;
 
-  await notificationsRef(likedId).add({
+  await addNotification(likedId, {
     type: "like",
-    title: "New Like",
+    title: "Like",
     body,
     seen: false,
     timestamp: Timestamp.now(),
@@ -80,7 +92,7 @@ export const notifyOnNewMatch = onDocumentCreated("matches/{matchId}", async (ev
 
   const shared = {
     type: "match",
-    title: "New Match",
+    title: "Match",
     seen: false,
     timestamp: Timestamp.now(),
     user1_id,
@@ -92,8 +104,8 @@ export const notifyOnNewMatch = onDocumentCreated("matches/{matchId}", async (ev
   };
 
   await Promise.all([
-    notificationsRef(user1_id).add({ ...shared, body: `You matched with ${u2.name}.` }),
-    notificationsRef(user2_id).add({ ...shared, body: `You matched with ${u1.name}.` }),
+    addNotification(user1_id, { ...shared, body: `You matched with ${u2.name}.` }),
+    addNotification(user2_id, { ...shared, body: `You matched with ${u1.name}.` }),
   ]);
 
   await Promise.all([
@@ -140,9 +152,9 @@ export const notifyOnNewMessage = onDocumentCreated(
         ? "📷 Photo"
         : "New message";
 
-    await notificationsRef(recipientId).add({
+    await addNotification(recipientId, {
       type: "message",
-      title: "New Message",
+      title: "Message",
       body: `${sender.name}: ${preview}`,
       seen: false,
       timestamp: Timestamp.now(),
@@ -195,7 +207,7 @@ export const notifyOnVerificationDecision = onDocumentUpdated("users/{uid}", asy
         ? `Your selfie wasn't approved: ${afterFv.rejection_reason}`
         : "Your selfie wasn't approved. Please retake it.";
 
-  await notificationsRef(uid).add({
+  await addNotification(uid, {
     type: "verification",
     title,
     body,

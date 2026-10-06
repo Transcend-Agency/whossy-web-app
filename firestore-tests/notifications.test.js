@@ -70,6 +70,10 @@ test("a new like writes a notification for the liked user", async () => {
   assert.equal(notes.length, 1);
   assert.equal(notes[0].type, "like");
   assert.equal(notes[0].likerId, "alice");
+  // What installed mobile builds need: the id inside the document, and the
+  // title they recognise the notification type by.
+  assert.equal(notes[0].id, (await db.collection("users").doc("bob").collection("notifications").get()).docs[0].id);
+  assert.equal(notes[0].title, "Like");
   assert.equal(notes[0].likerName, "Alice");
   assert.equal(notes[0].seen, false);
 });

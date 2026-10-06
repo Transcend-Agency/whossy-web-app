@@ -13,11 +13,12 @@ import { logger } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { sendPush } from "./push";
+import { addNotification } from "./notifications";
 
 const db = () => admin.firestore();
 
 async function notify(uid: string, title: string, body: string): Promise<void> {
-  await db().collection("users").doc(uid).collection("notifications").add({
+  await addNotification(uid, {
     type: "verification",
     title,
     body,
