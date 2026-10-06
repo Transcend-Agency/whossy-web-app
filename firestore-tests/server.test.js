@@ -64,6 +64,10 @@ test.beforeEach(async () => {
   await rtdb.ref("users").remove();
   const { users } = await admin.auth().listUsers();
   await Promise.all(users.map((u) => admin.auth().deleteUser(u.uid)));
+  // Clearing user documents fires cleanUpUserData for each of them in the
+  // functions emulator. Let those purges finish before the next test seeds
+  // users with the same ids, or a late purge deletes the new test's data.
+  await settle(3000);
 });
 
 // ------------------------------------------------------------ deleteAccount
@@ -129,6 +133,17 @@ test("deleteAccount refuses a session that did not sign in recently, and deletes
 
   assert.equal(await exists("users/alice"), true);
   assert.equal((await admin.auth().getUser("alice")).uid, "alice");
+});
+
+test("a late purge does not delete a profile recreated under the same uid", async () => {
+  await seedUser("phoenix");
+  await db.doc("users/phoenix/notifications/n1").set({ title: "old" });
+  await db.doc("users/phoenix").delete();
+  await seedUser("phoenix", { first_name: "Reborn" });
+
+  await settle();
+
+  assert.equal((await user("phoenix")).first_name, "Reborn");
 });
 
 test("a build that deletes its own user document still gets the full purge", async () => {
@@ -233,6 +248,32 @@ test("an undelivered message becomes sent, on the message and on the chat", asyn
   await waitFor(async () => (await db.doc(`${chat}/messages/m1`).get()).get("status") === "sent");
   await waitFor(async () => (await db.doc(chat).get()).get("status") === "sent");
   assert.equal((await db.doc(`${chat}/messages/m2`).get()).get("status"), "seen");
+});
+
+// ------------------------------------------------- reply capture (trigger)
+
+// Runs inside the functions emulator, unlike the direct initiateChat calls
+// above. That difference is the point: index.ts once read Timestamp off
+// admin.firestore, which is undefined in that runtime, so every chat function
+// threw there while the direct calls passed.
+test("a reply to a pending chat captures the held credit and opens the window", async () => {
+  run++;
+  const [alice, bob] = [uid("alice"), uid("bob")];
+  const chat = `chats/${pair(alice, bob)}`;
+  await seedUser(alice, { credit_balance: 3, credits_on_hold: 1 });
+  await seedUser(bob);
+  await db.doc(chat).set({
+    participants: [alice, bob].sort(), credit_status: "pending", credit_held: true,
+    initiator_id: alice, hold_placed_at: admin.firestore.Timestamp.now(),
+  });
+
+  await db.doc(`${chat}/messages/reply`).set({ sender_id: bob, message: "hi back", status: "sent" });
+
+  await waitFor(async () => (await db.doc(chat).get()).get("credit_status") === "connected");
+  const after = (await db.doc(chat).get()).data();
+  assert.ok(after.expiration_time.toMillis() > Date.now());
+  assert.equal((await user(alice)).credit_balance, 2);
+  assert.equal((await user(alice)).credits_on_hold, 0);
 });
 
 // ---------------------------------------------------------------- clean-up

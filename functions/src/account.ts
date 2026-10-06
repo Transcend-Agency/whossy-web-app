@@ -25,7 +25,7 @@ async function deleteQuery(query: Query): Promise<void> {
   await writer.close();
 }
 
-async function purgeUserData(uid: string): Promise<void> {
+async function purgeUserData(uid: string, { profileAlreadyDeleted = false } = {}): Promise<void> {
   const firestore = db();
 
   const chats = await firestore.collection("chats").where("participants", "array-contains", uid).get();
@@ -65,9 +65,16 @@ async function purgeUserData(uid: string): Promise<void> {
     firestore.collection("deletePicQueue").doc(uid).delete(),
   ]);
 
-  // Covers the notifications, popularity_ledger and private subcollections,
-  // and the user document itself if it is still there.
-  await firestore.recursiveDelete(firestore.collection("users").doc(uid));
+  const userRef = firestore.collection("users").doc(uid);
+  if (profileAlreadyDeleted) {
+    // The profile is what was deleted to get here. Only what hangs off it is
+    // removed, so a profile created again under the same uid in the meantime
+    // is not taken out by this late clean-up.
+    for (const sub of await userRef.listCollections()) await firestore.recursiveDelete(sub);
+  } else {
+    // Covers the notifications, popularity_ledger and private subcollections.
+    await firestore.recursiveDelete(userRef);
+  }
 
   await admin.storage().bucket().deleteFiles({ prefix: `users/${uid}/` });
   await admin.database().ref(`users/${uid}`).remove();
@@ -100,7 +107,10 @@ export const deleteAccount = onCall(async (request) => {
 export const cleanUpUserData = onDocumentDeleted("users/{userId}", async (event) => {
   const uid = event.params.userId;
   try {
-    await purgeUserData(uid);
+    // Same uid, new profile: the account was recreated, so its likes, chats
+    // and photos now belong to a live user.
+    if ((await db().collection("users").doc(uid).get()).exists) return;
+    await purgeUserData(uid, { profileAlreadyDeleted: true });
     logger.info(`cleanUpUserData: purged ${uid}`);
   } catch (err) {
     logger.error(`cleanUpUserData: failed for ${uid}`, err);
