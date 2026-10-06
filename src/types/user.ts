@@ -32,6 +32,7 @@ export type User = {
   religion?: number | null;
   interests?: string[] | null;
   is_approved?: boolean | null;
+  reverify_by?: Timestamp | null;
   status?: {
     online: boolean;
     lastSeen: number;

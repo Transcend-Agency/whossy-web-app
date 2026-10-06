@@ -21,7 +21,10 @@ export const useVerificationGate = (
     const [showFaceModal, setShowFaceModal] = useState(false);
 
     const status = deriveVerificationStatus(userData?.face_verification);
-    const isVerified = status === 'approved';
+    // is_approved is what the server enforces on likes and messages, so it is
+    // what decides here too. Going by the selfie's status instead blocked
+    // accounts the server still accepts, and let through ones it refuses.
+    const isVerified = userData?.is_approved === true;
     const isPending = status === 'awaiting_review';
 
     const requireVerification = (): boolean => {

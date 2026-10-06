@@ -8,7 +8,7 @@ import { User } from '@/types/user';
 import { deriveVerificationStatus } from '@/utils/verification';
 import { FaceVerificationModal } from './FaceVerificationModal';
 
-type BannerVariant = 'prompt' | 'pending' | 'approved' | 'rejected' | 'revoked';
+type BannerVariant = 'prompt' | 'pending' | 'approved' | 'rejected' | 'revoked' | 'deadline';
 
 const toMillis = (value?: Timestamp | Date | number | string | null): number | null => {
     if (value === null || value === undefined) return null;
@@ -63,9 +63,15 @@ export const useVerificationStatusBanner = (): { banner: ReactNode; visible: boo
         toMillis(userData?.face_verification?.updated_at) ??
         1;
 
+    // Set by the server on accounts that were approved without a selfie and
+    // must verify by a date to stay approved.
+    const reverifyBy = toMillis(userData?.reverify_by);
+
     let variant: BannerVariant | null = null;
     if (userData) {
-        if (status === 'approved') {
+        if (reverifyBy && status !== 'awaiting_review' && status !== 'approved') {
+            variant = 'deadline';
+        } else if (status === 'approved') {
             // Show-once congratulations, then hidden for good.
             if ((approvalAck ?? 0) < reviewedAt) variant = 'approved';
         } else if (status === 'rejected') {
@@ -141,6 +147,13 @@ export const useVerificationStatusBanner = (): { banner: ReactNode; visible: boo
                 ? `Your verification wasn’t approved: ${userData.face_verification.rejection_reason}`
                 : 'Your verification wasn’t approved, retake your selfie to start matching',
             action: 'Retake',
+        },
+        deadline: {
+            container: 'bg-[#FFF7E6] text-[#9A6B00] border-[#9A6B00]/15',
+            chip: 'bg-[#9A6B00]/10',
+            icon: <IoMdCamera className="size-[1.6rem]" />,
+            text: `Verify your photo by ${new Date(reverifyBy ?? 0).toLocaleDateString(undefined, { day: 'numeric', month: 'long' })} to keep liking and messaging`,
+            action: 'Take selfie',
         },
         revoked: {
             container: 'bg-[#FDECEC] text-[#F0174B] border-[#F0174B]/15',
