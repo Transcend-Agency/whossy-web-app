@@ -57,7 +57,16 @@ export const notifyOnNewLike = onDocumentCreated("likes/{likeId}", async (event)
     likedId,
   });
 
-  await sendPush(likedId, "New Like 💛", body, { type: "like", likerId });
+  // Who liked you is a premium feature. The in-app record keeps the liker's
+  // details for the paywalled Likes screen, but the push is readable on a
+  // lock screen by anyone, so it only names the liker for premium users.
+  const likedSnap = await db().collection("users").doc(likedId).get();
+  const pushBody =
+    likedSnap.get("is_premium") === true
+      ? body
+      : "Someone's interested in you! Check out who it is on the app.";
+
+  await sendPush(likedId, "New Like 💛", pushBody, { type: "like", likerId });
 });
 
 /** New match → notifies both participants, each sees the other's name/photo. */
