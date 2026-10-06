@@ -55,6 +55,13 @@ const ForgotPasswordInputPage: React.FC<ForgotPasswordPage> = ({ advance, key })
             });
             advance()
         } catch (err: unknown) {
+            // An unknown email gets the same "sent" screen as a known one.
+            // Showing the error would confirm which emails have accounts.
+            const code = err && typeof err === 'object' && 'code' in err ? String(err.code) : '';
+            if (code === 'auth/user-not-found') {
+                advance()
+                return
+            }
             if (err instanceof Error) {
                 setRequestError(err.message)
             } else {
