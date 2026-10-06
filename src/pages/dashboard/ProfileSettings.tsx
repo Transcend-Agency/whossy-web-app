@@ -45,7 +45,11 @@ const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, user
         });
 
         try {
-            const updatedSettings = { ...profileSettings, [settingName]: value };
+            // Most accounts have no incoming_messages setting, so it arrives
+            // here as undefined, which Firestore refuses to write.
+            const updatedSettings = Object.fromEntries(
+                Object.entries({ ...profileSettings, [settingName]: value }).filter(([, v]) => v !== undefined)
+            );
             // Only user_settings: `currentUser` is a login-time snapshot, and
             // writing it back reverts server-managed fields like credit_balance.
             await updateUserProfile("users", user?.uid as string, prefetchUserData, {
