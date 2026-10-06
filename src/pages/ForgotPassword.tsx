@@ -62,11 +62,13 @@ const ForgotPasswordInputPage: React.FC<ForgotPasswordPage> = ({ advance, key })
                 advance()
                 return
             }
-            if (err instanceof Error) {
-                setRequestError(err.message)
-            } else {
-                setRequestError("Something Went Wrong...")
-            }
+            // Firebase's own messages ("Firebase: Error (auth/...)") mean
+            // nothing to a user, so each case gets plain wording.
+            setRequestError({
+                'auth/invalid-email': "That doesn't look like a valid email address.",
+                'auth/too-many-requests': "Too many attempts. Please wait a few minutes and try again.",
+                'auth/network-request-failed': "No connection. Check your internet and try again.",
+            }[code] ?? "We couldn't send the reset email. Please try again.")
             console.log(err)
         } finally {
             setLoading(false)
