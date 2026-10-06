@@ -6,7 +6,16 @@
       "$uid": {
         "presence": {
           ".read": "auth != null",
-          ".write": "auth != null && auth.uid === $uid"
+          ".write": "auth != null && auth.uid === $uid",
+          "online": {
+            ".validate": "newData.isBoolean()"
+          },
+          "lastSeen": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
+          }
         }
       }
     }
