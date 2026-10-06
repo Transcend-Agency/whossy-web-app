@@ -1,3 +1,4 @@
+import AccountGate from "@/components/dashboard/AccountGate";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
 import { Toaster } from "react-hot-toast";
@@ -188,6 +189,7 @@ function App() {
               <ProtectedDashboard>
                 <DashboardLayout />
                 <TourGuideModal />
+                <AccountGate />
               </ProtectedDashboard>}>
               <Route path="user-profile"
                      element={
