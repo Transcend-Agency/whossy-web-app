@@ -346,6 +346,37 @@ test("setting a deadline tells the user once, with the date", async () => {
   assert.equal((await db.collection(`users/${u}/notifications`).get()).size, 1);
 });
 
+// ------------------------------------------------------ Play subscriptions
+
+const playEvent = (payload) => ({
+  data: { message: { data: Buffer.from(JSON.stringify(payload)).toString("base64") } },
+});
+
+test("a Play expiry removes premium; a cancellation keeps it until then; other messages change nothing", async () => {
+  run++;
+  const [expired, cancelled, bystander] = [uid("expired"), uid("cancelled"), uid("bystander")];
+  const sub = (token) => ({ is_premium: true, purchase_token: token, current_plan: "subscription_1months", payment_platform: "mobile" });
+  await seedUser(expired, sub("tok-expired"));
+  await seedUser(cancelled, sub("tok-cancelled"));
+  await seedUser(bystander, sub("tok-bystander"));
+
+  await fns.handlePlaySubscription.run(playEvent({ subscriptionNotification: { notificationType: 13, purchaseToken: "tok-expired", subscriptionId: "subscription_1months" } }));
+  await fns.handlePlaySubscription.run(playEvent({ subscriptionNotification: { notificationType: 3, purchaseToken: "tok-cancelled", subscriptionId: "subscription_1months" } }));
+  // A renewal, an unknown token, a test notification and a malformed body.
+  await fns.handlePlaySubscription.run(playEvent({ subscriptionNotification: { notificationType: 2, purchaseToken: "tok-bystander" } }));
+  await fns.handlePlaySubscription.run(playEvent({ subscriptionNotification: { notificationType: 13, purchaseToken: "tok-nobody" } }));
+  await fns.handlePlaySubscription.run(playEvent({ testNotification: { version: "1.0" } }));
+  await fns.handlePlaySubscription.run({ data: { message: { data: Buffer.from("not json").toString("base64") } } });
+
+  assert.equal((await user(expired)).is_premium, false);
+  const c = await user(cancelled);
+  assert.equal(c.is_premium, true);
+  assert.equal("current_plan" in c, false);
+  assert.equal("payment_platform" in c, false);
+  const b = await user(bystander);
+  assert.deepEqual([b.is_premium, b.current_plan], [true, "subscription_1months"]);
+});
+
 // ---------------------------------------------------------------- clean-up
 
 test("photo clean-up removes files no longer on the profile and always clears the queue", async () => {
