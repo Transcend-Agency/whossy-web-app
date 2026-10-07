@@ -115,7 +115,10 @@ const CreateAccount = () => {
     const onGoogleSignIn = async (res: UserCredential) => {
         setLoading(true);
         try {
-            const [firstName, lastName] = res.user.displayName?.split(" ") || ["", ""];
+            // A one-word display name leaves lastName undefined, which Firestore
+            // refuses to save, so every part defaults to an empty string.
+            const [firstName = "", ...rest] = res.user.displayName?.split(" ") ?? [];
+            const lastName = rest.join(" ");
             await handleUserDocument(res.user, 'google', firstName, lastName);
         } catch (error) {
             console.error(error);

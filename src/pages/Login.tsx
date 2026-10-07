@@ -196,7 +196,10 @@ const Login = () => {
             setLoading(true)
             setAttemptedAuthUser(res.user)
             console.log(attemptedAuthUser)
-            const [firstName, lastName] = res.user.displayName?.split(" ") ?? ["", ""];
+            // A one-word display name leaves lastName undefined, which Firestore
+            // refuses to save, so every part defaults to an empty string.
+            const [firstName = "", ...rest] = res.user.displayName?.split(" ") ?? [];
+            const lastName = rest.join(" ");
             const q = query(collection(db, "users"), where("uid", "==", res.user.uid));
             const result = await getDocs(q);
             if (result.docs.length === 0) {
