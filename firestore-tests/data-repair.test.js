@@ -12,8 +12,14 @@ const assert = require("node:assert/strict");
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || "demo-whossy";
 process.env.FIRESTORE_EMULATOR_HOST ||= "127.0.0.1:8080";
 
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const admin = require("../functions/node_modules/firebase-admin");
-const { run, report } = require("../scripts/data-repair.cjs");
+const { run, restore, report, STEPS } = require("../scripts/data-repair.cjs");
+const { Timestamp, GeoPoint } = admin.firestore;
+const ALL_STEPS = Object.keys(STEPS);
+const backupPath = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), "repair-test-")), "backup.ndjson");
 
 const app = admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = app.firestore();
@@ -37,7 +43,9 @@ async function seed() {
       photos: PHOTOS, has_completed_onboarding: true, face_verification: { status: "approved", photo: "s.jpg", reviewed_by: "admin" },
       amount_paid_in_total: { naira: 500, kenyan_shillings: 0 }, paystack: { reference: "r1" } },
     // Pre-credits account with none of the server fields.
-    "users/old": { uid: "old", is_approved: false, photos: PHOTOS, has_completed_onboarding: true },
+    // Carries a Timestamp and a GeoPoint so the backup has to round-trip them.
+    "users/old": { uid: "old", is_approved: false, photos: PHOTOS, has_completed_onboarding: true,
+      created_at: Timestamp.fromMillis(1700000000123), location: new GeoPoint(6.5, 3.3) },
     // Approved from the dashboard: selfie on file, never reviewed.
     "users/legacyApproved": { uid: "legacyApproved", is_approved: true, is_banned: false, is_premium: false, credit_balance: 40, credits_on_hold: 0,
       photos: PHOTOS, has_completed_onboarding: true, face_verification: { retake_photo: false, photo: "s.jpg" } },
@@ -56,6 +64,10 @@ async function seed() {
     "likes/random-id": { liker_id: "a", liked_id: "c" },
     "dislikes/a_b": { disliker_id: "a", disliked_id: "b" },
     "dislikes/a_": { disliker_id: "a", disliked_id: null },
+    // Real people, wrong document id: moved, not deleted.
+    "dislikes/random-dislike": { uid: "random-dislike", disliker_id: "a", disliked_id: "c", timestamp: "2026-01-01" },
+    // Wrong id, but the right one already exists: the duplicate is dropped.
+    "dislikes/dup": { disliker_id: "a", disliked_id: "b" },
 
     "chats/bob_alice": { last_message: "hi" },
     "chats/alice_carol": { participants: ["carol", "alice"], last_message: "yo" },
@@ -82,17 +94,21 @@ test.beforeEach(async () => {
 test("a dry run reports the changes and writes nothing", async () => {
   const before = await snapshotAll();
   const summary = await run(db, { apply: false }, quiet);
+  const everything = await run(db, { apply: false, only: ALL_STEPS }, quiet);
 
   assert.deepEqual(await snapshotAll(), before);
+  // The two deferred steps are left out unless asked for by name.
   assert.deepEqual(summary, {
-    defaults: 2, reverifyDeadline: 1, amountPaidShape: 2, paystackPayloads: 1,
-    strayPremiumFlag: 1, malformedReactions: 3, chatParticipants: 1, stalePhotoQueue: 1,
+    defaults: 2, amountPaidShape: 2,
+    strayPremiumFlag: 1, malformedReactions: 4, chatParticipants: 1, stalePhotoQueue: 1,
   });
+  assert.equal(everything.reverifyDeadline, 1);
+  assert.equal(everything.paystackPayloads, 1);
 });
 
 test("applying repairs each known shape and leaves a healthy account untouched", async () => {
   const healthyBefore = await get("users/ok");
-  await run(db, { apply: true }, quiet);
+  await run(db, { apply: true, only: ALL_STEPS, backupFile: backupPath() }, quiet);
 
   assert.deepEqual(await get("users/ok"), healthyBefore);
 
@@ -127,7 +143,16 @@ test("applying repairs each known shape and leaves a healthy account untouched",
 
   assert.ok(await get("likes/a_b"));
   assert.ok(await get("dislikes/a_b"));
-  for (const gone of ["likes/a_null", "likes/random-id", "dislikes/a_"]) assert.equal(await get(gone), undefined, gone);
+  // Deleted: no target at all.
+  for (const gone of ["likes/a_null", "dislikes/a_"]) assert.equal(await get(gone), undefined, gone);
+  // A like with the wrong id is left alone (saving it again would notify people).
+  assert.deepEqual(await get("likes/random-id"), { liker_id: "a", liked_id: "c" });
+  // A dislike with the wrong id keeps its meaning under the right one.
+  assert.equal(await get("dislikes/random-dislike"), undefined);
+  assert.deepEqual(await get("dislikes/a_c"), { uid: "a_c", disliker_id: "a", disliked_id: "c", timestamp: "2026-01-01" });
+  // A duplicate of an existing dislike just goes.
+  assert.equal(await get("dislikes/dup"), undefined);
+  assert.deepEqual(await get("dislikes/a_b"), { disliker_id: "a", disliked_id: "b" });
 
   assert.deepEqual((await get("chats/bob_alice")).participants, ["alice", "bob"]);
   assert.deepEqual((await get("chats/alice_carol")).participants, ["carol", "alice"]); // already had one: left as is
@@ -137,23 +162,23 @@ test("applying repairs each known shape and leaves a healthy account untouched",
 });
 
 test("a second run finds nothing left to do", async () => {
-  await run(db, { apply: true }, quiet);
+  await run(db, { apply: true, only: ALL_STEPS, backupFile: backupPath() }, quiet);
   const after = await snapshotAll();
 
-  const summary = await run(db, { apply: true }, quiet);
+  const summary = await run(db, { apply: true, only: ALL_STEPS, backupFile: backupPath() }, quiet);
 
   assert.deepEqual(Object.values(summary).filter((n) => n !== 0), []);
   assert.deepEqual(await snapshotAll(), after);
 });
 
 test("--only limits the run to the named steps", async () => {
-  await run(db, { apply: true, only: ["stalePhotoQueue"] }, quiet);
+  await run(db, { apply: true, only: ["stalePhotoQueue"], backupFile: backupPath() }, quiet);
   assert.equal(await get("deletePicQueue/old"), undefined);
   assert.equal("reverify_by" in (await get("users/approvedNoSelfie")), false);
 });
 
 test("the grace period is configurable", async () => {
-  await run(db, { apply: true, only: ["reverifyDeadline"], graceDays: 3 }, quiet);
+  await run(db, { apply: true, only: ["reverifyDeadline"], graceDays: 3, backupFile: backupPath() }, quiet);
   const daysLeft = ((await get("users/approvedNoSelfie")).reverify_by.toMillis() - Date.now()) / 86400000;
   assert.ok(daysLeft > 2.9 && daysLeft <= 3);
 });
@@ -169,5 +194,56 @@ test("the report lists what needs a human decision and changes nothing", async (
   assert.deepEqual(kinds.profile_without_uid_field, ["noUidField"]);
   assert.deepEqual(kinds.chat_with_unusable_id, ["notapair"]);
   assert.deepEqual(kinds.userchats_collection, ["x"]);
+  assert.deepEqual(kinds.likes_with_wrong_id, ["random-id"]);
   assert.deepEqual(await snapshotAll(), before);
+});
+
+test("without --only, the two deferred steps do not run even when applying", async () => {
+  const summary = await run(db, { apply: true, backupFile: backupPath() }, quiet);
+
+  assert.equal("paystackPayloads" in summary, false);
+  assert.equal("reverifyDeadline" in summary, false);
+  assert.ok((await get("users/rawPayload")).paystack.charge_success);
+  assert.equal("reverify_by" in (await get("users/approvedNoSelfie")), false);
+});
+
+test("applying without a backup file refuses to start and writes nothing", async () => {
+  const before = await snapshotAll();
+  await assert.rejects(run(db, { apply: true }, quiet), /without a backup file/);
+  assert.deepEqual(await snapshotAll(), before);
+});
+
+test("the backup holds the current content of every document touched, readable only by its owner", async () => {
+  const file = backupPath();
+  await run(db, { apply: true, only: ALL_STEPS, backupFile: file }, quiet);
+
+  const lines = fs.readFileSync(file, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const byPath = Object.fromEntries(lines.map((l) => [l.path, l.before]));
+
+  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+  // What a document looked like before, including a type JSON would flatten.
+  assert.equal(byPath["users/old"].is_banned, undefined);
+  assert.deepEqual(byPath["users/old"].created_at, { __ts: [1700000000, 123000000] });
+  assert.deepEqual(byPath["users/old"].location, { __geo: [6.5, 3.3] });
+  // A document that did not exist yet is recorded as such, so restore can delete it.
+  assert.equal(byPath["users/rawPayload/private/billing_legacy"], null);
+  assert.equal(byPath["dislikes/a_c"], null);
+  assert.deepEqual(byPath["dislikes/random-dislike"].disliked_id, "c");
+});
+
+test("restoring from the backup puts everything back exactly, including created documents", async () => {
+  const original = await snapshotAll();
+  const file = backupPath();
+  await run(db, { apply: true, only: ALL_STEPS, backupFile: file }, quiet);
+  assert.notDeepEqual(await snapshotAll(), original);
+
+  const dry = await restore(db, file, { apply: false }, quiet);
+  assert.ok(dry > 0);
+  assert.notDeepEqual(await snapshotAll(), original); // a dry restore changes nothing
+
+  await restore(db, file, { apply: true }, quiet);
+  assert.deepEqual(await snapshotAll(), original);
+  const old = await get("users/old");
+  assert.ok(old.created_at instanceof Timestamp && old.created_at.toMillis() === 1700000000123);
+  assert.ok(old.location instanceof GeoPoint && old.location.latitude === 6.5);
 });
