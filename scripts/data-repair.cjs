@@ -287,6 +287,19 @@ async function report(db) {
   return lines;
 }
 
+/**
+ * Whether the script may write to where it is pointed. Returns a message to
+ * refuse with, or null. Writing to a real project needs the project to be
+ * known and named again on the command line, so a wrong credentials file or
+ * a pasted command cannot reach production by accident.
+ */
+function refuseReason({ apply, emulated, projectId, confirmProject }) {
+  if (!apply || emulated) return null;
+  if (!projectId) return "Cannot tell which project these credentials are for, so will not write to it.";
+  if (confirmProject !== projectId) return `Refusing to change a real project without --confirm-project=${projectId}.`;
+  return null;
+}
+
 function openBackup(file) {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   return fs.openSync(file, "a", 0o600);
@@ -349,16 +362,22 @@ async function restore(db, file, { apply = false } = {}, log = console.log) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const app = admin.initializeApp();
-  const projectId = app.options.projectId ?? process.env.GCLOUD_PROJECT ?? process.env.GOOGLE_CLOUD_PROJECT;
+  let projectId = app.options.projectId ?? process.env.GCLOUD_PROJECT ?? process.env.GOOGLE_CLOUD_PROJECT;
+  // A service-account key names its own project; initializeApp() does not
+  // surface that, so read it from the file.
+  if (!projectId && process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    try { projectId = JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, "utf8")).project_id; } catch { /* unreadable: left undefined */ }
+  }
   const emulated = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
 
-  if (args.apply && !emulated && args.confirmProject !== projectId) {
-    console.error(`Refusing to change a real project without --confirm-project=${projectId ?? "<project id>"}.`);
+  const refusal = refuseReason({ apply: args.apply, emulated, projectId, confirmProject: args.confirmProject });
+  if (refusal) {
+    console.error(refusal);
     process.exit(2);
   }
 
   const db = admin.firestore();
-  console.error(`${args.apply ? "APPLYING to" : "Dry run against"} ${emulated ? "the emulator" : projectId}`);
+  console.error(`${args.apply ? "APPLYING to" : "Dry run against"} ${emulated ? "the emulator" : projectId ?? "an unknown project"}`);
 
   if (args.restore) {
     const count = await restore(db, args.restore, args);
@@ -382,4 +401,4 @@ if (require.main === module) {
   main().catch((err) => { console.error(err); process.exit(1); });
 }
 
-module.exports = { run, restore, report, STEPS };
+module.exports = { run, restore, report, refuseReason, STEPS };

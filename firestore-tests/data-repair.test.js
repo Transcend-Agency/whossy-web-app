@@ -16,7 +16,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const admin = require("../functions/node_modules/firebase-admin");
-const { run, restore, report, STEPS } = require("../scripts/data-repair.cjs");
+const { run, restore, report, refuseReason, STEPS } = require("../scripts/data-repair.cjs");
 const { Timestamp, GeoPoint } = admin.firestore;
 const ALL_STEPS = Object.keys(STEPS);
 const backupPath = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), "repair-test-")), "backup.ndjson");
@@ -246,4 +246,16 @@ test("restoring from the backup puts everything back exactly, including created 
   const old = await get("users/old");
   assert.ok(old.created_at instanceof Timestamp && old.created_at.toMillis() === 1700000000123);
   assert.ok(old.location instanceof GeoPoint && old.location.latitude === 6.5);
+});
+
+test("the script only writes to a real project when it knows which one and is told its name again", () => {
+  const real = { apply: true, emulated: false, projectId: "whossy-app" };
+  assert.match(refuseReason({ ...real, confirmProject: undefined }), /--confirm-project=whossy-app/);
+  assert.match(refuseReason({ ...real, confirmProject: "some-other-project" }), /--confirm-project=whossy-app/);
+  // Not knowing the project must not pass just because nothing was typed either.
+  assert.match(refuseReason({ apply: true, emulated: false, projectId: undefined, confirmProject: undefined }), /Cannot tell which project/);
+  assert.equal(refuseReason({ ...real, confirmProject: "whossy-app" }), null);
+  // Reading is always allowed, and so is writing to the emulator.
+  assert.equal(refuseReason({ apply: false, emulated: false, projectId: undefined }), null);
+  assert.equal(refuseReason({ apply: true, emulated: true, projectId: undefined }), null);
 });
