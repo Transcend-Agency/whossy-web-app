@@ -31,15 +31,19 @@ html {
   }
 }
 
-// Keyboard focus: visible ring for anything focusable, without affecting mouse clicks.
+// Keyboard focus ring for buttons, links and role="button" elements. Text
+// fields are excluded: the caret already shows focus, and many sit inside a
+// styled pill/container that handles its own focus look.
 :focus-visible {
   outline: 2px solid #485FE6;
   outline-offset: 2px;
 }
 
 input:focus-visible,
-textarea:focus-visible {
-  outline-offset: 0;
+textarea:focus-visible,
+select:focus-visible,
+[contenteditable]:focus-visible {
+  outline: none;
 }
 
 [role="button"] {
