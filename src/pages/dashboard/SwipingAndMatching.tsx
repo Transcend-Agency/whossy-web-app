@@ -46,6 +46,8 @@ import { getUserProfile } from "@/hooks/useUser";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
 import ReportModal from "@/components/dashboard/ReportModal.tsx";
 import {useVerificationGate} from "@/hooks/useVerificationGate.tsx";
+import {useChatIdStore} from "@/store/ChatStore.tsx";
+import {openChatWith} from "@/utils/chatService.ts";
 import { pressable } from '@/utils/pressable';
 
 interface ProfileCardProps {
@@ -490,6 +492,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
 }
 const SwipingAndMatching = () => {
     const navigate = useNavigate();
+    const { setChatId } = useChatIdStore()
     const [profiles, setProfiles] = useState<User[]>([])
     const x = useMotionValue(0)
     const controls = useAnimationControls()
@@ -835,10 +838,9 @@ const SwipingAndMatching = () => {
                                     <button data-cy="chat-profile" className="action-buttons__button action-buttons__button--small"
                                         onClick={() => {
                                             if (!requireVerification()) return;
-                                            loggedUserData?.is_premium ?
-                                                navigate(`/dashboard/chat?recipient-user-id=${item.uid}`) :
-                                                toast.error('Upgrade to premium to chat');
-                                            console.log(loggedUserData)}}
+                                            openChatWith(auth?.uid as string, item, setChatId, navigate)
+                                                .catch(() => toast.error("Couldn't open the chat. Please try again."));
+                                        }}
                                     >
                                         <img src="/assets/icons/message-heart.svg" alt={``}/>
                                     </button>

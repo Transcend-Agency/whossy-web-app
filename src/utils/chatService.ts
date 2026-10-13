@@ -2,6 +2,9 @@ import {collection, doc, getDoc, getDocs, orderBy, query, setDoc} from "firebase
 import { db } from "@/firebase";
 import {checkIfUserBlocked} from "@/components/dashboard/SelectedChat.tsx";
 import {Chat, Messages} from "@/types/chat.ts";
+import {User} from "@/types/user.ts";
+import {isChatWindowActive} from "@/utils/chatCreditState";
+import {NavigateFunction} from "react-router-dom";
 
 export const createOrFetchChat = async ( currentUserId: string,  recipientUserId: string, updateChatId: (id: string) => void): Promise<void> => {
 	const newChatId = [currentUserId, recipientUserId].sort().join('_');
@@ -38,6 +41,29 @@ export const createOrFetchChat = async ( currentUserId: string,  recipientUserId
 	// 	});
 	// 	setChatId(chatId)
 	// }
+};
+
+/**
+ * Opens the chat screen with `recipient`, creating the empty chat shell if
+ * needed. Opening is never gated on premium or credits: the chat screen
+ * itself blocks sending until the user has either (or the other side
+ * started the chat), so a user with neither can still read and be prompted.
+ * The screen reads chatId/recipientUser from router state, so every entry
+ * point has to go through here rather than navigate to the URL alone.
+ */
+export const openChatWith = async (
+	currentUserId: string,
+	recipient: User,
+	setChatId: (id: string) => void,
+	navigate: NavigateFunction,
+): Promise<void> => {
+	const chatId = [currentUserId, recipient.uid].sort().join('_');
+	await createOrFetchChat(currentUserId, recipient.uid as string, setChatId);
+	const chatSnap = await getDoc(doc(db, "chats", chatId));
+	const chat = chatSnap.exists() ? chatSnap.data() as Chat : null;
+	navigate(`/dashboard/chat?recipient-user-id=${recipient.uid}`, {
+		state: {chatId, recipientUser: recipient, chatUnlocked: isChatWindowActive(chat)},
+	});
 };
 
 export const getLastValidMessage = async (chat: Chat, currentUserUid: string) => {

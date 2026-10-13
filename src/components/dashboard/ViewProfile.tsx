@@ -16,9 +16,7 @@ import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import DashboardPageContainer from "./DashboardPageContainer";
 import {useChatIdStore} from "@/store/ChatStore.tsx";
-import {createOrFetchChat} from "@/utils/chatService.ts";
-import {isChatWindowActive} from "@/utils/chatCreditState";
-import {Chat} from "@/types/chat.ts";
+import {openChatWith} from "@/utils/chatService.ts";
 import { serverTimestamp } from 'firebase/firestore';
 import { useVerificationGate } from "@/hooks/useVerificationGate.tsx";
 import { pressable } from '@/utils/pressable';
@@ -202,12 +200,6 @@ const ViewProfile: React.FC<ViewProfileProps> = (
         return Boolean(userLikes.filter(like => (like.liked_id === selectedProfile)).length)
     }
 
-    const fetchUserChats = async (id: string) => {
-        const chatDocRef = doc(db, "chats", id);
-        const chatDocSnap = await getDoc(chatDocRef);
-        return chatDocSnap.exists() ? chatDocSnap.data() as Chat : null;
-    };
-
     return (
         <>
             {verificationModals}
@@ -227,24 +219,8 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                     {<div className="preview-profile__action-button"
                           onClick={async () => {
                               if (!requireVerification()) return;
-                              toast.loading("Loading chat..")
-                              const chatId = [auth?.uid, userData.uid].sort().join('_');
-                              setChatId(chatId)
-                              await createOrFetchChat(auth?.uid as string, userData?.uid as string, setChatId).then(
-                                  async () => {
-                                      const chat = await fetchUserChats(chatId) as Chat;
-                                      if (chatId != "nil" || !chat || !chat.participants || chat.participants.length < 2) {
-                                          navigate(`/dashboard/chat?recipient-user-id=${userData.uid}`, {
-                                              state: {
-                                                  chatId,
-                                                  recipientUser: userData,
-                                                  chatUnlocked: isChatWindowActive(chat)
-                                              },
-                                          });
-                                          setChatId(chatId)
-                                      }
-                                  }
-                              )
+                              openChatWith(auth?.uid as string, userData, setChatId, navigate)
+                                  .catch(() => toast.error("Couldn't open the chat. Please try again."))
                           }}>
                         <img src="/assets/icons/message-heart.svg" alt={``} />
                     </div>}
@@ -266,24 +242,8 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                             {<div className="preview-profile__action-button"
                                   onClick={async () => {
                                       if (!requireVerification()) return;
-                                      toast.loading("Loading chat..")
-                                      const chatId = [auth?.uid, userData.uid].sort().join('_');
-                                      setChatId(chatId)
-                                      await createOrFetchChat(auth?.uid as string, userData?.uid as string, setChatId).then(
-                                          async () => {
-                                              const chat = await fetchUserChats(chatId) as Chat;
-                                              if (chatId != "nil" || !chat || !chat.participants || chat.participants.length < 2) {
-                                                  navigate(`/dashboard/chat?recipient-user-id=${userData.uid}`, {
-                                                      state: {
-                                                          chatId,
-                                                          recipientUser: userData,
-                                                          chatUnlocked: isChatWindowActive(chat)
-                                                      },
-                                                  });
-                                                  setChatId(chatId)
-                                              }
-                                          }
-                                      )
+                                      openChatWith(auth?.uid as string, userData, setChatId, navigate)
+                                          .catch(() => toast.error("Couldn't open the chat. Please try again."))
                                   }}>
                                 <img src="/assets/icons/message-heart.svg" alt={``} />
                             </div>}
