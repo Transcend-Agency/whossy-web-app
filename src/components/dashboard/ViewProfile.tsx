@@ -42,7 +42,7 @@ const ViewProfile: React.FC<ViewProfileProps> = (
     const navigate = useNavigate();
     const { user, auth } = useAuthStore()
     const { userLikes } = useSyncUserLikes(user!.uid!)
-    const { selectedProfile } = useDashboardStore()
+    const { selectedProfile, blockedUsers } = useDashboardStore()
     const { setChatId } = useChatIdStore()
     const [openModal, setOpenModal] = useState(false);
 
@@ -294,7 +294,7 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                                             <div className="non-active-badge">{'Offline'}</div>
                                         )) : null
                                     }
-                                    {typeof user?.latitude === 'number' && typeof user?.longitude === 'number' &&
+                                    {!blockedUsers.includes(userData.uid as string) && typeof user?.latitude === 'number' && typeof user?.longitude === 'number' &&
                                         typeof userData.latitude === 'number' && typeof userData.longitude === 'number' &&
                                         <p className="location">~ {distanceInMiles([user.latitude, user.longitude], [userData.latitude, userData.longitude]).toFixed(1)} mi away</p>}
                                 </div>

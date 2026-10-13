@@ -8,6 +8,7 @@ import {RECENCY_WINDOW_MS} from "@/utils/presence.ts";
 import {NEW_MEMBER_WINDOW_DAYS, DEFAULT_DISCOVERY_RADIUS_MILES} from "@/constants";
 import {milesToKm} from "@/utils/units.ts";
 import {fetchProfilesWithinRadius} from "@/utils/geoProfiles.ts";
+import { fetchHiddenUserIds } from "@/utils/blocking";
 
 // C5 — Discover/Online/New members/Looking to date are simple where()-only
 // queries and paginate cleanly with a cursor. Similar interest, Advanced
@@ -40,10 +41,7 @@ function useProfileFetcher() {
 	const fetchBlockedUsers = useCallback(async () => {
 		if (!user?.uid) return [];
 		try {
-			const userRef = doc(db, "users", user.uid);
-			const userDoc = await getDoc(userRef);
-			const userData = userDoc.exists() ? userDoc.data() : {};
-			const blockedIds = userData.blockedIds || []
+			const blockedIds = await fetchHiddenUserIds(user.uid)
 			setBlockedUsers(blockedIds);
 			return blockedIds;
 		} catch (error) {

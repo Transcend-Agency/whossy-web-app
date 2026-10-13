@@ -5,6 +5,7 @@ import { Match } from '@/types/likingAndMatching';
 import { User } from '@/types/user';
 import useDashboardStore from '@/store/useDashboardStore';
 import {useAuthStore} from "@/store/UserId.tsx";
+import { fetchHiddenUserIds } from "@/utils/blocking";
 
 export interface PopulatedMatchData extends Match {
     matchedUserData: User | null; // Ensure this matches your User type
@@ -45,10 +46,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
                         return;
                     }
 
-                    const userRef = doc(db, "users", user?.uid as string);
-                    const userDoc = await getDoc(userRef);
-                    const userData = userDoc.exists() ? userDoc.data() : {};
-                    const blockedIds = userData.blockedIds || [];
+                    const blockedIds = await fetchHiddenUserIds(user.uid);
                     setBlockedUsers(blockedIds);
                     return blockedIds;
                 } catch (error) {
