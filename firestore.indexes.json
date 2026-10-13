@@ -31,6 +31,14 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "has_completed_onboarding", "order": "ASCENDING" },
+        { "fieldPath": "status.lastSeen", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "has_completed_onboarding", "order": "ASCENDING" },
         { "fieldPath": "gender", "order": "ASCENDING" },
         { "fieldPath": "created_at", "order": "ASCENDING" }
       ]
