@@ -5,7 +5,7 @@
     "users": {
       "$uid": {
         "presence": {
-          ".read": "auth != null",
+          ".read": "auth != null && auth.uid === $uid",
           ".write": "auth != null && auth.uid === $uid",
           "online": {
             ".validate": "newData.isBoolean()"

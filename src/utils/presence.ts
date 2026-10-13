@@ -10,6 +10,18 @@ export const RECENCY_WINDOW_MS = 5 * 60 * 1000;
 
 export type PresenceStatus = { online?: boolean | null; lastSeen?: number | null } | null | undefined;
 
+/**
+ * Hiding online status is Premium-only, so a lapsed account that was set to
+ * hidden is visible again, and a missing setting means visible. The server
+ * already withholds `status` for hidden users; this keeps every screen
+ * agreeing with it before the mirror catches up with a just-changed setting.
+ */
+export function hidesOnlineStatus(
+	user: { is_premium?: boolean | null; user_settings?: { online_status?: boolean | null } | null } | null | undefined,
+): boolean {
+	return user?.is_premium === true && user?.user_settings?.online_status === false;
+}
+
 export function isRecentlyOnline(status: PresenceStatus, now: number = Date.now()): boolean {
 	if (!status?.online) return false;
 	if (typeof status.lastSeen !== "number") return false;

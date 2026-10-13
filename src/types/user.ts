@@ -35,7 +35,8 @@ export type User = {
   reverify_by?: Timestamp | null;
   status?: {
     online: boolean;
-    lastSeen: number;
+    // null when the user hides their online status
+    lastSeen: number | null;
   } | null;
   state?: string | null;
   family_goal?: number | null;

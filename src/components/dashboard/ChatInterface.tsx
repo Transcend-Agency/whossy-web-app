@@ -11,7 +11,7 @@ import { getUserProfile } from '@/hooks/useUser';
 import {ChatListItem} from "@/components/dashboard/ChatListItem.tsx";
 import {createOrFetchChat, getLastValidMessage} from "@/utils/chatService.ts";
 import {isChatWindowActive} from "@/utils/chatCreditState";
-import {isRecentlyOnline} from "@/utils/presence";
+import {hidesOnlineStatus, isRecentlyOnline} from "@/utils/presence";
 import { pressable } from '@/utils/pressable';
 
 interface ChatDataWithUserData extends Chat {
@@ -202,7 +202,7 @@ const ChatInterface: FC = () => {
                                         key={`${chat.last_sender_id}_${currentUserId}_${i}`}
                                         contactName={chat.user.first_name as string}
                                         userData={userData as User}
-                                        onlineStatus={chat.user?.user_settings?.online_status && isRecentlyOnline(chat.user?.status)}
+                                        onlineStatus={!hidesOnlineStatus(chat.user) && isRecentlyOnline(chat.user?.status)}
                                         profileImage={chat.user.photos && chat.user.photos[0]}
                                         chatUnlocked={isChatWindowActive(chat)}
                                         chat={chat}

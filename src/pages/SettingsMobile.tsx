@@ -17,7 +17,7 @@ const SettingsMobile: React.FC<ProfileSettingsProps> = ({ activePage, closePage,
         hide_verification_badge: false,
         public_search: false,
         read_receipts: false,
-        online_status: false,
+        online_status: true,
     })
 
     const [showModal, setShowModal] = useState<'hidden' | 'logout'>('hidden')
@@ -43,7 +43,7 @@ const SettingsMobile: React.FC<ProfileSettingsProps> = ({ activePage, closePage,
 
                         <SettingsToggleItem title="Read receipts" subtext="Matches won’t be able to see when you have read their messages and you won’t be able to see theirs." isActive={profileSettings.read_receipts} onButtonToggle={() => setProfileSettings({ ...profileSettings, read_receipts: !profileSettings.read_receipts })} />
 
-                        <SettingsToggleItem title="Online status" subtext="Users won’t be able to see when you’re online." isActive={profileSettings.online_status} onButtonToggle={() => setProfileSettings({ ...profileSettings, online_status: !profileSettings.online_status })} isPremium />
+                        <SettingsToggleItem title="Show when I’m online" subtext="Other users can see when you’re online. Turn off to hide it." isActive={profileSettings.online_status} onButtonToggle={() => setProfileSettings({ ...profileSettings, online_status: !profileSettings.online_status })} isPremium />
                     </div>
                     <section className="my-3 space-y-3">
                         <ProfileSettingsGroup title="Blocked contacts" />

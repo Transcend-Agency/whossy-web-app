@@ -8,7 +8,7 @@ import { useAuthStore } from '@/store/UserId';
 import { User } from '@/types/user';
 import { calculateAge } from '@/utils/age';
 import { distanceInMiles } from '@/utils/distance';
-import { isRecentlyOnline } from '@/utils/presence';
+import { hidesOnlineStatus, isRecentlyOnline } from '@/utils/presence';
 import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { motion, useAnimationControls } from 'framer-motion';
 import React, { useEffect, useRef, useState } from "react";
@@ -287,7 +287,7 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                             </div>}
                             <div className="preview-profile__profile-details">
                                 <div className="status-row">
-                                    {userData?.user_settings?.online_status ?
+                                    {!hidesOnlineStatus(userData) ?
                                         (isRecentlyOnline(userData.status) ? (
                                             <div className="active-badge">{'Online'}</div>
                                         ) : (

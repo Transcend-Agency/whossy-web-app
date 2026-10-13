@@ -88,3 +88,59 @@ test("disconnecting flips the mirrored status to offline", async () => {
   assert.equal(status.online, false);
   assert.equal(status.lastSeen, offlineAt);
 });
+
+// Hiding online status is Premium-only and enforced here, so every reader of
+// `status` (swipe cards, the Online filter, chats) sees a hidden user as
+// offline with no lastSeen.
+test("a premium user who hides their online status is mirrored as offline with no lastSeen", async () => {
+  await db.collection("users").doc("lisa").set({
+    first_name: "Lisa",
+    is_premium: true,
+    user_settings: { online_status: false },
+  });
+  await rtdb.ref("users/lisa/presence").set({ online: true, lastSeen: Date.now() });
+
+  const status = await waitFor(async () => (await statusFor("lisa")) ?? null);
+
+  assert.equal(status.online, false);
+  assert.equal(status.lastSeen, null);
+});
+
+test("the same setting on a non-premium user is ignored", async () => {
+  await db.collection("users").doc("bart").set({
+    first_name: "Bart",
+    is_premium: false,
+    user_settings: { online_status: false },
+  });
+  await rtdb.ref("users/bart/presence").set({ online: true, lastSeen: Date.now() });
+
+  const status = await waitFor(async () => (await statusFor("bart")) ?? null);
+
+  assert.equal(status.online, true);
+  assert.equal(typeof status.lastSeen, "number");
+});
+
+test("flipping the setting re-applies it without waiting for the next heartbeat", async () => {
+  await db.collection("users").doc("maggie").set({
+    first_name: "Maggie",
+    is_premium: true,
+    user_settings: { online_status: true },
+  });
+  const lastSeen = Date.now();
+  await rtdb.ref("users/maggie/presence").set({ online: true, lastSeen });
+  await waitFor(async () => (await statusFor("maggie"))?.online === true ? true : null);
+
+  await db.collection("users").doc("maggie").update({ "user_settings.online_status": false });
+  const hidden = await waitFor(async () => {
+    const s = await statusFor("maggie");
+    return s && s.online === false ? s : null;
+  });
+  assert.equal(hidden.lastSeen, null);
+
+  await db.collection("users").doc("maggie").update({ "user_settings.online_status": true });
+  const visible = await waitFor(async () => {
+    const s = await statusFor("maggie");
+    return s && s.online === true ? s : null;
+  });
+  assert.equal(visible.lastSeen, lastSeen);
+});

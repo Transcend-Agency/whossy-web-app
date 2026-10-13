@@ -181,7 +181,7 @@ const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, user
                             updateUserSetting('read_receipts', updatedValue);
                         }} />
 
-                        <SettingsToggleItem title="Online status" subtext="Users won’t be able to see when you’re online." isActive={profileSettings.online_status as boolean} onButtonToggle={() => {
+                        <SettingsToggleItem title="Show when I’m online" subtext="Other users can see when you’re online. Turn off to hide it." isActive={profileSettings.online_status as boolean} onButtonToggle={() => {
                             const updatedValue = !profileSettings.online_status;
                             setProfileSettings({
                                 ...profileSettings,

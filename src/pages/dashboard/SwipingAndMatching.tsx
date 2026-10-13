@@ -35,7 +35,7 @@ import Cat from "../../Cat.json";
 import {User} from "@/types/user";
 import {calculateAge} from "@/utils/age";
 import {distanceInMiles} from "@/utils/distance";
-import {isRecentlyOnline} from "@/utils/presence";
+import {hidesOnlineStatus, isRecentlyOnline} from "@/utils/presence";
 import DiscoveryStateMessage from "@/components/dashboard/DiscoveryStateMessage";
 import useSyncUserLikes from "@/hooks/useSyncUserLikes";
 import useSyncUserDislikes from "@/hooks/useSyncUserDislikees";
@@ -384,7 +384,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                         </div>
                         <div className="preview-profile__profile-details">
                             <div className="status-row">
-                                {isRecentlyOnline(item.status) && <div className="active-badge">Online</div>}
+                                {!hidesOnlineStatus(item) && isRecentlyOnline(item.status) && <div className="active-badge">Online</div>}
                                 <p className="location">{distanceAwayInMiles != null ? `~ ${distanceAwayInMiles.toFixed(1)} miles away` : `loading...`}</p>
                             </div>
                             <motion.div animate={expanded ? { marginBottom: '2.8rem' } : { marginBottom: '1.2rem' }} className="name-row">

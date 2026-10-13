@@ -35,7 +35,7 @@ export {
   notifyOnNewMessage,
   notifyOnVerificationDecision,
 } from "./notifications";
-export { mirrorPresenceToFirestore } from "./presence";
+export { mirrorPresenceToFirestore, reapplyPresenceVisibility } from "./presence";
 export { deleteAccount, cleanUpUserData } from "./account";
 export { createMatchOnMutualLike } from "./matches";
 export { handlePlaySubscription } from "./playSubscriptions";
