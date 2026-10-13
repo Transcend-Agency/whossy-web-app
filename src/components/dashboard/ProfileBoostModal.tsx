@@ -28,7 +28,7 @@ interface ProfileBoostModalProps {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="bg-white rounded-[1.6rem] shadow-lg w-[350px] sm:w-[450px] p-6 space-y-6 relative" >
             <div className="settings-page__title">
                 <button onClick={handleCloseModal} className="settings-page__title__left">
-                    <img src="/assets/icons/back-arrow-black.svg" className="settings-page__title__icon" />
+                    <img src="/assets/icons/back-arrow-black.svg" className="settings-page__title__icon" alt="" />
                     <p>Profile Boosts</p>
                 </button>
             </div>

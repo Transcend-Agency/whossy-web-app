@@ -130,10 +130,7 @@ export const TakeASelfie: React.FC<OnboardingProps> = ({ goBack }) => {
 																startCamera(cameraHasStarted, setCapturedImage, setPictureHasBeenTaken, setCameraHasStarted, videoRef)
 																		.then(() => console.log("Camera Started"))
 														}} className={`size-[30px] cursor-pointer z-50 ${cameraHasStarted ? "opacity-10" : "opacity-70"} absolute top-[50%] -translate-y-[50%] left-[50%] -translate-x-[50%]`} src={`/assets/icons/black-camera.svg`} alt={``} />
-														{pictureHasBeenTaken && <div onClick={() => {
-															setCapturedImage(null)
-															setPictureHasBeenTaken(false)
-														}} className={`absolute z-[60] bg-black/80 text-white px-3 py-2 rounded-[8px] top-[10px] left-[10px] font-bold text-[10px] cursor-pointer hover:cursor-pointer`}>Clear</div> }
+														{pictureHasBeenTaken && <button type="button" onClick={() => { setCapturedImage(null); setPictureHasBeenTaken(false) }} className={`absolute z-[60] bg-black/80 text-white px-3 py-2 rounded-[8px] top-[10px] left-[10px] font-bold text-[10px] cursor-pointer hover:cursor-pointer`}>Clear</button> }
 														{cameraHasStarted &&
 														<button onClick={() => captureImage(videoRef, canvasRef, setCapturedImage, setCameraHasStarted, setPictureHasBeenTaken, auth?.uid as string)} className={`absolute z-[60] bg-black/80 text-white px-3 py-2 rounded-[8px] bottom-[10px] right-[10px] font-bold text-[10px] cursor-pointer hover:cursor-pointer ${capturedImage ? "hidden" : "block"}`}>Capture</button> }
 												</div>

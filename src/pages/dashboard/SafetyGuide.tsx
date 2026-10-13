@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import React, { useState } from 'react';
+import { pressable } from '@/utils/pressable';
 
 type SafetyGuideProps = {
     activePage: string;
@@ -16,7 +17,7 @@ interface SafetyGuideItemProps {
 }
 const SafetyGuideItem: React.FC<SafetyGuideItemProps> = ({ icon, title, onClick }) => {
     return (
-        <div onClick={onClick} className='safety-guide-item'>
+        <div {...pressable(onClick)} className='safety-guide-item'>
             <div className='safety-guide-item__left'>
                 <img className='safety-guide-item__image' src={icon} alt={``} />
                 <p>{title}</p>

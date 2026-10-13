@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import React, { useState } from "react";
 import toast from "react-hot-toast";
+import { pressable } from '@/utils/pressable';
 
 interface DeleteAccountModalProps {
 	show: boolean;
@@ -60,10 +61,10 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({show, onCloseMod
 							<div className={`grid text-[14px]`}>
 								<div className={`flex justify-between items-center`}>
 									<p>Are you sure you want to delete your account ?</p>
-									<img className={`size-[18px] cursor-pointer`} onClick={() => {
+									<img className={`size-[18px] cursor-pointer`} {...pressable(() => {
 										onCloseModal();
 										setPassword("")
-									}} src={`/assets/icons/close-icons.svg`} alt={``}/>
+									})} src={`/assets/icons/close-icons.svg`} alt="Close"/>
 								</div>
 								<div className="settings-page__settings-group__item-separator"></div>
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Add, Minus } from "iconsax-react";
+import { pressable } from '@/utils/pressable';
 
 interface SectionProps {
   placeholder: string;
@@ -19,7 +20,7 @@ const ExpandableSection: React.FC<SectionProps> = ({ placeholder, answer, index,
   return (
     <div className="flex justify-center items-center">
       <div className="my-[1.6rem] w-full max-w-[80rem]">
-        <div className="flex justify-between items-center bg-lightgray px-12 h-[5.1rem]" onClick={() => toggleSection(index)}>
+        <div className="flex justify-between items-center bg-lightgray px-12 h-[5.1rem]" {...pressable(() => toggleSection(index))}>
           <p>{placeholder}</p>
           <button className="text-gray" onClick={toggleExpand}>
             {isOpen ? <Minus size="18" color="#8A8A8E" /> : <Add size="18" color="#8A8A8E" />}

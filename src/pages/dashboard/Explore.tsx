@@ -16,6 +16,9 @@ import { Like } from '@/types/likingAndMatching';
 import { AdvancedSearchPreferences, User } from '@/types/user';
 import { calculateAge } from '@/utils/age';
 import { Oval } from 'react-loader-spinner';
+import toast from 'react-hot-toast';
+import ActionButton from '@/components/ui/ActionButton';
+import { pressable } from '@/utils/pressable';
 import DiscoveryStateMessage from '@/components/dashboard/DiscoveryStateMessage';
 import { db } from "@/firebase";
 import useLikesAndMatchesStore from "@/store/LikesAndMatches.tsx";
@@ -160,8 +163,8 @@ const Explore = () => {
                         <div className='explore flex-grow'>
                             <div className='filter'>
                                 <div className='filter__left'>
-                                    {filterOptions.map(item => <div key={item} onClick={() => setSelectedOption(item)} className={`filter__item ${selectedOption == item && 'filter__item--active'}`}>{item}</div>)}
-                                    <div onClick={() => setSelectedOption('Advanced Search')} className={`filter__item advanced-search-btn2 ${selectedOption == 'Advanced Search' && 'filter__item--active'}`}>
+                                    {filterOptions.map(item => <div key={item} {...pressable(() => setSelectedOption(item))} aria-pressed={selectedOption == item} className={`filter__item ${selectedOption == item && 'filter__item--active'}`}>{item}</div>)}
+                                    <div {...pressable(() => setSelectedOption('Advanced Search'))} aria-pressed={selectedOption == 'Advanced Search'} className={`filter__item advanced-search-btn2 ${selectedOption == 'Advanced Search' && 'filter__item--active'}`}>
                                         <CustomIcon />
                                         Advanced Search
                                     </div>
@@ -169,6 +172,7 @@ const Explore = () => {
                                 <div data-cy="advanced-search-btn-mobile">
                                     <div className='filter__right advanced-search-btn'>
                                         <button onClick={() => setAdvancedSearchShowing(true)}
+                                                aria-label="Open advanced search"
                                                 className='filter__saved-search'>
                                             <img src="/assets/icons/saved-search.svg" alt={``}/>
                                         </button>
@@ -197,10 +201,13 @@ const Explore = () => {
                                     }
 
                                     {noSearchResults(profiles) === 0 && !exploreDataLoading && !exploreError && !exploreEmptyReason &&
-                                        <motion.div key={`no-search-result`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className='empty-state'>
-                                            <img className="empty-state__icon" src="/assets/icons/like-empty-state.png" alt={``} />
-                                            <div className='empty-state__text'>No Search Results</div>
-                                        </motion.div>
+                                        <DiscoveryStateMessage
+                                            key="no-search-result"
+                                            title="No profiles match right now"
+                                            subtitle={selectedOption === 'Advanced Search' ? "Try widening your age range or relationship preference." : "Try a different filter, or check back soon as new people join every day."}
+                                            actionLabel={selectedOption === 'Advanced Search' ? "Adjust search" : selectedOption !== filterOptions[0] ? `Show ${filterOptions[0]}` : undefined}
+                                            onAction={() => selectedOption === 'Advanced Search' ? setAdvancedSearchShowing(true) : setSelectedOption(filterOptions[0])}
+                                        />
                                     }
 
                                     {exploreDataLoading && noSearchResults(profiles) !== 0 &&
@@ -295,28 +302,21 @@ const Explore = () => {
                                 </AnimatePresence>
                                 {!exploreDataLoading && hasMoreProfiles &&
                                     <div className="w-full flex justify-center py-[2.4rem]">
-                                        <button
-                                            onClick={() => loadMoreProfiles().catch((err) => console.error("An error occurred while trying to load more profiles: ", err))}
-                                            disabled={loadingMoreProfiles}
-                                            className="inline-flex items-center justify-center gap-[0.8rem] min-w-[16rem] px-[2.4rem] py-[1.2rem] rounded-full bg-[#485FE6] text-white text-[1.4rem] font-semibold shadow-[0_4px_14px_rgba(72,95,230,0.35)] transition-all duration-200 hover:bg-[#3b50d0] hover:shadow-[0_6px_18px_rgba(72,95,230,0.45)] hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#485FE6]/30 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_14px_rgba(72,95,230,0.35)]"
+                                        <ActionButton
+                                            onClick={() => loadMoreProfiles().catch((err) => {
+                                                console.error("An error occurred while trying to load more profiles: ", err);
+                                                toast.error("Couldn't load more profiles. Please try again.");
+                                            })}
+                                            loading={loadingMoreProfiles}
+                                            loadingText="Loading…"
+                                            iconRight={
+                                                <svg className="w-[1.6rem] h-[1.6rem]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                                    <path d="m6 9 6 6 6-6" />
+                                                </svg>
+                                            }
                                         >
-                                            {loadingMoreProfiles ? (
-                                                <>
-                                                    <svg className="animate-spin w-[1.6rem] h-[1.6rem]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                                                        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.3" strokeWidth="3" />
-                                                        <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-                                                    </svg>
-                                                    Loading…
-                                                </>
-                                            ) : (
-                                                <>
-                                                    Load more
-                                                    <svg className="w-[1.6rem] h-[1.6rem]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                                        <path d="m6 9 6 6 6-6" />
-                                                    </svg>
-                                                </>
-                                            )}
-                                        </button>
+                                            Load more
+                                        </ActionButton>
                                     </div>
                                 }
                             </div>

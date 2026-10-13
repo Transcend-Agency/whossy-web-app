@@ -23,6 +23,7 @@ import { useAuthStore } from "@/store/UserId";
 import { User, UserProfile } from "@/types/user";
 import { FaceVerificationModal } from "@/components/dashboard/FaceVerificationModal.tsx";
 import { deriveVerificationStatus, verificationStatusLabel } from "@/utils/verification.ts";
+import { notifyError } from '@/utils/notifyError';
 
 interface EditProfileProps {
     activePage: string;
@@ -46,13 +47,13 @@ const EditProfile: React.FC<EditProfileProps> = ({ activePage, activeSubPage, cl
 
     const updateUser = async (s: UserProfile) => {
         updateUserProfile("users", auth?.uid as string, () => {hideModal(); refetchUserData()}, s)
-            .catch(err => console.error(err))
+            .catch(notifyError("Couldn't save your changes. Please try again."))
     }
 
     return (
         <>
             <NameSettingsModal showing={settingsModalShowing === 'name'} hideModal={hideModal} first_name={userData?.first_name as string} last_name={userData?.last_name as string} handleSave={(first_name, last_name) =>
-            {updateUser({first_name, last_name}).catch(err => console.error(err) )}} />
+            {updateUser({first_name, last_name})}} />
             <GenderSettingsModal showing={settingsModalShowing === 'gender'} hideModal={hideModal} userGender={userData?.gender as string} handleSave={gender => updateUser({gender})}/>
             <EmailSettingsModal showing={settingsModalShowing === 'email'} hideModal={hideModal} />
             <PhoneNumberSettingsModal showing={settingsModalShowing === 'phone'} hideModal={hideModal} phone_number={userData?.phone_number as string} handleSave={(phone_number) => updateUser({phone_number})}/>

@@ -4,6 +4,7 @@ import SettingsToggleItem from "@/components/dashboard/SettingsToggleItem";
 import { auth } from "@/firebase";
 import { motion } from "framer-motion";
 import React, { useState } from "react";
+import { pressable } from '@/utils/pressable';
 
 interface ProfileSettingsProps {
     activePage: boolean;
@@ -52,7 +53,7 @@ const SettingsMobile: React.FC<ProfileSettingsProps> = ({ activePage, closePage,
                         <ProfileSettingsGroup title="Policies" />
                         <ProfileSettingsGroup title="Help and Support" />
                     </section>
-                    <div className="flex mt-8 justify-center px-[2.8rem] gap-x-2 py-[1.6rem] cursor-pointer bg-[#F6F6F6] hover:bg-[#ececec]" onClick={() => setShowModal('logout')}>
+                    <div className="flex mt-8 justify-center px-[2.8rem] gap-x-2 py-[1.6rem] cursor-pointer bg-[#F6F6F6] hover:bg-[#ececec]" {...pressable(() => setShowModal('logout'))}>
                         <img src="/assets/icons/logout.svg" alt="" />
                         <p>Logout</p>
                     </div>

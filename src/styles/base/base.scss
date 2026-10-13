@@ -30,3 +30,29 @@ html {
     font-size: calc(100vw / 725 * 14);
   }
 }
+
+// Keyboard focus: visible ring for anything focusable, without affecting mouse clicks.
+:focus-visible {
+  outline: 2px solid #485FE6;
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+textarea:focus-visible {
+  outline-offset: 0;
+}
+
+[role="button"] {
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

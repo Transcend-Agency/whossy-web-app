@@ -11,6 +11,7 @@ import { updateUserProfile } from "@/hooks/useUser";
 import { useAuthStore } from "@/store/UserId";
 import { User, UserFilters } from "@/types/user";
 import { Oval } from "react-loader-spinner";
+import { notifyError } from '@/utils/notifyError';
 
 interface ProfileSettingsProps {
     activePage: boolean;
@@ -34,8 +35,8 @@ const Preferences: React.FC<ProfileSettingsProps> = ({ activePage, closePage, on
     const updateUser = async (s: User) => { updateUserProfile("users", auth?.uid as string, () => {
         hideModal();
         refetchUserData()
-    }, s).catch(e => console.error(e)) }
-    const updateUserPreferences = async (s: UserFilters) => { updateUserProfile("filters", auth?.uid as string, () => { hideModal(); refetchUserFilters() }, s).catch(e => console.error(e)) }
+    }, s).catch(notifyError("Couldn't save your changes. Please try again.")) }
+    const updateUserPreferences = async (s: UserFilters) => { updateUserProfile("filters", auth?.uid as string, () => { hideModal(); refetchUserFilters() }, s).catch(notifyError("Couldn't save your preferences. Please try again.")) }
     const [toggle, setToggle] = useState({ similar_interest: userFilters?.similar_interest, has_bio: userFilters?.has_bio })
     const [userValue, setUserValue] = useState({ distance: userFilters?.distance, age_range: userFilters?.age_range })
 

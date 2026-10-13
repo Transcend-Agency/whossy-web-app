@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import React from "react";
+import ActionButton from "@/components/ui/ActionButton";
 
 interface DiscoveryStateMessageProps {
 	icon?: string;
@@ -34,12 +35,9 @@ const DiscoveryStateMessage: React.FC<DiscoveryStateMessageProps> = ({
 		<div className="empty-state__text">{title}</div>
 		{subtitle && <p className="text-[1.4rem] text-[#8A8A8E] mt-[0.8rem] text-center px-[2rem]">{subtitle}</p>}
 		{actionLabel && onAction && (
-			<button
-				onClick={onAction}
-				className="mt-[1.6rem] text-[1.4rem] font-medium text-[#485FE6]"
-			>
+			<ActionButton variant="secondary" onClick={onAction} className="mt-[1.6rem]">
 				{actionLabel}
-			</button>
+			</ActionButton>
 		)}
 	</motion.div>
 );

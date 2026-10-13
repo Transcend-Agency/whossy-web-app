@@ -12,6 +12,7 @@ import {ChatListItem} from "@/components/dashboard/ChatListItem.tsx";
 import {createOrFetchChat, getLastValidMessage} from "@/utils/chatService.ts";
 import {isChatWindowActive} from "@/utils/chatCreditState";
 import {isRecentlyOnline} from "@/utils/presence";
+import { pressable } from '@/utils/pressable';
 
 interface ChatDataWithUserData extends Chat {
     user: User;
@@ -166,7 +167,7 @@ const ChatInterface: FC = () => {
                 data-cy="chat-interface-modal"
                 transition={{ duration: 0.3 }}
             >
-                <div className="flex justify-between px-[1.6rem] pb-[2.2rem] cursor-pointer" onClick={() => setShowChats(!showChats)}>
+                <div className="flex justify-between px-[1.6rem] pb-[2.2rem] cursor-pointer" {...pressable(() => setShowChats(!showChats))}>
                     <div className="dashboard-layout__chat-interface__drawer__left">
                         <img src="/assets/images/dashboard/chat-heart.svg" alt={``} />
                         <span className=""> Chat </span>

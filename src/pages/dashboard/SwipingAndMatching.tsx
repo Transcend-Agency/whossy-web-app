@@ -46,6 +46,7 @@ import { getUserProfile } from "@/hooks/useUser";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
 import ReportModal from "@/components/dashboard/ReportModal.tsx";
 import {useVerificationGate} from "@/hooks/useVerificationGate.tsx";
+import { pressable } from '@/utils/pressable';
 
 interface ProfileCardProps {
     profiles: User[],
@@ -366,12 +367,12 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                             )}
                         </figure>
                         <div className="preview-profile__overlay">
-                            <div onClick={goToPreviousPost} className={`previous-button ${currentImage > 0 && 'clickable'}`}>
+                            <div {...pressable(goToPreviousPost)} className={`previous-button ${currentImage > 0 && 'clickable'}`}>
                                 <button>
                                     <img src="/assets/icons/arrow-right.svg" alt={``}/>
                                 </button>
                             </div>
-                            <div onClick={goToNextPost} className={`next-button ${currentImage < (item?.photos?.length as number) - 1 && 'clickable'}`}>
+                            <div {...pressable(goToNextPost)} className={`next-button ${currentImage < (item?.photos?.length as number) - 1 && 'clickable'}`}>
                                 <button>
                                     <img src="/assets/icons/arrow-right.svg" alt={``}/>
                                 </button>
@@ -413,7 +414,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                             </motion.div>
                             <div className="preview-profile__image-counter-container">
                                 {item.photos?.map((_image, index) => (
-                                    <div key={index} onClick={() => { setCurrentImage(index) }} className={`preview-profile__image-counter ${index == currentImage && "preview-profile__image-counter--active"}`}></div>
+                                    <div key={index} {...pressable(() => { setCurrentImage(index) })} className={`preview-profile__image-counter ${index == currentImage && "preview-profile__image-counter--active"}`}></div>
                                 ))}
                             </div>
                         </div>
@@ -473,12 +474,12 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                                         src='/assets/icons/loader-black.gif' />
                         </div> :
 
-                        <div className="action-button" onClick={() => blockUser(isBlocked)}>
+                        <div className="action-button" {...pressable(() => blockUser(isBlocked))}>
                             <img src="/assets/icons/block.svg" alt={``} />
                             {isBlocked ? "Unblock" : "Block"} {item.first_name}
                         </div>
                     }
-                    <div className="action-button action-button--danger" onClick={() => setOpenModal(true)}>
+                    <div className="action-button action-button--danger" {...pressable(() => setOpenModal(true))}>
                         <img src="/assets/icons/report.svg" alt={``}/>
                         Report {item.first_name}
                     </div>

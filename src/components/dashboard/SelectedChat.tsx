@@ -38,6 +38,7 @@ import {useLocation, useNavigate} from "react-router-dom";
 import {useMatchStore} from "@/store/Matches.tsx";
 import ReportModal from "@/components/dashboard/ReportModal.tsx";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
+import { notifyError } from '@/utils/notifyError';
 
 interface SelectedChatProps {
     activePage: string
@@ -740,7 +741,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter' && (text || image.url)) {
                                                     handleSendMessage()
-                                                        .catch((e) => console.error("Unable to send message", e));
+                                                        .catch(notifyError("Message not sent. Check your connection and try again."));
                                                 }
                                             }}
                                         />
@@ -759,7 +760,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                         className={`bg-black text-white py-4 font-semibold px-4 rounded-full ${
                                             !text && !image.url ? 'cursor-not-allowed' : 'cursor-pointer'
                                         }`}
-                                        onClick={handleSendMessage}
+                                        onClick={() => handleSendMessage().catch(notifyError("Message not sent. Check your connection and try again."))}
                                         disabled={!text && !image.url}
                                     >
                                         Send

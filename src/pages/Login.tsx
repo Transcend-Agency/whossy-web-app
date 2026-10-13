@@ -16,6 +16,7 @@ import { auth, db } from "@/firebase";
 import { signInWithGoogle } from '../firebase/auth';
 import useAccountSetupFormStore from '../store/AccountSetup';
 import { FormData } from "../types/auth";
+import { pressable } from '@/utils/pressable';
 // import { useGetSubscriptionCodeAndEmailToken, useUnsubscribe, useVerify } from "@/hooks/usePaystack";
 // import toast from "react-hot-toast";
 
@@ -280,8 +281,8 @@ const Login = () => {
                     <div></div>
                 </div>
                 <div className='auth-page__modal__alternate-options__container'>
-                    <div onClick={() => signInWithGoogle(onGoogleSignIn)} className='auth-page__modal__alternate-options__item'><img src="/assets/icons/google.svg" /></div>
-                    <div onClick={() => navigate('/auth/phone-number')} className='auth-page__modal__alternate-options__item'><img src="/assets/icons/phone.svg" /></div>
+                    <div {...pressable(() => signInWithGoogle(onGoogleSignIn))} className='auth-page__modal__alternate-options__item'><img src="/assets/icons/google.svg" /></div>
+                    <div {...pressable(() => navigate('/auth/phone-number'))} className='auth-page__modal__alternate-options__item'><img src="/assets/icons/phone.svg" /></div>
                 </div>
             </div>
             <div className="auth-page__modal__terms-and-conditions">

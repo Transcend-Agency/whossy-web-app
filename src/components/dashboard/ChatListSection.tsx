@@ -1,4 +1,5 @@
 import React from 'react'
+import { pressable } from '@/utils/pressable';
 
 interface ChatListSectionProps {
     data: [string, string, string, boolean, () => void][]
@@ -8,7 +9,7 @@ const ChatListSection: React.FC<ChatListSectionProps> = ({data}) => {
   return (
     <>
    { data.map((item, i)=> 
-   <div key={i} className='flex  justify-between cursor-pointer pb-[0.6rem]' style={{borderBottom: '1px solid #F6F6F6'}} onClick={item[4]}>
+   <div key={i} className='flex  justify-between cursor-pointer pb-[0.6rem]' style={{borderBottom: '1px solid #F6F6F6'}} {...pressable(item[4])}>
         <div className='flex gap-x-[0.8rem]'> 
             <div className='relative'>
                 <img className='size-[5.6rem] object-cover rounded-full' src={item[0]} alt="profile picture" />

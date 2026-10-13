@@ -21,6 +21,7 @@ import {isChatWindowActive} from "@/utils/chatCreditState";
 import {Chat} from "@/types/chat.ts";
 import { serverTimestamp } from 'firebase/firestore';
 import { useVerificationGate } from "@/hooks/useVerificationGate.tsx";
+import { pressable } from '@/utils/pressable';
 
 interface ViewProfileProps {
     onBackClick: () => void;
@@ -309,13 +310,13 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                                 )}
                             </figure>
                             {userData?.photos?.length !== 0 && <div className="preview-profile__overlay">
-                                <div onClick={goToPreviousPost}
+                                <div {...pressable(goToPreviousPost)}
                                     className={`previous-button ${currentImage > 0 && 'clickable'}`}>
                                     <button>
                                         <img src="/assets/icons/arrow-right.svg" alt={``} />
                                     </button>
                                 </div>
-                                <div onClick={goToNextPost}
+                                <div {...pressable(goToNextPost)}
                                     className={`next-button ${currentImage < (userData?.photos?.length as number - 1) && 'clickable'}`}>
                                     <button>
                                         <img src="/assets/icons/arrow-right.svg" />
@@ -377,9 +378,7 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                                 <div className="preview-profile__image-counter-container">
                                     {userData.photos?.length !== 1 && <>
                                         {userData?.photos?.map((_image, index) => (
-                                            <div key={index} onClick={() => {
-                                                setCurrentImage(index);
-                                            }} className={`preview-profile__image-counter ${index == currentImage && "preview-profile__image-counter--active"}`}></div>
+                                            <div key={index} {...pressable(() => setCurrentImage(index))} aria-label={`Show photo ${index + 1}`} className={`preview-profile__image-counter ${index == currentImage && "preview-profile__image-counter--active"}`}></div>
                                         ))}
                                     </>}
                                 </div>
@@ -490,7 +489,7 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                                         src='/assets/icons/loader-black.gif' />
                                 </div> :
 
-                                <div className="action-button" onClick={() => blockUser(isBlocked, onBlockChange)}>
+                                <div className="action-button" {...pressable(() => blockUser(isBlocked, onBlockChange))}>
                                     <img src="/assets/icons/block.svg" alt={``} />
                                     {isBlocked ? "Unblock" : "Block"} {userData.first_name}
                                 </div>

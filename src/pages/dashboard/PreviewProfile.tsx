@@ -3,6 +3,7 @@ import { User } from "@/types/user";
 import { AnimatePresence, motion } from "framer-motion";
 import React, { useRef, useState } from "react";
 import {calculateAge} from "@/utils/age.ts";
+import { pressable } from '@/utils/pressable';
 
 interface PreviewProfileProps {
     activePage: string;
@@ -71,12 +72,12 @@ const PreviewProfile: React.FC<PreviewProfileProps> = ({ activePage, closePage, 
                             )}
                         </figure>
                         <div className="preview-profile__overlay">
-                            <div onClick={goToPreviousPost} className={`previous-button ${currentImage > 0 && 'clickable'}`}>
+                            <div {...pressable(goToPreviousPost)} className={`previous-button ${currentImage > 0 && 'clickable'}`}>
                                 <button>
                                     <img src="/assets/icons/arrow-right.svg" alt={``} />
                                 </button>
                             </div>
-                            <div onClick={goToNextPost} className={`next-button ${currentImage < profileImages?.length - 1 && 'clickable'}`}>
+                            <div {...pressable(goToNextPost)} className={`next-button ${currentImage < profileImages?.length - 1 && 'clickable'}`}>
                                 <button>
                                     <img src="/assets/icons/arrow-right.svg" alt={``} />
                                 </button>
@@ -124,7 +125,7 @@ const PreviewProfile: React.FC<PreviewProfileProps> = ({ activePage, closePage, 
                             </motion.div>
                             <div className="preview-profile__image-counter-container">
                                 {profileImages?.map((_image, index) => (
-                                    <div key={index} onClick={() => { setCurrentImage(index); }} className={`preview-profile__image-counter ${index == currentImage && "preview-profile__image-counter--active"}`}></div>
+                                    <div key={index} {...pressable(() => { setCurrentImage(index); })} className={`preview-profile__image-counter ${index == currentImage && "preview-profile__image-counter--active"}`}></div>
                                 ))}
                             </div>
                         </div>

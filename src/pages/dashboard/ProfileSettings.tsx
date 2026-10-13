@@ -14,6 +14,7 @@ import { httpsCallable } from "firebase/functions";
 import toast from "react-hot-toast";
 import DeleteAccountModal from "@/components/dashboard/DeleteAccountModal.tsx";
 import {FaceVerificationModal} from "@/components/dashboard/FaceVerificationModal.tsx";
+import { pressable } from '@/utils/pressable';
 
 interface ProfileSettingsProps {
     activePage: boolean;
@@ -209,10 +210,7 @@ const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, user
                         <img src="/assets/icons/logout.svg" alt="" />
                         <p>Logout</p>
                     </div>
-                    <div onClick={() => {
-                        setDeleteModal(true)
-                        console.log(deleteModal)
-                    }} className="flex mt-8 gap-x-2 justify-center cursor-pointer px-[2.8rem] py-[1.6rem] bg-[#F6F6F6] text-[#F2243E] hover:bg-[#ececec] items-center">
+                    <div {...pressable(() => setDeleteModal(true))} className="flex mt-8 gap-x-2 justify-center cursor-pointer px-[2.8rem] py-[1.6rem] bg-[#F6F6F6] text-[#F2243E] hover:bg-[#ececec] items-center">
                         <img className={`size-[20px]`} src="/assets/icons/danger.svg" alt=""/>
                         <p>Delete Account</p>
                     </div>

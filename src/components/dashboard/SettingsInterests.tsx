@@ -1,4 +1,5 @@
 import React from 'react';
+import { pressable } from '@/utils/pressable';
 
 type SettingsInterestsProps = {
     title: string;
@@ -7,7 +8,7 @@ type SettingsInterestsProps = {
 };
 
 const SettingsInterest: React.FC<SettingsInterestsProps> = ({ title, isPremium, onButtonPress }) => {
-    return (<div className="settings-page__settings-group__toggle-item" onClick={onButtonPress}>
+    return (<div className="settings-page__settings-group__toggle-item" {...pressable(onButtonPress)}>
         <div className="settings-page__settings-group__toggle-item-container items-center">
             <div className="settings-page__settings-group__toggle-item__content ">
                 <div className="settings-page__settings-group__toggle-item__single-text">{title} {isPremium && <div className="premium-badge">Premium</div>}</div>

@@ -12,6 +12,7 @@ import useProfileFetcher from "@/hooks/useProfileFetcher.tsx";
 import SkeletonNotification from "@/components/dashboard/SkeletonNotification.tsx";
 import {User} from "@/types/user.ts";
 import {useChatIdStore} from "@/store/ChatStore.tsx";
+import { pressable } from '@/utils/pressable';
 
 // The "other user" a notification is about, when it's about one — used both
 // to filter out notifications about a since-banned/blocked profile and to
@@ -185,7 +186,7 @@ const Notification = () => {
                                     />
                                 </div>
                             ) : notification.type === 'match' ? (
-                                <div key={notification.id} onClick={() => openNotification(notification)} className='flex justify-between pb-[1.2rem] cursor-pointer'
+                                <div key={notification.id} {...pressable(() => openNotification(notification))} className='flex justify-between pb-[1.2rem] cursor-pointer'
                                      style={{borderBottom: '1px solid #ECECEC'}}>
                                     <div className='space-y-[1.2rem]'>
                                         <h1 className='text-[2rem] font-bold flex items-center gap-x-2'>

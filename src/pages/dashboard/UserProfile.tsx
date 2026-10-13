@@ -23,6 +23,7 @@ import ProfileCreditButton from "@/components/dashboard/ProfileCreditButton.tsx"
 import ProfileBoostModal from "@/components/dashboard/ProfileBoostModal.tsx";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
 import { deriveVerificationStatus } from "@/utils/verification.ts";
+import { pressable } from '@/utils/pressable';
 
 const UserProfile = () => {
     // const [activePage, setActivePage] = useState<'user-profile' | 'edit-profile' | 'add-credits' | 'profile-settings' | 'preferences' | 'safety-guide' | 'interests' | 'user-interests' | 'subscription-plans'>('user-profile');
@@ -99,8 +100,8 @@ const UserProfile = () => {
                             ) : ( <Skeleton width='21rem' height='2.9rem' /> )}
                         </div>
                         {completed ?
-                            <div data-cy="update-profile-btn2" onClick={() => { Math.ceil(completed / 19 * 100) === 100 ? toast.success("Profile" +
-                                " has been completed") :  setActivePage('edit-profile')}} className='user-profile__profile-details__completion-status cursor-pointer'>
+                            <div data-cy="update-profile-btn2" {...pressable(() => { Math.ceil(completed / 19 * 100) === 100 ? toast.success("Profile" +
+                                " has been completed") :  setActivePage('edit-profile')})} className='user-profile__profile-details__completion-status cursor-pointer'>
                                 {Math.ceil(completed / 19 * 100)}% Complete
                             </div> :
                             <div className='mt-[1.2rem] flex justify-center'>
@@ -111,7 +112,7 @@ const UserProfile = () => {
                         <img src="/assets/icons/notification-alert.svg" alt={``} />
                         <p>Add more info to your profile to stand out. Click on the edit button to get started</p>
                     </div>
-                    <div data-cy="whossy-safety-guide" onClick={() => setActivePage('safety-guide')} className='user-profile__banner user-profile__banner--safety-guide'>
+                    <div data-cy="whossy-safety-guide" {...pressable(() => setActivePage('safety-guide'))} className='user-profile__banner user-profile__banner--safety-guide'>
                         <img src="/assets/icons/safety-guide.svg" alt={``} />
                         <p>Whossy Safety Guide </p>
                     </div>
