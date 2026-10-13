@@ -294,13 +294,28 @@ const Explore = () => {
                                     </>}
                                 </AnimatePresence>
                                 {!exploreDataLoading && hasMoreProfiles &&
-                                    <div className="w-full flex justify-center py-[1.6rem]">
+                                    <div className="w-full flex justify-center py-[2.4rem]">
                                         <button
                                             onClick={() => loadMoreProfiles().catch((err) => console.error("An error occurred while trying to load more profiles: ", err))}
                                             disabled={loadingMoreProfiles}
-                                            className="text-[1.4rem] font-medium text-[#485FE6] disabled:opacity-50"
+                                            className="inline-flex items-center justify-center gap-[0.8rem] min-w-[16rem] px-[2.4rem] py-[1.2rem] rounded-full bg-[#485FE6] text-white text-[1.4rem] font-semibold shadow-[0_4px_14px_rgba(72,95,230,0.35)] transition-all duration-200 hover:bg-[#3b50d0] hover:shadow-[0_6px_18px_rgba(72,95,230,0.45)] hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#485FE6]/30 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_14px_rgba(72,95,230,0.35)]"
                                         >
-                                            {loadingMoreProfiles ? 'Loading…' : 'Load more'}
+                                            {loadingMoreProfiles ? (
+                                                <>
+                                                    <svg className="animate-spin w-[1.6rem] h-[1.6rem]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                                        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.3" strokeWidth="3" />
+                                                        <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                                                    </svg>
+                                                    Loading…
+                                                </>
+                                            ) : (
+                                                <>
+                                                    Load more
+                                                    <svg className="w-[1.6rem] h-[1.6rem]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                                        <path d="m6 9 6 6 6-6" />
+                                                    </svg>
+                                                </>
+                                            )}
                                         </button>
                                     </div>
                                 }
