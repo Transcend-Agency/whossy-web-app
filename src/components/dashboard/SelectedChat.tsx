@@ -74,6 +74,10 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
     const [confirmBlock, setConfirmBlock] = useState(false)
     const [isBlockLoading, setIsBlockLoading] = useState<boolean>(false)
     const [holdConfirmOpen, setHoldConfirmOpen] = useState<boolean>(false);
+    const [isSending, setIsSending] = useState(false);
+    // A ref, not just state: two clicks in the same tick both see the stale
+    // `isSending === false`, and each would mint its own message id.
+    const sendLock = useRef(false);
     const [isInitiating, setIsInitiating] = useState<boolean>(false);
     const [readReceipt, setReadReceipt] = useState<boolean>(false);
     const [readReceiptDisabledAt, setReadReceiptDisabledAt] = useState<Date | null>(null);
@@ -361,8 +365,23 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         }
     };
 
+    /** Runs a send flow at most once at a time; extra clicks/Enter presses while it is in flight are ignored. */
+    const withSendLock = async (flow: () => Promise<void>) => {
+        if (sendLock.current) return;
+        sendLock.current = true;
+        setIsSending(true);
+        try {
+            await flow();
+        } finally {
+            sendLock.current = false;
+            setIsSending(false);
+        }
+    };
+
     //sending text message to the recipient
-    const handleSendMessage = async () => {
+    const handleSendMessage = () => withSendLock(sendFlow);
+
+    const sendFlow = async () => {
         // Block sending until the sender's selfie is verified (covers reaching
         // the chat via a direct URL, bypassing the gated entry points).
         if (!requireVerification()) return;
@@ -419,7 +438,9 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         // Optimistically add the message to the chat array
         setChats(prevChats => [...prevChats, optimisticMessage]);
 
-        // Clear input fields
+        // Clear input fields (kept so a failed send can put the draft back)
+        const sentText = text;
+        const sentImage = image;
         setText('');
         setImage({ file: null, url: null });
 
@@ -462,6 +483,9 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
             console.error('Error sending message:', err);
             // Remove the optimistic message if there was an error
             setChats(prevChats => prevChats.filter(chat => chat.id !== optimisticMessage.id));
+            setText(current => current || sentText);
+            setImage(current => current.file || current.url ? current : sentImage);
+            toast.error("Message not sent. Check your connection and try again.");
         }
     };
 
@@ -580,7 +604,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                 className="text-white rounded-md px-6 py-3 font-semibold bg-gradient-to-br from-red to-orange-400 hover:from-red/80 hover:to-orange-600 active:scale-95 disabled:opacity-60"
                                 onClick={async () => {
                                     setHoldConfirmOpen(false);
-                                    if (await startChatCycle()) await doSendMessage();
+                                    withSendLock(async () => { if (await startChatCycle()) await doSendMessage(); }).catch(notifyError("Message not sent. Check your connection and try again."));
                                 }}>
                                 {isInitiating ? 'Starting…' : 'Hold credit & send'}
                             </button>
@@ -772,9 +796,10 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                             !text && !image.url ? 'cursor-not-allowed' : 'cursor-pointer'
                                         }`}
                                         onClick={() => handleSendMessage().catch(notifyError("Message not sent. Check your connection and try again."))}
-                                        disabled={!text && !image.url}
+                                        disabled={(!text && !image.url) || isSending}
+                                        aria-busy={isSending || undefined}
                                     >
-                                        Send
+                                        {isSending ? 'Sending…' : 'Send'}
                                     </button>
                                 </div>
                             </footer> :
