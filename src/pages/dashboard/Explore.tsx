@@ -27,6 +27,7 @@ import useDashboardStore from "@/store/useDashboardStore.tsx";
 import useProfileFetcher from "@/hooks/useProfileFetcher.tsx";
 import ViewProfile from "@/components/dashboard/ViewProfile";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
+import ConfirmModal from '@/components/ui/ConfirmModal';
 
 interface SettingsDataItem {
     label: string;
@@ -57,6 +58,7 @@ const Explore = () => {
 
     const loadingData = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     const [resetLoading, setResetLoading] = useState(false)
+    const [confirmReset, setConfirmReset] = useState(false)
 
     const [advancedSearchShowing, setAdvancedSearchShowing] = useState(false)
     const [advancedSearchModalShowing, setAdvancedSearchModalShowing] = useState('hidden')
@@ -156,6 +158,15 @@ const Explore = () => {
     // }, [])
 
     return <>
+        <ConfirmModal
+            show={confirmReset}
+            tone="primary"
+            title="Reset your search filters?"
+            message="Gender, age range, country, relationship preference and religion go back to their defaults."
+            confirmLabel="Reset filters"
+            onCancel={() => setConfirmReset(false)}
+            onConfirm={() => { setConfirmReset(false); resetAdvancedSearch() }}
+        />
         {!selectedProfile &&
             <>
                 {
@@ -336,7 +347,7 @@ const Explore = () => {
                                 <img src="/assets/icons/back-arrow-black.svg" className="settings-page__title__icon" alt={``} />
                                 <p>Advanced Search Preferences</p>
                             </button>
-                            <button onClick={resetAdvancedSearch} className='self-center text-[#485FE6]'>{!resetLoading ? 'Reset' : <Oval color="#485FE6" secondaryColor="#485FE6" width={20} height={20} />}</button>
+                            <button onClick={() => setConfirmReset(true)} className='self-center text-[#485FE6]'>{!resetLoading ? 'Reset' : <Oval color="#485FE6" secondaryColor="#485FE6" width={20} height={20} />}</button>
 
                             {<GenderSettingsModal
                                 showing={advancedSearchModalShowing === 'gender'}

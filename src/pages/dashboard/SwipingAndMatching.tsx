@@ -49,6 +49,7 @@ import {useVerificationGate} from "@/hooks/useVerificationGate.tsx";
 import {useChatIdStore} from "@/store/ChatStore.tsx";
 import {openChatWith} from "@/utils/chatService.ts";
 import { pressable } from '@/utils/pressable';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 
 interface ProfileCardProps {
     profiles: User[],
@@ -83,6 +84,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
     const [expanded, setExpanded] = useState(false)
     const [isBlocked, setIsBlocked] = useState(false)
     const [isBlockLoading, setIsBlockLoading] = useState(false)
+    const [confirmBlock, setConfirmBlock] = useState(false)
     const [openModal, setOpenModal] = useState(false);
     const  {fetchMatches} = useMatchStore()
     const [loggedUserData, setLoggedUserData] = useState<User | null>(null);
@@ -476,12 +478,21 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                                         src='/assets/icons/loader-black.gif' />
                         </div> :
 
-                        <div className="action-button" {...pressable(() => blockUser(isBlocked))}>
+                        <div className="action-button" {...pressable(() => setConfirmBlock(true))}>
                             <img src="/assets/icons/block.svg" alt={``} />
                             {isBlocked ? "Unblock" : "Block"} {item.first_name}
                         </div>
                     }
-                    <div className="action-button action-button--danger" {...pressable(() => setOpenModal(true))}>
+
+                    <ConfirmModal
+                        show={confirmBlock}
+                        tone={isBlocked ? "primary" : "danger"}
+                        title={isBlocked ? `Unblock ${item.first_name}?` : `Block ${item.first_name}?`}
+                        message={isBlocked ? `${item.first_name} will be able to appear in your discovery again and you can chat with them.` : `${item.first_name} will be removed from your discovery and you won't be able to chat with them. You can unblock them any time from Profile → Settings → Blocked contacts.`}
+                        confirmLabel={isBlocked ? "Unblock" : "Block"}
+                        onCancel={() => setConfirmBlock(false)}
+                        onConfirm={() => { setConfirmBlock(false); blockUser(isBlocked); }}
+                    />                    <div className="action-button action-button--danger" {...pressable(() => setOpenModal(true))}>
                         <img src="/assets/icons/report.svg" alt={``}/>
                         Report {item.first_name}
                     </div>

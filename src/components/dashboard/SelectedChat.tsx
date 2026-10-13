@@ -39,6 +39,7 @@ import {useMatchStore} from "@/store/Matches.tsx";
 import ReportModal from "@/components/dashboard/ReportModal.tsx";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
 import { notifyError } from '@/utils/notifyError';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 
 interface SelectedChatProps {
     activePage: string
@@ -70,6 +71,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
     const [recipientUser, setRecipientUser] = useState<User>();
     const [currentChat, setCurrentChat] = useState<Chat>();
     const [isBlocked, setIsBlocked] = useState<boolean>(false)
+    const [confirmBlock, setConfirmBlock] = useState(false)
     const [isBlockLoading, setIsBlockLoading] = useState<boolean>(false)
     const [holdConfirmOpen, setHoldConfirmOpen] = useState<boolean>(false);
     const [isInitiating, setIsInitiating] = useState<boolean>(false);
@@ -542,6 +544,15 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
     return (
         <AnimatePresence>
             {verificationModals}
+            <ConfirmModal
+                show={confirmBlock}
+                tone={isBlocked ? "primary" : "danger"}
+                title={`${isBlocked ? 'Unblock' : 'Block'} ${recipientUser?.first_name ?? 'this user'}?`}
+                message={isBlocked ? "They'll be able to appear in your discovery again and you can chat with them." : "They'll be removed from your discovery and you won't be able to chat with them. You can unblock them any time from Profile → Settings → Blocked contacts."}
+                confirmLabel={isBlocked ? "Unblock" : "Block"}
+                onCancel={() => setConfirmBlock(false)}
+                onConfirm={() => { setConfirmBlock(false); handleBlock(recipientUser?.uid as string, isBlocked).catch(notifyError(isBlocked ? "Couldn't unblock this user. Please try again." : "Couldn't block this user. Please try again.")) }}
+            />
             <ReportModal key={'report-modal'} userData={recipientUser as User} show={openModal} onCloseModal={() => setOpenModal(false)} />
             {holdConfirmOpen && (
                 <m.div key={'hold-confirm-modal'}
@@ -618,7 +629,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                             <button className="cursor-pointer" onClick={() => setChatModalOpen(!chatModalOpen)}>
                                 <img src="/assets/icons/three-dots.svg" alt=""/>
                                 <div className={`absolute ${!chatModalOpen ? 'hidden' : "block"} z-[100] whitespace-nowrap bg-[#F4F4F4] w-[130px] text-center p-6 rounded-md leading-6 right-8 top-[60px] grid items-center gap-4`}>
-                                    <button onClick={(e) => {e.preventDefault(); handleBlock(recipientUser?.uid as string, isBlocked).catch(e => console.error(e))} } className={`border-b-[0.1px] border-opacity-30 border-black border-solid pb-4`}>{isBlocked ? 'Unblock' : 'Block'} User</button>
+                                    <button onClick={(e) => {e.preventDefault(); setChatModalOpen(false); setConfirmBlock(true)} } className={`border-b-[0.1px] border-opacity-30 border-black border-solid pb-4`}>{isBlocked ? 'Unblock' : 'Block'} User</button>
                                     <button onClick={(e) => {e.preventDefault(); setOpenModal(true) }} className={``}>Report User</button>
                                 </div>
                             </button>
@@ -782,7 +793,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                     <button className={`text-red border-[1px] border-black pt-2 font-bold text-2xl`}
                                             onClick={(e) => {
                                                 e.preventDefault()
-                                                handleBlock(recipientUser?.uid as string, isBlocked).catch(e => console.error(e))
+                                                setConfirmBlock(true)
                                             }}>Unblock Account
                                     </button>
                                 }
