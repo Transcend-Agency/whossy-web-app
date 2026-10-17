@@ -89,14 +89,16 @@ service cloud.firestore {
              'status', 'popularity_score_30d', 'isPremium', 'is_verified', 'reverify_by'
            ])
         && newAccountVerificationValid()
-        && meetsPhotoMinimum();
+        && meetsPhotoMinimum()
+        && birthDateValidOnCreate();
 
       allow update: if isOwner(uid)
         && !changedKeys().hasAny(serverOnlyKeys())
         && !changedKeys().hasAny(immutableKeys())
         && isApprovedWriteValid()
         && faceVerificationSubmissionOnly()
-        && (!changedKeys().hasAny(['photos', 'has_completed_onboarding']) || meetsPhotoMinimum());
+        && (!changedKeys().hasAny(['photos', 'has_completed_onboarding']) || meetsPhotoMinimum())
+        && birthDateValid();
 
       allow delete: if false; // deleteAccount (Admin SDK) only
 
@@ -104,6 +106,38 @@ service cloud.firestore {
       // after changing its main photo). Only a reviewer sets it true.
       function isApprovedWriteValid() {
         return !('is_approved' in changedKeys()) || request.resource.data.is_approved == false;
+      }
+
+      // 18 or over on the day of the write, worked out from the date and not
+      // the year alone. Day-level on purpose: clients send local midnight,
+      // which can land on the neighbouring UTC day, so this can be off by one
+      // day around a birthday and no more.
+      function isAdultBirth(dob) {
+        return dob is timestamp
+          && dob.year() >= request.time.year() - 100
+          && (dob.year() < request.time.year() - 18
+              || (dob.year() == request.time.year() - 18
+                  && (dob.month() < request.time.month()
+                      || (dob.month() == request.time.month()
+                          && dob.day() <= request.time.day()))));
+      }
+
+      // A birth date that is written must be an adult's, and onboarding
+      // cannot be completed without one. An unrelated write to an account
+      // that has no birth date yet is not held up by this.
+      function birthDateValid() {
+        let dob = request.resource.data.get('date_of_birth', null);
+        return (!('date_of_birth' in changedKeys()) || isAdultBirth(dob))
+          && (!('has_completed_onboarding' in changedKeys())
+              || request.resource.data.get('has_completed_onboarding', false) != true
+              || isAdultBirth(dob));
+      }
+
+      function birthDateValidOnCreate() {
+        let dob = request.resource.data.get('date_of_birth', null);
+        return (!('date_of_birth' in request.resource.data) || isAdultBirth(dob))
+          && (request.resource.data.get('has_completed_onboarding', false) != true
+              || isAdultBirth(dob));
       }
 
       function newAccountVerificationValid() {
