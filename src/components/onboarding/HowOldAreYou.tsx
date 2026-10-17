@@ -56,7 +56,7 @@ const HowOldAreYou: React.FC<OnboardingProps> = ({ advance, goBack }) => {
       // @ts-expect-error legacy type mismatch
       const the_date = new Date(data["date-of-birth"]);
       setBirthDate({
-        day: (the_date.getDate() - 1).toString(),
+        day: the_date.getDate().toString(),
         month: (the_date.getMonth() + 1).toString(),
         year: the_date.getFullYear().toString(),
       });
