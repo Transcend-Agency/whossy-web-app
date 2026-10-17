@@ -1,5 +1,5 @@
 import { FC, useEffect } from "react";
-import {arrayUnion, doc, setDoc, Timestamp, updateDoc} from "firebase/firestore";
+import {arrayUnion, doc, setDoc, updateDoc} from "firebase/firestore";
 import { db } from "@/firebase";
 import { useOnboardingStore } from "@/store/OnboardingStore";
 import { PictureData, usePhotoStore } from "@/store/PhotoStore";
@@ -52,22 +52,18 @@ const ShareASnapshot: FC<OnboardingProps> = ({ advance, goBack }) => {
                 smoke: data["smoking-preference"],
                 workout: data["workout-preference"],
                 uid: auth.uid,
-                is_premium: false,
-                amount_paid_in_total: {
-                    naira: 0,
-                    kenyan_shillings: 0
-                },
-                face_verification:{
-                    retake_photo: true,
-                    photo: null,
-                    updated_at: null
-                },
-                paystack: {},
-                created_at: Timestamp.now(),
+                // Premium, credits, ban state and payment fields are owned by
+                // the server and face_verification is only ever written as a
+                // real submission, so none of them are set here.
+                // created_at is set once at account creation (CreateAccount.tsx /
+                // Login.tsx) and must never move — the "New members" filter (C2)
+                // depends on it reflecting real signup date, not "reached this
+                // onboarding step".
                 blockedIds: arrayUnion(),
-                credit_balance: 0,
-                is_banned: false,
-                has_completed_onboarding: true,
+                // has_completed_onboarding stays false until TakeASelfie (the last
+                // onboarding step) finishes — otherwise a user who closes the
+                // browser here is marked complete and can never reach the
+                // verification screen through signup again.
                 user_settings: {
                     ...userSettings
                 },

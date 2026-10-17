@@ -18,9 +18,38 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { logger } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
+// Imported directly, not read off admin.firestore: those namespaced statics
+// are undefined inside the functions emulator (see notifications.ts), which
+// made initiateChat throw there.
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { sendPush } from "./push";
+import { participantsOf } from "./chatId";
 
 admin.initializeApp();
 const db = admin.firestore();
+
+export { reviewVerification } from "./verification";
+export {
+  notifyOnNewLike,
+  notifyOnNewMatch,
+  notifyOnNewMessage,
+  notifyOnVerificationDecision,
+} from "./notifications";
+export { mirrorPresenceToFirestore, reapplyPresenceVisibility } from "./presence";
+export { deleteAccount, cleanUpUserData } from "./account";
+export { createMatchOnMutualLike } from "./matches";
+export { handlePlaySubscription } from "./playSubscriptions";
+export { notifyOnReverificationRequired, enforceReverification } from "./reverification";
+export { markMessageSent } from "./messages";
+export { cleanUpProfilePictures, cleanUpFaceVerification } from "./cleanup";
+export { incrementPopularityOnLike, prunePopularityScores } from "./popularity";
+export {
+  createTransaction,
+  verifyTransaction,
+  cancelSubscription,
+  paystackWebhook,
+  expirePremium,
+} from "./payments";
 
 /** Hours the recipient has to reply before the hold is refunded (AC 5.1). */
 const HOLD_WINDOW_HOURS = 48;
@@ -34,43 +63,20 @@ type CreditStatus = "idle" | "pending" | "connected";
 interface ChatCreditFields {
   credit_status?: CreditStatus;
   initiator_id?: string | null;
-  hold_placed_at?: admin.firestore.Timestamp | null;
-  connected_at?: admin.firestore.Timestamp | null;
-  expiration_time?: admin.firestore.Timestamp | null;
+  hold_placed_at?: Timestamp | null;
+  connected_at?: Timestamp | null;
+  expiration_time?: Timestamp | null;
   /** Whether the current PENDING cycle is backed by a real credit hold
    *  (false when the initiator was premium — nothing to capture/refund). */
   credit_held?: boolean;
 }
 
-/** chatId is `[uidA, uidB].sort().join('_')` on both clients. */
-function participantsOf(chatId: string): [string, string] | null {
-  const parts = chatId.split("_");
-  if (parts.length !== 2 || !parts[0] || !parts[1] || parts[0] === parts[1]) return null;
-  return [parts[0], parts[1]];
-}
-
-function isWindowActive(chat: ChatCreditFields, now: admin.firestore.Timestamp): boolean {
+function isWindowActive(chat: ChatCreditFields, now: Timestamp): boolean {
   return (
     chat.credit_status === "connected" &&
     chat.expiration_time != null &&
     chat.expiration_time.toMillis() > now.toMillis()
   );
-}
-
-/** Best-effort push. No-op when the user has no registered device token. */
-async function sendPush(uid: string, title: string, body: string): Promise<void> {
-  try {
-    const userSnap = await db.collection("users").doc(uid).get();
-    const token = userSnap.get("fcm_token") as string | undefined;
-    if (!token) return;
-    await admin.messaging().send({
-      token,
-      notification: { title, body },
-      data: { type: "reply_gated_credits" },
-    });
-  } catch (err) {
-    logger.warn(`Push to ${uid} failed (non-fatal)`, err);
-  }
 }
 
 /**
@@ -99,12 +105,27 @@ export const initiateChat = onCall<{ chatId?: string }>(async (request) => {
 
   return db.runTransaction(async (tx) => {
     // All reads before writes (Firestore transaction requirement).
-    const [chatSnap, userSnap] = await Promise.all([
+    const [chatSnap, userSnap, otherSnap] = await Promise.all([
       tx.get(chatRef),
       tx.get(userRef),
+      tx.get(db.collection("users").doc(otherUid)),
     ]);
 
-    const now = admin.firestore.Timestamp.now();
+    // The same gates the message rule applies, checked here first so nobody
+    // places a hold on a message they will not be allowed to send. Blocking
+    // is enforced here rather than by the sender's own app.
+    if (userSnap.get("is_banned") === true) throw new HttpsError("permission-denied", "ACCOUNT_BANNED");
+    if (userSnap.get("is_approved") !== true) throw new HttpsError("failed-precondition", "NOT_VERIFIED");
+    if (!otherSnap.exists || otherSnap.get("is_banned") === true) {
+      throw new HttpsError("failed-precondition", "RECIPIENT_UNAVAILABLE");
+    }
+    const blocked = (snap: typeof userSnap, target: string) =>
+      ((snap.get("blockedIds") as string[] | undefined) ?? []).includes(target);
+    if (blocked(otherSnap, uid) || blocked(userSnap, otherUid)) {
+      throw new HttpsError("failed-precondition", "BLOCKED");
+    }
+
+    const now = Timestamp.now();
     const chat = (chatSnap.data() ?? {}) as ChatCreditFields;
 
     if (chat.credit_status === "pending") {
@@ -134,7 +155,7 @@ export const initiateChat = onCall<{ chatId?: string }>(async (request) => {
     if (chat.credit_status === "pending" && chat.credit_held === true && chat.initiator_id) {
       const staleInitiatorRef = db.collection("users").doc(chat.initiator_id);
       tx.update(staleInitiatorRef, {
-        credits_on_hold: admin.firestore.FieldValue.increment(-1),
+        credits_on_hold: FieldValue.increment(-1),
       });
     }
 
@@ -192,7 +213,7 @@ export const onMessageCreated = onDocumentCreated(
     const result = await db.runTransaction(async (tx) => {
       const chatSnap = await tx.get(chatRef);
       const chat = (chatSnap.data() ?? {}) as ChatCreditFields;
-      const now = admin.firestore.Timestamp.now();
+      const now = Timestamp.now();
 
       // Re-verify inside the transaction — a concurrent refund or duplicate
       // trigger invocation must resolve to exactly one capture (AC 5.6).
@@ -215,7 +236,7 @@ export const onMessageCreated = onDocumentCreated(
         );
       }
 
-      const expiration = admin.firestore.Timestamp.fromMillis(
+      const expiration = Timestamp.fromMillis(
         now.toMillis() + CHAT_WINDOW_HOURS * HOUR_MS
       );
       tx.set(
@@ -253,7 +274,7 @@ export const onMessageCreated = onDocumentCreated(
  * happen even when the app is closed or uninstalled (AC 5.2).
  */
 export const releaseExpiredHolds = onSchedule("every 15 minutes", async () => {
-  const cutoff = admin.firestore.Timestamp.fromMillis(
+  const cutoff = Timestamp.fromMillis(
     Date.now() - HOLD_WINDOW_HOURS * HOUR_MS
   );
 

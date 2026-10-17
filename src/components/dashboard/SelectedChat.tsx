@@ -32,11 +32,14 @@ import {formatFirebaseTimestampToTime, formatServerTimeStamps} from "@/constants
 import {useChatIdStore} from "@/store/ChatStore";
 import {Chat, Messages} from "@/types/chat";
 import {User} from "@/types/user";
+import {hidesOnlineStatus, isRecentlyOnline} from "@/utils/presence";
 import toast from "react-hot-toast";
 import {useLocation, useNavigate} from "react-router-dom";
 import {useMatchStore} from "@/store/Matches.tsx";
 import ReportModal from "@/components/dashboard/ReportModal.tsx";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
+import { notifyError } from '@/utils/notifyError';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 
 interface SelectedChatProps {
     activePage: string
@@ -68,8 +71,13 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
     const [recipientUser, setRecipientUser] = useState<User>();
     const [currentChat, setCurrentChat] = useState<Chat>();
     const [isBlocked, setIsBlocked] = useState<boolean>(false)
+    const [confirmBlock, setConfirmBlock] = useState(false)
     const [isBlockLoading, setIsBlockLoading] = useState<boolean>(false)
     const [holdConfirmOpen, setHoldConfirmOpen] = useState<boolean>(false);
+    const [isSending, setIsSending] = useState(false);
+    // A ref, not just state: two clicks in the same tick both see the stale
+    // `isSending === false`, and each would mint its own message id.
+    const sendLock = useRef(false);
     const [isInitiating, setIsInitiating] = useState<boolean>(false);
     const [readReceipt, setReadReceipt] = useState<boolean>(false);
     const [readReceiptDisabledAt, setReadReceiptDisabledAt] = useState<Date | null>(null);
@@ -90,9 +98,6 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
     const { fetchMatches } = useMatchStore()
     const navigate = useNavigate()
 
-    // Verification gate for sending messages. Seeded from the `currentUser`
-    // prop (so it's accurate immediately) and refreshed so an approval/submit
-    // is reflected without a full reload.
     const [loggedInUser, setLoggedInUser] = useState<User | null>(currentUser ?? null);
     const fetchLoggedInUser = async () => {
         if (!currentUser?.uid) return;
@@ -100,8 +105,12 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         setLoggedInUser(data);
     };
     useEffect(() => {
-        fetchLoggedInUser().catch(err => console.error(err));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        if (!currentUser?.uid) return;
+        return onSnapshot(
+            doc(db, 'users', currentUser.uid),
+            (snap) => setLoggedInUser((snap.data() as User) ?? null),
+            (error) => console.error('Verification gate user subscription failed:', error),
+        );
     }, [currentUser?.uid]);
     const { isVerified, requireVerification, modals: verificationModals } = useVerificationGate(loggedInUser, fetchLoggedInUser);
 
@@ -340,6 +349,12 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
             } else if (message.includes("ALREADY_PENDING_BY_OTHER")) {
                 // They initiated first — our reply is free; just send.
                 return true;
+            } else if (message.includes("NOT_VERIFIED")) {
+                toast.error("Verify your photo to start chatting.");
+            } else if (message.includes("BLOCKED") || message.includes("RECIPIENT_UNAVAILABLE")) {
+                toast.error("You can't message this person.");
+            } else if (message.includes("ACCOUNT_BANNED")) {
+                toast.error("Your account has been suspended.");
             } else {
                 console.error("Error starting chat:", err);
                 toast.error("Couldn't start the chat. Please try again.");
@@ -350,8 +365,23 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         }
     };
 
+    /** Runs a send flow at most once at a time; extra clicks/Enter presses while it is in flight are ignored. */
+    const withSendLock = async (flow: () => Promise<void>) => {
+        if (sendLock.current) return;
+        sendLock.current = true;
+        setIsSending(true);
+        try {
+            await flow();
+        } finally {
+            sendLock.current = false;
+            setIsSending(false);
+        }
+    };
+
     //sending text message to the recipient
-    const handleSendMessage = async () => {
+    const handleSendMessage = () => withSendLock(sendFlow);
+
+    const sendFlow = async () => {
         // Block sending until the sender's selfie is verified (covers reaching
         // the chat via a direct URL, bypassing the gated entry points).
         if (!requireVerification()) return;
@@ -408,14 +438,18 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         // Optimistically add the message to the chat array
         setChats(prevChats => [...prevChats, optimisticMessage]);
 
-        // Clear input fields
+        // Clear input fields (kept so a failed send can put the draft back)
+        const sentText = text;
+        const sentImage = image;
         setText('');
         setImage({ file: null, url: null });
 
         try {
             if (image.file) {
-                // Upload the image and get the URL
-                imgUrl = await upload(image.file);
+                // Upload the image and get the URL. Scoped per-sender so it
+                // can be secured by a storage rule (A6) — this used to land
+                // in a single flat, unscoped `images/` folder.
+                imgUrl = await upload(image.file, `users/${currentUser.uid}/chat_images`);
 
                 // Update the chat array with the real image URL after the upload is done
                 setChats(prevChats => prevChats.map(chat =>
@@ -449,6 +483,9 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
             console.error('Error sending message:', err);
             // Remove the optimistic message if there was an error
             setChats(prevChats => prevChats.filter(chat => chat.id !== optimisticMessage.id));
+            setText(current => current || sentText);
+            setImage(current => current.file || current.url ? current : sentImage);
+            toast.error("Message not sent. Check your connection and try again.");
         }
     };
 
@@ -531,6 +568,15 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
     return (
         <AnimatePresence>
             {verificationModals}
+            <ConfirmModal
+                show={confirmBlock}
+                tone={isBlocked ? "primary" : "danger"}
+                title={`${isBlocked ? 'Unblock' : 'Block'} ${recipientUser?.first_name ?? 'this user'}?`}
+                message={isBlocked ? "They'll be able to appear in your discovery again and you can chat with them." : "They'll be removed from your discovery and you won't be able to chat with them. You can unblock them any time from Profile → Settings → Blocked contacts."}
+                confirmLabel={isBlocked ? "Unblock" : "Block"}
+                onCancel={() => setConfirmBlock(false)}
+                onConfirm={() => { setConfirmBlock(false); handleBlock(recipientUser?.uid as string, isBlocked).catch(notifyError(isBlocked ? "Couldn't unblock this user. Please try again." : "Couldn't block this user. Please try again.")) }}
+            />
             <ReportModal key={'report-modal'} userData={recipientUser as User} show={openModal} onCloseModal={() => setOpenModal(false)} />
             {holdConfirmOpen && (
                 <m.div key={'hold-confirm-modal'}
@@ -558,7 +604,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                 className="text-white rounded-md px-6 py-3 font-semibold bg-gradient-to-br from-red to-orange-400 hover:from-red/80 hover:to-orange-600 active:scale-95 disabled:opacity-60"
                                 onClick={async () => {
                                     setHoldConfirmOpen(false);
-                                    if (await startChatCycle()) await doSendMessage();
+                                    withSendLock(async () => { if (await startChatCycle()) await doSendMessage(); }).catch(notifyError("Message not sent. Check your connection and try again."));
                                 }}>
                                 {isInitiating ? 'Starting…' : 'Hold credit & send'}
                             </button>
@@ -583,8 +629,8 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                         </div> : <Skeleton width="4.8rem" height="4.8rem" circle/> }
                                 <div className="space-y-1">
                                     {recipientDetails.name ? ( <p className="font-bold text-left">{recipientDetails.name}</p> ) : ( <Skeleton width="8rem" height="1.6rem"/>)}
-                                    {recipientUser?.user_settings?.online_status ? (
-                                        recipientUser.status?.online ? (
+                                    {recipientUser && !hidesOnlineStatus(recipientUser) ? (
+                                        isRecentlyOnline(recipientUser.status) ? (
                                             <p className="text-[#8A8A8E] text-left font-normal font-sans italic text-[1.5rem]">online</p>
                                         ) : (
                                             <p className="text-[#8A8A8E] font-normal italic text-[1.5rem]">
@@ -607,7 +653,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                             <button className="cursor-pointer" onClick={() => setChatModalOpen(!chatModalOpen)}>
                                 <img src="/assets/icons/three-dots.svg" alt=""/>
                                 <div className={`absolute ${!chatModalOpen ? 'hidden' : "block"} z-[100] whitespace-nowrap bg-[#F4F4F4] w-[130px] text-center p-6 rounded-md leading-6 right-8 top-[60px] grid items-center gap-4`}>
-                                    <button onClick={(e) => {e.preventDefault(); handleBlock(recipientUser?.uid as string, isBlocked).catch(e => console.error(e))} } className={`border-b-[0.1px] border-opacity-30 border-black border-solid pb-4`}>{isBlocked ? 'Unblock' : 'Block'} User</button>
+                                    <button onClick={(e) => {e.preventDefault(); setChatModalOpen(false); setConfirmBlock(true)} } className={`border-b-[0.1px] border-opacity-30 border-black border-solid pb-4`}>{isBlocked ? 'Unblock' : 'Block'} User</button>
                                     <button onClick={(e) => {e.preventDefault(); setOpenModal(true) }} className={``}>Report User</button>
                                 </div>
                             </button>
@@ -730,7 +776,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter' && (text || image.url)) {
                                                     handleSendMessage()
-                                                        .catch((e) => console.error("Unable to send message", e));
+                                                        .catch(notifyError("Message not sent. Check your connection and try again."));
                                                 }
                                             }}
                                         />
@@ -749,10 +795,11 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                         className={`bg-black text-white py-4 font-semibold px-4 rounded-full ${
                                             !text && !image.url ? 'cursor-not-allowed' : 'cursor-pointer'
                                         }`}
-                                        onClick={handleSendMessage}
-                                        disabled={!text && !image.url}
+                                        onClick={() => handleSendMessage().catch(notifyError("Message not sent. Check your connection and try again."))}
+                                        disabled={(!text && !image.url) || isSending}
+                                        aria-busy={isSending || undefined}
                                     >
-                                        Send
+                                        {isSending ? 'Sending…' : 'Send'}
                                     </button>
                                 </div>
                             </footer> :
@@ -771,7 +818,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                     <button className={`text-red border-[1px] border-black pt-2 font-bold text-2xl`}
                                             onClick={(e) => {
                                                 e.preventDefault()
-                                                handleBlock(recipientUser?.uid as string, isBlocked).catch(e => console.error(e))
+                                                setConfirmBlock(true)
                                             }}>Unblock Account
                                     </button>
                                 }

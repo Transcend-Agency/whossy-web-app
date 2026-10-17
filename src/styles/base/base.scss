@@ -30,3 +30,33 @@ html {
     font-size: calc(100vw / 725 * 14);
   }
 }
+
+// Keyboard focus ring for buttons, links and role="button" elements. Text
+// fields are excluded: the caret already shows focus, and many sit inside a
+// styled pill/container that handles its own focus look.
+:focus-visible {
+  outline: 2px solid #485FE6;
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[contenteditable]:focus-visible {
+  outline: none;
+}
+
+[role="button"] {
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

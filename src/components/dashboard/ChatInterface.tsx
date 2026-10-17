@@ -1,6 +1,6 @@
 import { useEffect, useState, FC } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { useAuthStore } from '@/store/UserId';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,8 @@ import { getUserProfile } from '@/hooks/useUser';
 import {ChatListItem} from "@/components/dashboard/ChatListItem.tsx";
 import {createOrFetchChat, getLastValidMessage} from "@/utils/chatService.ts";
 import {isChatWindowActive} from "@/utils/chatCreditState";
+import {hidesOnlineStatus, isRecentlyOnline} from "@/utils/presence";
+import { pressable } from '@/utils/pressable';
 
 interface ChatDataWithUserData extends Chat {
     user: User;
@@ -88,12 +90,13 @@ const ChatInterface: FC = () => {
         let isMounted = true;
         setIsLoadingChats(true);
 
-        const unSub = onSnapshot(collection(db, 'chats'), async (snapshot) => {
+        // Scoped to this user's own chats (participants array-contains) —
+        // an unfiltered listen on the whole collection can't be secured by
+        // Firestore rules (A6) since a rule can't field-mask a broad listen.
+        const unSub = onSnapshot(query(collection(db, 'chats'), where('participants', 'array-contains', currentUserId)), async (snapshot) => {
             if (!isMounted) return;
 
-            const chatIds: string[] = snapshot.docs
-                .map((doc) => doc.id)
-                .filter((id) => id.includes(currentUserId));
+            const chatIds: string[] = snapshot.docs.map((doc) => doc.id);
 
             const userChats = await Promise.all(
                 chatIds.map(async (chatId) => {
@@ -164,7 +167,7 @@ const ChatInterface: FC = () => {
                 data-cy="chat-interface-modal"
                 transition={{ duration: 0.3 }}
             >
-                <div className="flex justify-between px-[1.6rem] pb-[2.2rem] cursor-pointer" onClick={() => setShowChats(!showChats)}>
+                <div className="flex justify-between px-[1.6rem] pb-[2.2rem] cursor-pointer" {...pressable(() => setShowChats(!showChats))}>
                     <div className="dashboard-layout__chat-interface__drawer__left">
                         <img src="/assets/images/dashboard/chat-heart.svg" alt={``} />
                         <span className=""> Chat </span>
@@ -199,7 +202,7 @@ const ChatInterface: FC = () => {
                                         key={`${chat.last_sender_id}_${currentUserId}_${i}`}
                                         contactName={chat.user.first_name as string}
                                         userData={userData as User}
-                                        onlineStatus={chat.user?.user_settings?.online_status && chat.user?.status?.online}
+                                        onlineStatus={!hidesOnlineStatus(chat.user) && isRecentlyOnline(chat.user?.status)}
                                         profileImage={chat.user.photos && chat.user.photos[0]}
                                         chatUnlocked={isChatWindowActive(chat)}
                                         chat={chat}

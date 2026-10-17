@@ -4,6 +4,7 @@ import SettingsToggleItem from "@/components/dashboard/SettingsToggleItem";
 import { auth } from "@/firebase";
 import { motion } from "framer-motion";
 import React, { useState } from "react";
+import { pressable } from '@/utils/pressable';
 
 interface ProfileSettingsProps {
     activePage: boolean;
@@ -16,7 +17,7 @@ const SettingsMobile: React.FC<ProfileSettingsProps> = ({ activePage, closePage,
         hide_verification_badge: false,
         public_search: false,
         read_receipts: false,
-        online_status: false,
+        online_status: true,
     })
 
     const [showModal, setShowModal] = useState<'hidden' | 'logout'>('hidden')
@@ -42,7 +43,7 @@ const SettingsMobile: React.FC<ProfileSettingsProps> = ({ activePage, closePage,
 
                         <SettingsToggleItem title="Read receipts" subtext="Matches won’t be able to see when you have read their messages and you won’t be able to see theirs." isActive={profileSettings.read_receipts} onButtonToggle={() => setProfileSettings({ ...profileSettings, read_receipts: !profileSettings.read_receipts })} />
 
-                        <SettingsToggleItem title="Online status" subtext="Users won’t be able to see when you’re online." isActive={profileSettings.online_status} onButtonToggle={() => setProfileSettings({ ...profileSettings, online_status: !profileSettings.online_status })} isPremium />
+                        <SettingsToggleItem title="Show when I’m online" subtext="Other users can see when you’re online. Turn off to hide it." isActive={profileSettings.online_status} onButtonToggle={() => setProfileSettings({ ...profileSettings, online_status: !profileSettings.online_status })} isPremium />
                     </div>
                     <section className="my-3 space-y-3">
                         <ProfileSettingsGroup title="Blocked contacts" />
@@ -52,7 +53,7 @@ const SettingsMobile: React.FC<ProfileSettingsProps> = ({ activePage, closePage,
                         <ProfileSettingsGroup title="Policies" />
                         <ProfileSettingsGroup title="Help and Support" />
                     </section>
-                    <div className="flex mt-8 justify-center px-[2.8rem] gap-x-2 py-[1.6rem] cursor-pointer bg-[#F6F6F6] hover:bg-[#ececec]" onClick={() => setShowModal('logout')}>
+                    <div className="flex mt-8 justify-center px-[2.8rem] gap-x-2 py-[1.6rem] cursor-pointer bg-[#F6F6F6] hover:bg-[#ececec]" {...pressable(() => setShowModal('logout'))}>
                         <img src="/assets/icons/logout.svg" alt="" />
                         <p>Logout</p>
                     </div>

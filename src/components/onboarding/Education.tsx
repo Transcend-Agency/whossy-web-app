@@ -6,6 +6,7 @@ import OnboardingPage from "./OnboardingPage";
 import { useOnboardingStore } from "../../store/OnboardingStore";
 import React, { useEffect, useState } from "react";
 import { education } from "@/constants";
+import { pressable } from '@/utils/pressable';
 
 const Education: React.FC<OnboardingProps> = ({ advance, goBack }) => {
   const { updateOnboardingData, "onboarding-data": data } =
@@ -28,7 +29,7 @@ const Education: React.FC<OnboardingProps> = ({ advance, goBack }) => {
       </p>
       {/* <EnterSchoolNameInput getSchool={(e) => setSchool(e)} /> */}
       <div className="my-8 flex gap-x-4">
-            {education.map((item, i) => <div key={i} className={` ${selected === i ? "bg-black text-white" : "bg-[#F6F6F6] text-black"} text-[1.8rem] px-6 py-3 w-fit rounded-lg cursor-pointer`} onClick={() => setSelected(i)}>{item}</div>)}
+            {education.map((item, i) => <div key={i} className={` ${selected === i ? "bg-black text-white" : "bg-[#F6F6F6] text-black"} text-[1.8rem] px-6 py-3 w-fit rounded-lg cursor-pointer`} {...pressable(() => setSelected(i))}>{item}</div>)}
      </div>
       <div className="onboarding-page__section-one__buttons cursor-pointer">
         <OnboardingBackButton onClick={goBack} />

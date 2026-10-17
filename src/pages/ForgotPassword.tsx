@@ -7,12 +7,11 @@ import Button from '../components/ui/Button';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { ZodType, z } from 'zod';
-import { auth, db } from "@/firebase";
+import { auth } from "@/firebase";
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import AuthModalRequestMessage from '../components/auth/AuthModalRequestMessage';
-import { collection, getDocs, query, where } from 'firebase/firestore';
 import { motion } from 'framer-motion'
 import { FormData } from '../types/auth';
 
@@ -48,21 +47,28 @@ const ForgotPasswordInputPage: React.FC<ForgotPasswordPage> = ({ advance, key })
     const onFormSubmit = async (data: FormData) => {
         try {
             setLoading(true)
-            const q = query(collection(db, "users"), where("email", "==", data.email));
-            const result = await getDocs(q);
-            if (result.docs.length == 0) {
-                throw new Error("Account Does Not Exist")
-            }
+            // No "does this account exist" check: it would need the users
+            // collection to be readable while signed out, and it tells anyone
+            // which emails are registered.
             await sendPasswordResetEmail(auth, data.email as string, {
                 url: `${import.meta.env.VITE_APP_FRONTEND_URL}/auth/login`
             });
             advance()
         } catch (err: unknown) {
-            if (err instanceof Error) {
-                setRequestError(err.message)
-            } else {
-                setRequestError("Something Went Wrong...")
+            // An unknown email gets the same "sent" screen as a known one.
+            // Showing the error would confirm which emails have accounts.
+            const code = err && typeof err === 'object' && 'code' in err ? String(err.code) : '';
+            if (code === 'auth/user-not-found') {
+                advance()
+                return
             }
+            // Firebase's own messages ("Firebase: Error (auth/...)") mean
+            // nothing to a user, so each case gets plain wording.
+            setRequestError({
+                'auth/invalid-email': "That doesn't look like a valid email address.",
+                'auth/too-many-requests': "Too many attempts. Please wait a few minutes and try again.",
+                'auth/network-request-failed': "No connection. Check your internet and try again.",
+            }[code] ?? "We couldn't send the reset email. Please try again.")
             console.log(err)
         } finally {
             setLoading(false)

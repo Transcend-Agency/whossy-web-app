@@ -32,9 +32,11 @@ export type User = {
   religion?: number | null;
   interests?: string[] | null;
   is_approved?: boolean | null;
+  reverify_by?: Timestamp | null;
   status?: {
     online: boolean;
-    lastSeen: number;
+    // null when the user hides their online status
+    lastSeen: number | null;
   } | null;
   state?: string | null;
   family_goal?: number | null;
@@ -58,6 +60,9 @@ export type User = {
   /** Credits reserved by pending chat initiations (server-written only).
    *  Spendable balance = credit_balance − credits_on_hold. */
   credits_on_hold?: number | null;
+  /** Rolling 30-day like count, maintained by functions/src/popularity.ts (C2).
+   *  Client-readable, never client-written. */
+  popularity_score_30d?: number | null;
   amount_paid_in_total?: {
     naira?: number | null,
     kenyan_shillings?: number | null,
@@ -76,16 +81,24 @@ export type User = {
   } | null;
   currency?: string | null;
   is_banned?: boolean | null;
+  // Nullable (not just optional): a client can explicitly clear a stale
+  // pending submission back to never-submitted (see Photos.tsx's
+  // cancels_pending_review case) — that's a distinct write from the field
+  // simply never having been set, which firestore.rules also distinguishes.
   face_verification?: {
     retake_photo?: boolean | null;
     photo?: string | null;
     updated_at?: Timestamp | Date | null;
     challenge_id?: string | null;
     challenge_image_url?: string | null;
-    status?: 'pending_review' | 'approved' | 'rejected' | null;
+    status?: 'pending_review' | 'approved' | 'rejected' | 'revoked' | null;
     reviewed_by?: string | null;
     reviewed_at?: Timestamp | Date | null;
-  }
+    /** Main profile photo at the moment of submission — what the reviewer actually approved against. */
+    profile_photo_snapshot?: string | null;
+    /** Set by the reviewer on rejection so the user knows what to correct. */
+    rejection_reason?: string | null;
+  } | null
   tour_guide?: {
     explore?: boolean;
     "swipe-and-match"?: boolean;

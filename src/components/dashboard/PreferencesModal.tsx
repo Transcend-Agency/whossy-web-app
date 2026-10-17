@@ -13,6 +13,7 @@ import {
 import { UserFilters } from "@/types/user";
 import React, { useState } from "react";
 import { AnimatePresence, motion as m } from "framer-motion";
+import { pressable } from '@/utils/pressable';
 
 interface PreferencesModalProps {
   item: {
@@ -112,10 +113,10 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({
           <h1>{item.title}</h1>
           {active === getValue(item.id) ? (
             <img
-              onClick={close}
+              {...pressable(close)}
               className="cursor-pointer"
               src="/assets/icons/close.svg"
-              alt=""
+              alt="Close"
             />
           ) : (
             <p

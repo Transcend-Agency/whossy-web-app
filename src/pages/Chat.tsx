@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import {collection, doc, getDoc, getDocs, onSnapshot, orderBy, query} from 'firebase/firestore';
+import {collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, where} from 'firebase/firestore';
 import { db } from '@/firebase';
 import { useAuthStore } from '@/store/UserId';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -16,6 +16,7 @@ import useDashboardStore from "@/store/useDashboardStore";
 import useProfileFetcher from "@/hooks/useProfileFetcher";
 import {useMatchStore} from "@/store/Matches.tsx";
 import {isChatWindowActive} from "@/utils/chatCreditState";
+import {hidesOnlineStatus, isRecentlyOnline} from "@/utils/presence";
 import useSyncPeopleWhoLikedUser from "@/hooks/useSyncPeopleWhoLikedUser.tsx";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
 
@@ -112,12 +113,13 @@ const ChatPage = () => {
             }
         };
 
-        const unSub = onSnapshot(collection(db, "chats"), async (snapshot) => {
+        // Scoped to this user's own chats — see the matching comment in
+        // ChatInterface.tsx (A6: an unfiltered collection listen can't be
+        // secured by Firestore rules).
+        const unSub = onSnapshot(query(collection(db, "chats"), where('participants', 'array-contains', currentUserId)), async (snapshot) => {
             if (!isMounted) return;
 
-            const chatIds: string[] = snapshot.docs
-                .map((doc) => doc.id)
-                .filter((id) => id.includes(currentUserId));
+            const chatIds: string[] = snapshot.docs.map((doc) => doc.id);
 
             const userChats = await Promise.all(
                 chatIds.map(async (chatId) => {
@@ -268,7 +270,7 @@ const ChatPage = () => {
                                         <ChatListItem
                                             key={`${chat.last_sender_id}_${currentUserId}_${i}`}
                                             userData={currentUser as User}
-                                            onlineStatus={chat.user?.user_settings?.online_status && chat.user?.status?.online}
+                                            onlineStatus={!hidesOnlineStatus(chat.user) && isRecentlyOnline(chat.user?.status)}
                                             contactName={chat.user.first_name || "Unknown"}
                                             profileImage={chat.user.photos && chat.user.photos[0]}
                                             chatUnlocked={isChatWindowActive(chat)}

@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import React, { useState } from "react";
 import toast from "react-hot-toast";
+import { pressable } from '@/utils/pressable';
 
 interface DeleteAccountModalProps {
 	show: boolean;
@@ -20,7 +21,7 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({show, onCloseMod
 	const [loading, setLoading] = useState<boolean>(false);
 
 	const handleDeleteAccount = async () => {
-		if (!password.trim()) {
+		if (passwordRequired && !password.trim()) {
 			toast.error("Please enter your password");
 			return;
 		}
@@ -36,7 +37,7 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({show, onCloseMod
 			setPassword("");
 		}
 	};
-	const disabledButton = loading || password.trim() === ""
+	const disabledButton = loading || (passwordRequired && password.trim() === "")
 
 	return (
 		<AnimatePresence mode='wait'>
@@ -60,17 +61,17 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({show, onCloseMod
 							<div className={`grid text-[14px]`}>
 								<div className={`flex justify-between items-center`}>
 									<p>Are you sure you want to delete your account ?</p>
-									<img className={`size-[18px] cursor-pointer`} onClick={() => {
+									<img className={`size-[18px] cursor-pointer`} {...pressable(() => {
 										onCloseModal();
 										setPassword("")
-									}} src={`/assets/icons/close-icons.svg`} alt={``}/>
+									})} src={`/assets/icons/close-icons.svg`} alt="Close"/>
 								</div>
 								<div className="settings-page__settings-group__item-separator"></div>
 
 
 								<div className={`p-4 bg-red bg-opacity-20 rounded-md flex gap-4 items-center my-3`}>
 									<img className={`size-[20px]`} src={`/assets/icons/danger.svg`} alt={``}/>
-									<p className={`leading-relaxed`}>Deleting this Account will delete all of its data and this action is not irreversible</p>
+									<p className={`leading-relaxed`}>Deleting this Account will delete all of its data and this action cannot be undone</p>
 								</div>
 									{passwordRequired &&
 										<>

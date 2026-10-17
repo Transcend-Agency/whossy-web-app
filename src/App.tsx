@@ -1,3 +1,4 @@
+import AccountGate from "@/components/dashboard/AccountGate";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
 import { Toaster } from "react-hot-toast";
@@ -41,6 +42,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import {updateUserProfile} from "@/hooks/useUser.ts";
 import { User } from "@/types/user.ts";
 import DeleteAccount from "./pages/DeleteAccount";
+import PaymentCallback from "./pages/PaymentCallback";
 
 const queryClient = new QueryClient();
 
@@ -187,6 +189,7 @@ function App() {
               <ProtectedDashboard>
                 <DashboardLayout />
                 <TourGuideModal />
+                <AccountGate />
               </ProtectedDashboard>}>
               <Route path="user-profile"
                      element={
@@ -229,6 +232,11 @@ function App() {
             <Route path="/contact" element={<Contact />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/delete-account" element={<DeleteAccount />} />
+            <Route path="/payment-callback" element={
+              <ProtectedDashboard>
+                <PaymentCallback />
+              </ProtectedDashboard>
+            } />
           </Routes>
           <ToastContainer />
         </AnimatePresence>

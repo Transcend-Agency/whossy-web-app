@@ -6,20 +6,21 @@ import { useMatchStore } from "@/store/Matches.tsx";
 import useDashboardStore from "@/store/useDashboardStore.tsx";
 import { useAuthStore } from '@/store/UserId';
 import { User } from '@/types/user';
-import { getYearFromFirebaseDate } from '@/utils/date';
-import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { calculateAge } from '@/utils/age';
+import { distanceInMiles } from '@/utils/distance';
+import { hidesOnlineStatus, isRecentlyOnline } from '@/utils/presence';
+import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { motion, useAnimationControls } from 'framer-motion';
 import React, { useEffect, useRef, useState } from "react";
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import DashboardPageContainer from "./DashboardPageContainer";
 import {useChatIdStore} from "@/store/ChatStore.tsx";
-import {createOrFetchChat} from "@/utils/chatService.ts";
-import {isChatWindowActive} from "@/utils/chatCreditState";
-import {Chat} from "@/types/chat.ts";
+import {openChatWith} from "@/utils/chatService.ts";
 import { serverTimestamp } from 'firebase/firestore';
-import { getUserProfile } from "@/hooks/useUser";
 import { useVerificationGate } from "@/hooks/useVerificationGate.tsx";
+import { pressable } from '@/utils/pressable';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 
 interface ViewProfileProps {
     onBackClick: () => void;
@@ -28,46 +29,42 @@ interface ViewProfileProps {
     onBlockChange: () => void;
 }
 
-export const addMatch = async (likerId: string, likedId: string) => {
-    const matchesRef = collection(db, 'matches');
-    const matchId = likerId < likedId ? `${likerId}_${likedId}` : `${likedId}_${likerId}`;
-    await setDoc(doc(matchesRef, matchId), {
-        user1_id: likerId < likedId ? likerId : likedId,
-        user2_id: likerId > likedId ? likerId : likedId,
-        timestamp: serverTimestamp()
-    });
-
-    console.log('Match created:', matchId);
-};
-
 const ViewProfile: React.FC<ViewProfileProps> = (
     { onBackClick, userData, onBlockChange }
 ) => {
     const [expanded, setExpanded] = useState(true)
     const [isBlocked, setIsBlocked] = useState(false)
     const [isBlockLoading, setIsBlockLoading] = useState(false)
+    const [confirmBlock, setConfirmBlock] = useState(false)
     const [currentImage, setCurrentImage] = useState(0)
     const moreDetailsContainer = useRef(null)
     const likeControls = useAnimationControls()
     const navigate = useNavigate();
     const { user, auth } = useAuthStore()
     const { userLikes } = useSyncUserLikes(user!.uid!)
-    const { selectedProfile } = useDashboardStore()
+    const { selectedProfile, blockedUsers } = useDashboardStore()
     const { setChatId } = useChatIdStore()
     const [openModal, setOpenModal] = useState(false);
 
-    // Freshly fetch the signed-in user so the verification gate reflects the
-    // latest `is_approved` (callers don't pass loggedUserData here).
+    // Live listener, not a one-time fetch (callers don't pass loggedUserData
+    // here) — the gate's decision needs the server truth at the moment of
+    // the click, not whatever it was when this screen mounted. A one-time
+    // fetch was wrong in both directions for as long as the page stayed
+    // open: a user revoked elsewhere still looked verified here until a
+    // refresh, and a user just approved elsewhere kept getting blocked.
     const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
-    const fetchLoggedInUser = async () => {
-        const data = await getUserProfile("users", auth?.uid as string) as User;
-        setLoggedInUser(data);
-    };
     useEffect(() => {
-        fetchLoggedInUser().catch(err => console.error(err));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-    const { requireVerification, modals: verificationModals } = useVerificationGate(loggedInUser, fetchLoggedInUser);
+        if (!auth?.uid) return;
+        return onSnapshot(
+            doc(db, 'users', auth.uid),
+            (snap) => setLoggedInUser((snap.data() as User) ?? null),
+            (error) => console.error('Verification gate user subscription failed:', error),
+        );
+    }, [auth?.uid]);
+    const { requireVerification, modals: verificationModals } = useVerificationGate(
+        loggedInUser,
+        () => { /* live onSnapshot keeps loggedInUser fresh */ },
+    );
 
     const goToNextPost = () => {
         if (currentImage < userData.photos!.length - 1) {
@@ -99,10 +96,10 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                 const mutualLikeSnapshot = await getDocs(q);
 
                 if (!mutualLikeSnapshot.empty) {
-                    // Mutual like detected, create a match
-                    await addMatch(user?.uid as string, userData?.uid as string);
+                    // The server writes the match from the two likes; give
+                    // it a moment before refreshing the list.
                     toast.success(`You're Matched With ${userData.first_name}`);
-                    fetchMatches(user?.uid as string);
+                    setTimeout(() => fetchMatches(user?.uid as string), 2500);
                 }
             }).catch(err => console.error("An error occured while updating likes: ", err));
             toast.success(`Your Like has been sent to ${userData.first_name}`);
@@ -205,12 +202,6 @@ const ViewProfile: React.FC<ViewProfileProps> = (
         return Boolean(userLikes.filter(like => (like.liked_id === selectedProfile)).length)
     }
 
-    const fetchUserChats = async (id: string) => {
-        const chatDocRef = doc(db, "chats", id);
-        const chatDocSnap = await getDoc(chatDocRef);
-        return chatDocSnap.exists() ? chatDocSnap.data() as Chat : null;
-    };
-
     return (
         <>
             {verificationModals}
@@ -230,24 +221,8 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                     {<div className="preview-profile__action-button"
                           onClick={async () => {
                               if (!requireVerification()) return;
-                              toast.loading("Loading chat..")
-                              const chatId = [auth?.uid, userData.uid].sort().join('_');
-                              setChatId(chatId)
-                              await createOrFetchChat(auth?.uid as string, userData?.uid as string, setChatId).then(
-                                  async () => {
-                                      const chat = await fetchUserChats(chatId) as Chat;
-                                      if (chatId != "nil" || !chat || !chat.participants || chat.participants.length < 2) {
-                                          navigate(`/dashboard/chat?recipient-user-id=${userData.uid}`, {
-                                              state: {
-                                                  chatId,
-                                                  recipientUser: userData,
-                                                  chatUnlocked: isChatWindowActive(chat)
-                                              },
-                                          });
-                                          setChatId(chatId)
-                                      }
-                                  }
-                              )
+                              openChatWith(auth?.uid as string, userData, setChatId, navigate)
+                                  .catch(() => toast.error("Couldn't open the chat. Please try again."))
                           }}>
                         <img src="/assets/icons/message-heart.svg" alt={``} />
                     </div>}
@@ -269,24 +244,8 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                             {<div className="preview-profile__action-button"
                                   onClick={async () => {
                                       if (!requireVerification()) return;
-                                      toast.loading("Loading chat..")
-                                      const chatId = [auth?.uid, userData.uid].sort().join('_');
-                                      setChatId(chatId)
-                                      await createOrFetchChat(auth?.uid as string, userData?.uid as string, setChatId).then(
-                                          async () => {
-                                              const chat = await fetchUserChats(chatId) as Chat;
-                                              if (chatId != "nil" || !chat || !chat.participants || chat.participants.length < 2) {
-                                                  navigate(`/dashboard/chat?recipient-user-id=${userData.uid}`, {
-                                                      state: {
-                                                          chatId,
-                                                          recipientUser: userData,
-                                                          chatUnlocked: isChatWindowActive(chat)
-                                                      },
-                                                  });
-                                                  setChatId(chatId)
-                                              }
-                                          }
-                                      )
+                                      openChatWith(auth?.uid as string, userData, setChatId, navigate)
+                                          .catch(() => toast.error("Couldn't open the chat. Please try again."))
                                   }}>
                                 <img src="/assets/icons/message-heart.svg" alt={``} />
                             </div>}
@@ -313,13 +272,13 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                                 )}
                             </figure>
                             {userData?.photos?.length !== 0 && <div className="preview-profile__overlay">
-                                <div onClick={goToPreviousPost}
+                                <div {...pressable(goToPreviousPost)}
                                     className={`previous-button ${currentImage > 0 && 'clickable'}`}>
                                     <button>
                                         <img src="/assets/icons/arrow-right.svg" alt={``} />
                                     </button>
                                 </div>
-                                <div onClick={goToNextPost}
+                                <div {...pressable(goToNextPost)}
                                     className={`next-button ${currentImage < (userData?.photos?.length as number - 1) && 'clickable'}`}>
                                     <button>
                                         <img src="/assets/icons/arrow-right.svg" />
@@ -328,19 +287,20 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                             </div>}
                             <div className="preview-profile__profile-details">
                                 <div className="status-row">
-                                    {userData?.user_settings?.online_status ?
-                                        (userData.status?.online ? (
+                                    {!hidesOnlineStatus(userData) ?
+                                        (isRecentlyOnline(userData.status) ? (
                                             <div className="active-badge">{'Online'}</div>
                                         ) : (
                                             <div className="non-active-badge">{'Offline'}</div>
                                         )) : null
                                     }
-                                    {userData.location && user?.location &&
-                                        <p className="location">~ {userData.distance}</p>}
+                                    {!blockedUsers.includes(userData.uid as string) && typeof user?.latitude === 'number' && typeof user?.longitude === 'number' &&
+                                        typeof userData.latitude === 'number' && typeof userData.longitude === 'number' &&
+                                        <p className="location">~ {distanceInMiles([user.latitude, user.longitude], [userData.latitude, userData.longitude]).toFixed(1)} mi away</p>}
                                 </div>
                                 <motion.div initial={{ marginBottom: '2.8rem' }} className="name-row">
                                     <div className="left">
-                                        <p className="details">{userData.first_name}, <span className="age">{(new Date()).getFullYear() - getYearFromFirebaseDate(userData.date_of_birth)}</span></p>
+                                        <p className="details">{userData.first_name}, <span className="age">{calculateAge(userData.date_of_birth) ?? ''}</span></p>
                                         {userData.is_approved && <img src="/assets/icons/verified.svg" />}
                                     </div>
                                     {/* <AnimatePresence>
@@ -380,9 +340,7 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                                 <div className="preview-profile__image-counter-container">
                                     {userData.photos?.length !== 1 && <>
                                         {userData?.photos?.map((_image, index) => (
-                                            <div key={index} onClick={() => {
-                                                setCurrentImage(index);
-                                            }} className={`preview-profile__image-counter ${index == currentImage && "preview-profile__image-counter--active"}`}></div>
+                                            <div key={index} {...pressable(() => setCurrentImage(index))} aria-label={`Show photo ${index + 1}`} className={`preview-profile__image-counter ${index == currentImage && "preview-profile__image-counter--active"}`}></div>
                                         ))}
                                     </>}
                                 </div>
@@ -493,12 +451,21 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                                         src='/assets/icons/loader-black.gif' />
                                 </div> :
 
-                                <div className="action-button" onClick={() => blockUser(isBlocked, onBlockChange)}>
+                                <div className="action-button" {...pressable(() => setConfirmBlock(true))}>
                                     <img src="/assets/icons/block.svg" alt={``} />
                                     {isBlocked ? "Unblock" : "Block"} {userData.first_name}
                                 </div>
                             }
 
+                            <ConfirmModal
+                                show={confirmBlock}
+                                tone={isBlocked ? "primary" : "danger"}
+                                title={isBlocked ? `Unblock ${userData.first_name}?` : `Block ${userData.first_name}?`}
+                                message={isBlocked ? `${userData.first_name} will be able to appear in your discovery again and you can chat with them.` : `${userData.first_name} will be removed from your discovery and you won't be able to chat with them. You can unblock them any time from Profile → Settings → Blocked contacts.`}
+                                confirmLabel={isBlocked ? "Unblock" : "Block"}
+                                onCancel={() => setConfirmBlock(false)}
+                                onConfirm={() => { setConfirmBlock(false); blockUser(isBlocked, onBlockChange); }}
+                            />
                             <button className="action-button action-button--danger" onClick={() => setOpenModal(true)}>
                                 <img src="/assets/icons/report.svg" alt={``} />
                                 Report {userData.first_name}
