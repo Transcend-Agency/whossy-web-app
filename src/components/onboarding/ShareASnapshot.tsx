@@ -12,6 +12,7 @@ import OnboardingPage from "./OnboardingPage";
 import SmallSnapshots from "./SmallSnapshots";
 import { OnboardingProps } from "@/types/onboarding";
 import { AdvancedSearchPreferences } from "@/types/user.ts";
+import { toBirthDate } from "@/utils/birthDate";
 
 const ShareASnapshot: FC<OnboardingProps> = ({ advance, goBack }) => {
     const { photos, setPhotos, reset: resetPhoto } = usePhotoStore();
@@ -40,7 +41,10 @@ const ShareASnapshot: FC<OnboardingProps> = ({ advance, goBack }) => {
 
             await updateDoc(userDocRef, {
                 bio: data["short-introduction"],
-                date_of_birth: data["date-of-birth"],
+                // Always a real date: the onboarding store is kept in
+                // localStorage as JSON, so after a reload this is an ISO string,
+                // which is not a timestamp and is refused by the rules.
+                date_of_birth: toBirthDate(data["date-of-birth"]),
                 distance: data["distance-search"],
                 drink: data["drinking-preference"],
                 education: data.education,

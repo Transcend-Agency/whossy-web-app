@@ -141,6 +141,8 @@ test("W1: web onboarding saves its profile once the server-owned keys and the pl
   await seed("users/web1", { uid: "web1", is_approved: false, has_completed_onboarding: false });
   await assertSucceeds(updateDoc(doc(as("web1"), "users/web1"), {
     uid: "web1", bio: "hello", photos: PHOTOS, interests: ["a"], blockedIds: [],
+    // ShareASnapshot sends the birth date here; completing onboarding needs it.
+    date_of_birth: Timestamp.fromDate(new Date("1995-05-05")),
     user_settings: { public_search: true }, tour_guide: {},
   }));
   await assertSucceeds(updateDoc(doc(as("web1"), "users/web1"), {

@@ -13,7 +13,7 @@ const {
   assertFails,
   assertSucceeds,
 } = require("@firebase/rules-unit-testing");
-const { doc, setDoc, updateDoc } = require("firebase/firestore");
+const { doc, setDoc, updateDoc, Timestamp } = require("firebase/firestore");
 
 let testEnv;
 
@@ -82,6 +82,8 @@ test("signup completes fine with 2+ photos", async () => {
       credit_balance: 0, credits_on_hold: 0,
       photos: ["https://example.com/a.jpg", "https://example.com/b.jpg"],
       has_completed_onboarding: true,
+      // Completing onboarding needs an adult birth date.
+      date_of_birth: Timestamp.fromDate(new Date("1995-05-05")),
     })
   );
 });
