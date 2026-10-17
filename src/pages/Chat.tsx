@@ -14,7 +14,8 @@ import { getUserProfile } from '@/hooks/useUser';
 import ViewProfile from "@/components/dashboard/ViewProfile";
 import useDashboardStore from "@/store/useDashboardStore";
 import useProfileFetcher from "@/hooks/useProfileFetcher";
-import {isConnectedTo, useMatchStore} from "@/store/Matches.tsx";
+import {useMatchStore} from "@/store/Matches.tsx";
+import {isChatWindowActive} from "@/utils/chatCreditState";
 import useSyncPeopleWhoLikedUser from "@/hooks/useSyncPeopleWhoLikedUser.tsx";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
 
@@ -187,7 +188,7 @@ const ChatPage = () => {
         console.log("Setting Chat ID:", newChatId);
         setChatId(newChatId);
         navigate(`/dashboard/chat?recipient-user-id=${chat.user.uid}`, {
-            state: {newChatId, recipientUser: chat.user, chatUnlocked: chat.is_unlocked},
+            state: {newChatId, recipientUser: chat.user, chatUnlocked: isChatWindowActive(chat)},
         });
     };
 
@@ -270,10 +271,9 @@ const ChatPage = () => {
                                             onlineStatus={chat.user?.user_settings?.online_status && chat.user?.status?.online}
                                             contactName={chat.user.first_name || "Unknown"}
                                             profileImage={chat.user.photos && chat.user.photos[0]}
-                                            chatUnlocked={chat.is_unlocked}
+                                            chatUnlocked={isChatWindowActive(chat)}
                                             openChat={() => openChat(chat)}
                                             chat={chat}
-                                            connected={isConnectedTo(matches, chat.user?.uid)}
                                         />
                                     ))
                                 )

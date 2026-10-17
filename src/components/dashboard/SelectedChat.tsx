@@ -14,20 +14,27 @@ import {
     query,
     serverTimestamp,
     setDoc,
-    Timestamp,
     updateDoc
 } from "firebase/firestore";
 import {db} from "@/firebase";
 import {v4 as uuidv4} from "uuid";
 import upload from "@/hooks/upload";
-import { updateUserProfile} from "@/hooks/useUser.ts";
+import { getUserProfile } from "@/hooks/useUser.ts";
+import {
+    canInitiate,
+    availableCredits,
+    deriveChatCreditState,
+    initiateChat,
+} from "@/utils/chatCreditState";
+import ChatStateBanner from "@/components/dashboard/ChatStateBanner.tsx";
+import { useVerificationGate } from "@/hooks/useVerificationGate.tsx";
 import {formatFirebaseTimestampToTime, formatServerTimeStamps} from "@/constants";
 import {useChatIdStore} from "@/store/ChatStore";
 import {Chat, Messages} from "@/types/chat";
 import {User} from "@/types/user";
 import toast from "react-hot-toast";
 import {useLocation, useNavigate} from "react-router-dom";
-import {isConnectedTo, useMatchStore} from "@/store/Matches.tsx";
+import {useMatchStore} from "@/store/Matches.tsx";
 import ReportModal from "@/components/dashboard/ReportModal.tsx";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
 
@@ -62,7 +69,8 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
     const [currentChat, setCurrentChat] = useState<Chat>();
     const [isBlocked, setIsBlocked] = useState<boolean>(false)
     const [isBlockLoading, setIsBlockLoading] = useState<boolean>(false)
-    const [chatUnlocked, setChatUnlocked] = useState<boolean>();
+    const [holdConfirmOpen, setHoldConfirmOpen] = useState<boolean>(false);
+    const [isInitiating, setIsInitiating] = useState<boolean>(false);
     const [readReceipt, setReadReceipt] = useState<boolean>(false);
     const [readReceiptDisabledAt, setReadReceiptDisabledAt] = useState<Date | null>(null);
     const [openEmoji, setOpenEmoji] = useState(false);
@@ -79,8 +87,23 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
     const dropdownRef = useRef<HTMLDivElement>(null);
     const endRef = useRef<HTMLDivElement>(null);
     const { chatId, setChatId } = useChatIdStore();
-    const { matches, fetchMatches } = useMatchStore()
+    const { fetchMatches } = useMatchStore()
     const navigate = useNavigate()
+
+    // Verification gate for sending messages. Seeded from the `currentUser`
+    // prop (so it's accurate immediately) and refreshed so an approval/submit
+    // is reflected without a full reload.
+    const [loggedInUser, setLoggedInUser] = useState<User | null>(currentUser ?? null);
+    const fetchLoggedInUser = async () => {
+        if (!currentUser?.uid) return;
+        const data = await getUserProfile("users", currentUser.uid) as User;
+        setLoggedInUser(data);
+    };
+    useEffect(() => {
+        fetchLoggedInUser().catch(err => console.error(err));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentUser?.uid]);
+    const { isVerified, requireVerification, modals: verificationModals } = useVerificationGate(loggedInUser, fetchLoggedInUser);
 
     const { setActivePage: setPage } = useNavigationStore()
 
@@ -90,8 +113,12 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
 
     const location2 = useLocation();
     const state = location2.state as { chatId: string; recipientUser: User; chatUnlocked: boolean };
-    const checkChatUnlocked = state?.chatUnlocked ?? false;
-    const connected = isConnectedTo(matches, state?.recipientUser?.uid);
+
+    // Reply-Gated Credits: single state derivation everything renders from.
+    // `currentChat` is kept live by the chat-doc subscription below; the
+    // server (Cloud Functions) is the only writer of the credit fields.
+    // No match prerequisite — premium-or-credits is the only initiation gate.
+    const creditState = deriveChatCreditState(currentChat, currentUser?.uid as string);
 
 // Initialize chatId from state
     useEffect(() => {
@@ -102,6 +129,33 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
             setRecipientUser(state.recipientUser as User)
         }
     }, [state]);
+
+    // Live chat-doc subscription: credit_status/expiration changes (written by
+    // the Cloud Functions) reach the UI without a refresh (AC 2.4).
+    useEffect(() => {
+        if (!chatId || chatId === "nil") return;
+        const unSub = onSnapshot(doc(db, "chats", chatId), (snap) => {
+            if (snap.exists()) setCurrentChat(snap.data() as Chat);
+        }, (err) => console.error("chat doc listener:", err));
+        return unSub;
+    }, [chatId]);
+
+    // One-time transition moments: hold captured (connected 🎉) / hold refunded.
+    const prevCreditState = useRef<typeof creditState>();
+    useEffect(() => {
+        const prev = prevCreditState.current;
+        prevCreditState.current = creditState;
+        if (!prev || prev === creditState) return;
+        if ((prev === 'pending_initiator' || prev === 'pending_recipient') && creditState === 'connected') {
+            toast.success(`You're connected 🎉 Chat free for the next 48 hours!`, { duration: 5 });
+            fetchLoggedInUser().catch(err => console.error(err));
+        }
+        if (prev === 'pending_initiator' && creditState === 'idle') {
+            toast(`${recipientDetails.name || 'They'} didn't reply — your credit has been returned.`, { duration: 5 });
+            fetchLoggedInUser().catch(err => console.error(err));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [creditState]);
 
     useEffect(() => { if (endRef.current) { endRef.current.scrollIntoView({ behavior: 'auto' }); } }, [chats])
 
@@ -143,13 +197,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         };
 
         if (recipientUserId) {
-            const initChatDocument = async () => {
-                if (currentUser?.uid) {
-                    await fetchMatches(currentUser.uid);
-                }
-                await updateChatDocument();
-            };
-            initChatDocument().catch(e => console.error(e))
+            updateChatDocument().catch(e => console.error(e))
             getUserDetails().then(
                 () => handleReadReceipts().then(() => setIsLoading(false))
             )
@@ -179,7 +227,6 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
             if (chatDocSnap.exists()) {
                 const chatData: Chat = chatDocSnap.data() as Chat;
                 const last_sender_id = chatData.last_sender_id;
-                setChatUnlocked(chatData.is_unlocked)
 
                 // Check if the current user is not the last sender and the chat is open
                 if (last_sender_id !== currentUser.uid && chatData.status !== "seen" && activePage === "selected-chat") {
@@ -239,34 +286,19 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         const currentUserBlockedRecipient = await checkIfUserBlocked(currentUser.uid as string, recipientUserId as string);
         const recipientBlockedCurrentUser = await checkIfUserBlocked(state.recipientUser.uid as string, currentUser.uid as string);
         const userBlockedStatus: boolean[] = [currentUserBlockedRecipient, recipientBlockedCurrentUser];
-        // Read matches directly from the store (rather than the `connected` render value) so this
-        // reflects the result of the fetchMatches() awaited just before this is called.
-        const connectedToRecipient = isConnectedTo(useMatchStore.getState().matches, state.recipientUser?.uid);
-        const bothPremiumUsers = state.recipientUser.is_premium && currentUser.is_premium && connectedToRecipient
 
         if(!chatId) return
         try {
             const chatId = [currentUser.uid, state.recipientUser.uid].sort().join('_')
-            const updateData: Partial<Chat> = { user_blocked: userBlockedStatus, };
-            if (bothPremiumUsers) { updateData.is_unlocked = true }
 
-            updateUserChat(chatId, () => console.log("Chat document updated!"), updateData).catch(e => console.error(e))
-            const chatDocRef = doc(db, "chats", chatId);
-            if (chatDocRef) {
-                const chatDocSnap = await getDoc(chatDocRef);
-                if (chatDocSnap.exists()) {
-                    const chatData = chatDocSnap.data() as Chat;
-                    setCurrentChat(chatData);
-                    setIsBlocked(currentUserBlockedRecipient)
-                } else {
-                    console.warn("Chat document does not exist.");
-                }
-            }
+            // Credit/unlock state is server-owned now (Reply-Gated Credits) —
+            // this only maintains the block flags on the chat doc.
+            updateUserChat(chatId, () => console.log("Chat document updated!"), { user_blocked: userBlockedStatus }).catch(e => console.error(e))
+            setIsBlocked(currentUserBlockedRecipient)
 
             updateChatId(chatId);
         } catch (e) {
             console.log("Still updating chat", e);
-            // console.error("Error updating or fetching chat:", error);
         }
     };
 
@@ -287,95 +319,72 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         }
     };
 
-    const unlockChat = async (chatId: string): Promise<void> => {
-        if (!connected) {
-            toast.error("You need to match with this user before you can unlock this chat.")
-            return;
-        }
-
-        const chatRef = doc(db, "chats", chatId);
-
-        const expirationTime = Timestamp.fromDate(
-            new Date(new Date().getTime() + (48 * 60 * 60 * 1000) )
-        );
-
-        // @ts-expect-error currentUser is probably undefined.
-        if(currentUser.credit_balance < 1){
-            setPage('add-credits')
-            navigate("/dashboard/user-profile")
-        } else {
-            const newCredit: number = currentUser?.credit_balance as number - 1;
-            console.log(newCredit)
-            try {
-                await updateDoc(chatRef, {
-                    is_unlocked: true,
-                    unlock_time: serverTimestamp(),
-                    expiration_time: expirationTime,
-                });
-                state.chatUnlocked = true
-                setChatUnlocked(true)
-                console.log("Chat unlocked successfully!");
-                toast.success("Chat unlocked for 48Hours", { duration: 3} )
-            } catch (error) {
-                console.error("Error unlocking chat:", error);
-                toast.error("An error occurred.")
-            }
-
-            try {
-                console.log("Updating Chat Credit")
-                updateUserProfile("users" , currentUser.uid as string,
-                    () => console.log("Chat document updated!"),
-                    { credit_balance : newCredit }).catch(e => console.error(e))
-            }
-            catch (err) { console.error("Error updating credit balance")}
-        }
-    };
-
-    const isChatUnlocked = async (chatId: string): Promise<boolean> => {
+    /**
+     * IDLE/EXPIRED → PENDING via the `initiateChat` Cloud Function: places the
+     * 1-credit hold (non-premium) server-side. Returns true when the caller
+     * may proceed to send the message.
+     */
+    const startChatCycle = async (): Promise<boolean> => {
+        if (!chatId || chatId === "nil") return false;
+        setIsInitiating(true);
         try {
-            const chatRef = doc(db, "chats", chatId);
-            const chatSnapshot = await getDoc(chatRef);
-            if (!chatSnapshot.exists()) {
-                console.error("Chat document does not exist.");
-                return false;
+            await initiateChat(chatId);
+            fetchLoggedInUser().catch(err => console.error(err)); // refresh hold display
+            return true;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            if (message.includes("INSUFFICIENT_CREDITS")) {
+                toast.error("You need 1 credit or Premium to start this chat.");
+                setPage('add-credits');
+                navigate("/dashboard/user-profile");
+            } else if (message.includes("ALREADY_PENDING_BY_OTHER")) {
+                // They initiated first — our reply is free; just send.
+                return true;
+            } else {
+                console.error("Error starting chat:", err);
+                toast.error("Couldn't start the chat. Please try again.");
             }
-
-            const chatData = chatSnapshot.data() as Chat;
-            const isUnlocked = chatData.is_unlocked;
-            const expirationTime = chatData.expiration_time as Timestamp;
-
-            console.log(isUnlocked)
-
-            if (!isUnlocked || !expirationTime) return false;
-
-            const currentTime = Date.now();
-            const expirationTimeMs = expirationTime.seconds * 1000;
-
-            return currentTime < expirationTimeMs;
-        } catch (error) {
-            console.error("Error fetching chat data:", error);
             return false;
+        } finally {
+            setIsInitiating(false);
         }
     };
 
     //sending text message to the recipient
     const handleSendMessage = async () => {
+        // Block sending until the sender's selfie is verified (covers reaching
+        // the chat via a direct URL, bypassing the gated entry points).
+        if (!requireVerification()) return;
+        if(!chatId) return
+
+        // IDLE/EXPIRED: this send starts a new cycle — premium initiates
+        // directly (AC 6.1), everyone else confirms the hold first (AC 1.2).
+        if (creditState === 'idle' || creditState === 'expired') {
+            const payer = loggedInUser ?? currentUser;
+            if (!canInitiate(payer)) {
+                toast.error("You need 1 credit or Premium to start this chat.");
+                setPage('add-credits')
+                navigate("/dashboard/user-profile")
+                return;
+            }
+            if (payer.is_premium === true) {
+                if (!await startChatCycle()) return;
+            } else {
+                setHoldConfirmOpen(true);
+                return; // the modal's confirm button sends the message
+            }
+        }
+
+        // PENDING (either side) and CONNECTED send freely — the recipient's
+        // first reply triggers the server-side capture (AC 3.3), the client
+        // does nothing special.
+        await doSendMessage();
+    };
+
+    /** Dispatches the message: optimistic UI + Firestore writes. */
+    const doSendMessage = async () => {
         let imgUrl: string | null = null;
         if(!chatId) return
-        if(!connected){
-            toast.error("You need to match with this user before you can chat.")
-            setChatUnlocked(false)
-            state.chatUnlocked = false
-            closePage()
-            return;
-        }
-        if(!await isChatUnlocked(chatId) && !currentUser.is_premium){
-            toast.error("Chat Unlock Duration Expired")
-            setChatUnlocked(false)
-            state.chatUnlocked = false
-            closePage()
-            return;
-        }
 
         // Generate the messageId and timestamp upfront
         const messageId = uuidv4();
@@ -449,7 +458,8 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
             return null;
         }
 
-        if (!state.chatUnlocked) {
+        // Read receipts only apply while messages flow: pending or connected.
+        if (creditState !== 'connected' && creditState !== 'pending_initiator' && creditState !== 'pending_recipient') {
             return false;
         }
 
@@ -475,6 +485,12 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
             console.error("Error handling read receipts:", error);
         }
     };
+
+    // Recompute read receipts as the credit state moves (e.g. once connected).
+    useEffect(() => {
+        handleReadReceipts().catch(e => console.error(e));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [creditState]);
 
     const handleBlock = async (recipientId: string, isBlocked: boolean) => {
         setIsBlockLoading(true)
@@ -514,7 +530,42 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
 
     return (
         <AnimatePresence>
+            {verificationModals}
             <ReportModal key={'report-modal'} userData={recipientUser as User} show={openModal} onCloseModal={() => setOpenModal(false)} />
+            {holdConfirmOpen && (
+                <m.div key={'hold-confirm-modal'}
+                       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                       className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center px-8">
+                    <m.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+                           className="bg-white rounded-2xl shadow-xl w-[360px] max-w-full p-8 flex flex-col items-center text-center gap-4">
+                        <img className="size-[48px]" src="/assets/images/dashboard/coin.png" alt="" />
+                        <p className="font-bold text-[18px] text-[#121212]">Place 1 credit on hold?</p>
+                        <p className="text-[14px] text-gray leading-relaxed">
+                            You'll only be charged when {recipientDetails.name || 'they'} replies.
+                            If they don't reply within 48 hours, your credit is returned automatically.
+                        </p>
+                        <p className="text-[13px] text-gray">
+                            Available: {availableCredits(loggedInUser ?? currentUser)} credit{availableCredits(loggedInUser ?? currentUser) === 1 ? '' : 's'}
+                        </p>
+                        <div className="flex gap-4 w-full justify-center pt-2">
+                            <button
+                                className="border border-[#d0d0d0] text-[#121212] rounded-md px-6 py-3 font-semibold active:scale-95"
+                                onClick={() => setHoldConfirmOpen(false)}>
+                                Cancel
+                            </button>
+                            <button
+                                disabled={isInitiating}
+                                className="text-white rounded-md px-6 py-3 font-semibold bg-gradient-to-br from-red to-orange-400 hover:from-red/80 hover:to-orange-600 active:scale-95 disabled:opacity-60"
+                                onClick={async () => {
+                                    setHoldConfirmOpen(false);
+                                    if (await startChatCycle()) await doSendMessage();
+                                }}>
+                                {isInitiating ? 'Starting…' : 'Hold credit & send'}
+                            </button>
+                        </div>
+                    </m.div>
+                </m.div>
+            )}
             {activePage === 'selected-chat' &&
                 <>
                     <m.div initial={{ opacity: 0, y: 100 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: 100 }} transition={{ duration: 0.25 }} className='relative z-10 bg-white flex flex-col min-h-full'>
@@ -563,98 +614,41 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                         </header>
                           <section className="text-[1.6rem] text-[#121212] flex-1 px-8 flex flex-col overflow-y-scroll pb-20 no-scrollbar">
                               <section className="messages flex flex-col gap-y-6 h-[calc(100vh-32.4rem)] overflow-y-scroll no-scrollbar relative">
-                                  <div className={`max-w-[70%] flex`} key={'no-chat-yet'}>
-                                      {!isLoading && chats.length === 0 && (!connected || (!checkChatUnlocked && currentUser.is_premium != true)) && (
-                                          <div className="overlay backdrop-blur-sm absolute inset-0 rounded-md bg-black/25 flex items-center pt-[24px] justify-center z-50">
-                                              {!connected ? (
-                                                  <div className={`grid p-4 items-center text-[2rem] bg-[#ff1f1] text-white rounded-md font-bold mx-[50px] w-[300px] text-center gap-8`}>
-                                                      <img className={`size-[50px] mx-auto`} src="/assets/icons/no-message.svg" alt={``} />
-                                                      <p>You're not connected yet 🔒</p>
-                                                      <p>You and {recipientDetails.name || 'this user'} need to match with each other before you can chat 💞</p>
-                                                  </div>
-                                              ) : (
-                                                  <div className={`grid p-4 items-center text-[2rem] bg-[#ff1f1] text-white rounded-md font-bold mx-[50px] w-[300px] text-center gap-8`}>
-                                                      <img className={`size-[50px] mx-auto`} src="/assets/icons/no-message.svg" alt={``} />
-                                                      <p>Chat has not been unlocked 🔒</p>
-                                                      <p>Unlock this chat for both of you to connect 😍</p>
-                                                      <p>1 Credit is required to unlock chat</p>
-                                                      <p className={`whitespace-nowrap flex gap-x-2 items-start`}>
-                                                          <img className={`size-[24px]`}
-                                                               src={`/assets/images/dashboard/coin.png`} alt={``}/>
-                                                          Credit Balance: {`${currentUser?.credit_balance || 0}`} credits
-                                                      </p>
-                                                      <div className={` flex-col flex justify-center gap-4 items-center`}>
-                                                          <button onClick={(e) => {
-                                                              e.preventDefault();
-                                                              if(chatId) {
-                                                                  unlockChat(chatId)
-                                                                      .then(() => console.log("Chat Unlocked")).catch(e => console.error("Error Unlocking chat", e))
-                                                              }
-                                                          }} className={`border p-3 bg-gradient-to-br from-red to-orange-400 hover:bg-gradient-to-br hover:from-red/80 hover:to-orange-600 active:scale-95 rounded-md px-2 w-[140px]`}>
-                                                              { /* @ts-expect-error currentUser is probably undefined.*/ }
-                                                              {currentUser?.credit_balance !== null && currentUser?.credit_balance < 1
-                                                                  ? 'Buy Credits'
-                                                                  : 'Use Credits'}
-                                                          </button>
-                                                          <p className={`font-bold text-[18px] text-white`}>OR</p>
-                                                          <button onClick={() => {
-                                                              setPage('subscription-plans')
-                                                              navigate("/dashboard/user-profile")}
-                                                          } className={`border p-4 bg-gradient-to-r from-orange-400 to-red hover:from-orange-600 hover:to-red/80 active:scale-95 rounded-md px-3 w-fit`} >Subscribe to Premium</button>
-                                                      </div>
-                                                  </div>
-                                              )}
-                                          </div>
-                                      )}
-                                  </div>
+                                  {/* Paywall overlay only over empty chats — once history exists it
+                                      stays readable (AC 4.4); the banner + disabled composer gate sending. */}
+                                  {!isLoading &&
+                                      chats.length === 0 && (creditState === 'idle' || creditState === 'expired') && !canInitiate(loggedInUser ?? currentUser) && (
+                                      <div key={'chat-gate-overlay'} className="overlay backdrop-blur-sm absolute inset-0 rounded-md bg-black/25 flex items-center pt-[24px] justify-center z-50">
+                                          {(
+                                              <div className={`bg-white rounded-2xl shadow-xl mx-[50px] w-[320px] p-8 flex flex-col items-center text-center gap-3`}>
+                                                  <img className={`size-[50px]`} src={`/assets/images/dashboard/coin.png`} alt={``}/>
+                                                  <p className={`font-bold text-[18px] text-[#121212]`}>You need 1 credit or Premium to start this chat</p>
+                                                  <p className={`text-[14px] text-gray leading-relaxed`}>Credits are only charged when {recipientDetails.name || 'they'} replies — if they don't reply within 48 hours, your credit is returned.</p>
+                                                  <p className={`text-[14px] text-gray`}>
+                                                      Balance: {(loggedInUser ?? currentUser)?.credit_balance ?? 0}
+                                                      {((loggedInUser ?? currentUser)?.credits_on_hold ?? 0) > 0 &&
+                                                          ` · ${(loggedInUser ?? currentUser)?.credits_on_hold} on hold`}
+                                                  </p>
+                                                  <button onClick={(e) => {
+                                                      e.preventDefault();
+                                                      setPage('add-credits')
+                                                      navigate("/dashboard/user-profile")
+                                                  }} className={`border p-3 text-white bg-gradient-to-br from-red to-orange-400 hover:from-red/80 hover:to-orange-600 active:scale-95 rounded-md px-2 w-[160px] font-bold`}>
+                                                      Buy Credits
+                                                  </button>
+                                                  <p className={`font-bold text-[14px] text-[#121212]`}>OR</p>
+                                                  <button onClick={() => {
+                                                      setPage('subscription-plans')
+                                                      navigate("/dashboard/user-profile")}
+                                                  } className={`border p-3 text-white bg-gradient-to-r from-orange-400 to-red hover:from-orange-600 hover:to-red/80 active:scale-95 rounded-md px-3 w-fit font-bold`}>Subscribe to Premium</button>
+                                              </div>
+                                          )}
+                                      </div>
+                                  )}
                                 {chats && Array.isArray(chats) && chats?.filter((message: Messages) => {
                                     return !(message.sender_id_blocked && message.sender_id !== currentUser.uid)
                                 }).map((message: Messages, i: number) =>
                                     <div className={`max-w-[70%] flex ${message.sender_id === currentUser?.uid ? " flex-col self-end our_message" : ' gap-x-2 items-start flex-col their_message'}`} key={i}>
-                                        {!isLoading && (!connected || (!checkChatUnlocked && currentUser.is_premium != true)) && (
-                                            <div className="overlay backdrop-blur-sm absolute inset-0 rounded-md bg-black/25 flex items-center pt-[24px] justify-center z-50">
-                                                {!connected ? (
-                                                    <div className={`grid p-4 items-center text-[2rem] bg-[#ff1f1] text-white rounded-md font-bold mx-[50px] w-[300px] text-center gap-8`}>
-                                                        <img className={`size-[50px] mx-auto`} src="/assets/icons/no-message.svg" alt={``} />
-                                                        <p>You're not connected yet 🔒</p>
-                                                        <p>You and {recipientDetails.name || 'this user'} need to match with each other before you can chat 💞</p>
-                                                    </div>
-                                                ) : (
-                                                    <div className={`grid p-4 items-center text-[2rem] bg-[#ff1f1] text-white rounded-md font-bold mx-[50px] w-[300px] text-center gap-8`}>
-                                                        <img className={`size-[50px] mx-auto`} src="/assets/icons/no-message.svg" alt={``} />
-                                                        <p>Chat has not been unlocked 🔒</p>
-                                                        <p>Unlock this chat for both of you to connect 😍</p>
-                                                        <p>1 Credit is required to unlock chat</p>
-                                                        <p className={`whitespace-nowrap`}>Credit Balance: {`${currentUser?.credit_balance || 0}`} credits</p>
-                                                        <div className={`flex justify-center gap-4 items-center`}>
-                                                            <button onClick={(e) => {
-                                                                e.preventDefault();
-                                                                if (chatId) {
-                                                                    unlockChat(chatId)
-                                                                        .then(() => console.log("Chat Unlocked")).catch(e => console.error("Error Unlocking chat", e))
-                                                                }
-                                                            }}
-                                                                    className={`border p-3 bg-green-700 hover:bg-green-800 active:scale-95 rounded-md px-2 w-[140px]`}>
-                                                                {/* @ts-expect-error currentUser is probably undefined.*/}
-                                                                {currentUser?.credit_balance !== null && currentUser?.credit_balance < 1
-                                                                    ? 'Buy Credits'
-                                                                    : 'Use Credits'}
-                                                            </button>
-                                                            <p className={`font-bold text-[18px] text-white`}>OR</p>
-                                                            <button onClick={() => {
-                                                                setPage('subscription-plans')
-                                                                navigate("/dashboard/user-profile")
-                                                            }
-                                                            }
-                                                                    className={`border p-4 bg-gradient-to-r from-orange-400 to-red hover:from-orange-600 hover:to-red/80 active:scale-95 rounded-md px-3 w-fit`}>Subscribe
-                                                                                                                                                                                                                 to
-                                                                                                                                                                                                                 Premium
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
                                         <div className="flex flex-col">
                                             {message.photo && message.photo !== 'loading_image_placeholder' ?
                                                 <img className='mr-2 max-h-[30rem] w-full object-contain ' src={message.photo as string} alt="profile picture" /> : message.photo === 'loading_image_placeholder' && <Skeleton width="30rem" height="30rem" /> }
@@ -681,8 +675,26 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                             </section>
                         </section>
                         <AnimatePresence>
-                            {openEmoji && <m.div initial={{ opacity: 0, scale: 0.8, y: 50 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8, y: 50 }} transition={{ duration: 0.3, ease: "easeInOut" }} ref={dropdownRef} className="absolute bottom-32 right-8 "><EmojiPicker onEmojiClick={(e) => { if (!connected || !(chatUnlocked || currentUser?.is_premium)) return; setText((prev) => prev + e.emoji) } } /> </m.div>}</AnimatePresence>
-                        {!currentChat?.user_blocked[0] || isLoading ? <footer className=" flex justify-between text-[1.6rem] bg-white items-center gap-x-4 mx-6 sticky bottom-10">
+                            {openEmoji && <m.div initial={{ opacity: 0, scale: 0.8, y: 50 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8, y: 50 }} transition={{ duration: 0.3, ease: "easeInOut" }} ref={dropdownRef} className="absolute bottom-32 right-8 "><EmojiPicker onEmojiClick={(e) => setText((prev) => prev + e.emoji)} /> </m.div>}</AnimatePresence>
+                        <div className="sticky bottom-0 z-20 bg-white pt-2 pb-10">
+                        {!isLoading && !currentChat?.user_blocked?.[0] && (
+                            isVerified ? (
+                                <ChatStateBanner
+                                    state={creditState}
+                                    recipientName={recipientDetails.name || 'them'}
+                                    currentUser={loggedInUser ?? currentUser}
+                                    chat={currentChat}
+                                />
+                            ) : (
+                                <div className="mx-6 mb-3 px-5 py-3 rounded-xl text-[1.3rem] leading-snug text-center bg-[#FDECEC] text-[#F0174B] flex items-center justify-center gap-x-3 flex-wrap">
+                                    <span>Verify your photo to message {recipientDetails.name || 'them'}.</span>
+                                    <button onClick={() => requireVerification()} className="underline font-bold shrink-0 cursor-pointer">
+                                        Verify now
+                                    </button>
+                                </div>
+                            )
+                        )}
+                        {!currentChat?.user_blocked?.[0] || isLoading ? <footer className=" flex justify-between text-[1.6rem] bg-white items-center gap-x-4 mx-6">
                                 <div className="flex-1 flex gap-x-4">
                                     {/* Image Upload Section */}
                                     <img
@@ -710,7 +722,6 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                         )}
 
                                         <input
-                                            disabled={!connected || !(chatUnlocked || currentUser?.is_premium)}
                                             type="text"
                                             className={`bg-inherit outline-none w-full`}
                                             placeholder="Say something nice"
@@ -746,7 +757,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                 </div>
                             </footer> :
                             <footer
-                                className={`grid text-[1.6rem] bg-white items-center gap-x-4 mx-6 sticky bottom-5 border border-black`}>
+                                className={`grid text-[1.6rem] bg-white items-center gap-x-4 mx-6 border border-black`}>
                                 <div
                                     className={`text-center border-b-[0.1px] border-opacity-30 border-black border-solid pb-[1rem]`}>
                                     <p>You can't message <span className={`font-medium`}>{recipientDetails.name}</span>.
@@ -765,6 +776,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                     </button>
                                 }
                             </footer>}
+                        </div>
                       </>
                     </m.div>
                 </>}

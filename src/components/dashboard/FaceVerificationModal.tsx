@@ -1,10 +1,12 @@
-import {FC, useRef, useState} from 'react'
+import {FC, useEffect, useRef, useState} from 'react'
 import {AnimatePresence, motion} from "framer-motion";
 import {captureImage, startCamera} from "@/utils/cameraUtils.ts";
 import toast from "react-hot-toast";
 import {doc, Timestamp, updateDoc} from "firebase/firestore";
 import {db} from "@/firebase";
 import {useAuthStore} from "@/store/UserId.tsx";
+import {getRandomChallenge, VerificationChallenge} from "@/hooks/useVerificationChallenge.ts";
+import {PoseChallengeCard} from "@/components/ui/PoseChallengeCard.tsx";
 
 interface FaceVerificationModalProps {
 		show: boolean
@@ -24,7 +26,16 @@ export const FaceVerificationModal: FC<FaceVerificationModalProps> = ({show, onC
 		const [capturedImage, setCapturedImage] = useState<string | null>(null);
 		const [cameraHasStarted, setCameraHasStarted] = useState<boolean>(false);
 		const [pictureHasBeenTaken, setPictureHasBeenTaken] = useState<boolean>(false);
+		const [challenge, setChallenge] = useState<VerificationChallenge | null>(null);
 		const { auth } = useAuthStore();
+
+		useEffect(() => {
+				if (!show) return;
+				setChallenge(null);
+				getRandomChallenge()
+						.then(setChallenge)
+						.catch((e) => console.error('Failed to load challenge:', e));
+		}, [show]);
 
 		const updateFaceVerification = async () => {
 				if (!auth?.uid) {
@@ -41,7 +52,10 @@ export const FaceVerificationModal: FC<FaceVerificationModalProps> = ({show, onC
 										face_verification:{
 												retake_photo: false,
 												photo: capturedImage,
-												updated_at: Timestamp.now()
+												updated_at: Timestamp.now(),
+												challenge_id: challenge?.id ?? null,
+												challenge_image_url: challenge?.image_url ?? null,
+												status: 'pending_review',
 										}
 								});
 						}
@@ -67,6 +81,11 @@ export const FaceVerificationModal: FC<FaceVerificationModalProps> = ({show, onC
 					<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="bg-white text opacity-100 z-[9999] py-[2rem] px-[4rem] space-y-[3rem] rounded-[2rem]">
 							<div>
 									<h1 className='text-3xl font-bold flex justify-center mb-[2rem]'>Take A Selfie</h1>
+									{challenge && (
+											<div className="mb-4">
+													<PoseChallengeCard challenge={challenge} onChallengeChange={setChallenge} />
+											</div>
+									)}
 									<div className={`w-[300px] h-[225px] bg-center bg-no-repeat bg-cover rounded-[15px] bg-opacity-20 bg-[#8A8A8E] relative overflow-hidden mb-8`}>
 											<video className={`size-full absolute z-30 video-flip ${capturedImage ? "hidden" : "block"}`} ref={videoRef} autoPlay></video>
 											<canvas className={`size-full absolute z-20`} ref={canvasRef} style={{display: 'none'}}></canvas>

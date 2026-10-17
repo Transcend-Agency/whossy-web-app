@@ -9,6 +9,7 @@ import ChatInterface from './ChatInterface';
 import DashboardNavIcon from './DashboardNavIcon';
 import ShortcutControls from './ShortcutControls';
 import MatchesSide from "@/components/dashboard/MatchesSide.tsx";
+import { useVerificationStatusBanner } from './VerificationStatusBanner';
 
 type Notification = {
     id: string;
@@ -26,6 +27,7 @@ const Dashboard: React.FC = () => {
     const navigate = useNavigate();
     const [unseenNotificationsCount, setUnseenNotificationsCount] = useState(0);
     const { auth } = useAuthStore();
+    const { banner: verificationBanner, visible: bannerVisible } = useVerificationStatusBanner();
 
     useEffect(() => {
         fetchNotifications()
@@ -56,6 +58,7 @@ const Dashboard: React.FC = () => {
             <AnimatePresence>
                 {pathname == '/dashboard/swipe-and-match' && <ShortcutControls />}
             </AnimatePresence>
+            {verificationBanner}
             <nav className='dashboard-layout__top-nav'>
                 <div className='dashboard-layout__top-nav__container'>
                     <div className='dashboard-layout__top-nav__logo cursor-pointer hidden lg:block'
@@ -78,12 +81,16 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
             </nav>
-            <main className='dashboard-layout__main-app'>
+            <main
+                className='dashboard-layout__main-app'
+                style={bannerVisible ? { height: 'calc(100dvh - 14.4rem - 4.5rem)' } : undefined}
+            >
                 <MatchesSide />
                 <Outlet/>
             </main>
         </div>
         <div className="h-screen flex flex-col lg:hidden">
+            {verificationBanner}
             <Outlet />
             <div className='dashboard-layout__mobile-nav'>
                 <DashboardNavIcon active={pathname === '/dashboard/explore'} icon='explore' />

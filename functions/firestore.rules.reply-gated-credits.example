@@ -1,0 +1,73 @@
+// REFERENCE ONLY — not deployed automatically.
+//
+// The project's live Firestore rules are managed outside this repo (Firebase
+// console). These are the Reply-Gated Credits clauses to merge into them, and
+// they must NOT be enabled until both clients ship v2 (spec §8 rollout):
+// enabling them breaks the old "Use Credits" flow still running in the field.
+//
+// What they enforce once live:
+//  1. Credit fields are server-only: no client can write its own (or anyone
+//     else's) credit_balance / credits_on_hold. This also closes the
+//     pre-existing hole where a tampered client could grant itself credits.
+//     NOTE: the credit purchase flows (web AddCredits, mobile IAP) currently
+//     write credit_balance client-side — move them behind a function (or an
+//     explicit allowance) BEFORE enabling, or purchases will start failing.
+//  2. Chat credit state is server-only: credit_status, initiator_id,
+//     hold_placed_at, connected_at, expiration_time, credit_held, and the
+//     legacy is_unlocked / unlock_time can only be written by Cloud Functions
+//     (Admin SDK bypasses rules).
+//  3. Messages can only be created by a participant, and only while the chat
+//     is PENDING (initiator only) or CONNECTED with an unexpired window —
+//     request.time is Google's clock, so device-clock tampering is useless.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+
+    // ---- users/{uid}: credit fields are server-only ----
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+        && request.auth.uid == uid
+        && !request.resource.data.diff(resource.data).affectedKeys()
+             .hasAny(['credit_balance', 'credits_on_hold']);
+    }
+
+    // ---- chats/{chatId} ----
+    match /chats/{chatId} {
+      function isParticipant() {
+        return request.auth.uid in chatId.split('_');
+      }
+      function chatDoc() {
+        return get(/databases/$(database)/documents/chats/$(chatId)).data;
+      }
+
+      // Chat metadata (last_message, seen status, user_blocked, …) stays
+      // client-writable for participants; the credit state machine does not.
+      allow read: if isSignedIn() && isParticipant();
+      allow write: if isSignedIn() && isParticipant()
+        && !request.resource.data.diff(resource.data).affectedKeys()
+             .hasAny(['credit_status', 'initiator_id', 'hold_placed_at',
+                      'connected_at', 'expiration_time', 'credit_held',
+                      'is_unlocked', 'unlock_time']);
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && isParticipant();
+        allow update: if isSignedIn() && isParticipant();  // seen-status updates
+        allow create: if isSignedIn() && isParticipant()
+          && request.resource.data.sender_id == request.auth.uid
+          && (
+            // PENDING: only the initiator may keep messaging (AC 1.4);
+            // the recipient's first reply is allowed and triggers capture.
+            chatDoc().credit_status == 'pending'
+            ||
+            // CONNECTED: both chat freely until the window closes (AC 4.1/4.5).
+            (chatDoc().credit_status == 'connected'
+              && chatDoc().expiration_time > request.time)
+          );
+      }
+    }
+  }
+}

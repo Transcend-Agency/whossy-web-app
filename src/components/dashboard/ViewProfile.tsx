@@ -15,8 +15,11 @@ import { useNavigate } from 'react-router-dom';
 import DashboardPageContainer from "./DashboardPageContainer";
 import {useChatIdStore} from "@/store/ChatStore.tsx";
 import {createOrFetchChat} from "@/utils/chatService.ts";
+import {isChatWindowActive} from "@/utils/chatCreditState";
 import {Chat} from "@/types/chat.ts";
 import { serverTimestamp } from 'firebase/firestore';
+import { getUserProfile } from "@/hooks/useUser";
+import { useVerificationGate } from "@/hooks/useVerificationGate.tsx";
 
 interface ViewProfileProps {
     onBackClick: () => void;
@@ -52,6 +55,19 @@ const ViewProfile: React.FC<ViewProfileProps> = (
     const { selectedProfile } = useDashboardStore()
     const { setChatId } = useChatIdStore()
     const [openModal, setOpenModal] = useState(false);
+
+    // Freshly fetch the signed-in user so the verification gate reflects the
+    // latest `is_approved` (callers don't pass loggedUserData here).
+    const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
+    const fetchLoggedInUser = async () => {
+        const data = await getUserProfile("users", auth?.uid as string) as User;
+        setLoggedInUser(data);
+    };
+    useEffect(() => {
+        fetchLoggedInUser().catch(err => console.error(err));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    const { requireVerification, modals: verificationModals } = useVerificationGate(loggedInUser, fetchLoggedInUser);
 
     const goToNextPost = () => {
         if (currentImage < userData.photos!.length - 1) {
@@ -98,6 +114,7 @@ const ViewProfile: React.FC<ViewProfileProps> = (
     };
 
     const triggerHeartAnimation = async () => {
+        if (!requireVerification()) return;
         await likeControls.start({
             scale: [1, 16, 32], // Scale up, then slightly shrink for a bounce effect
             opacity: [1, 1, 0],   // Stay visible at first, then fade out
@@ -196,6 +213,7 @@ const ViewProfile: React.FC<ViewProfileProps> = (
 
     return (
         <>
+            {verificationModals}
             <ReportModal userData={userData} show={openModal} onCloseModal={() => setOpenModal(false)} />
             <DashboardPageContainer className="preview-profile preview-profile--view-profile">
                 <div className="preview-profile__action-buttons">
@@ -211,6 +229,7 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                     }
                     {<div className="preview-profile__action-button"
                           onClick={async () => {
+                              if (!requireVerification()) return;
                               toast.loading("Loading chat..")
                               const chatId = [auth?.uid, userData.uid].sort().join('_');
                               setChatId(chatId)
@@ -218,12 +237,11 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                                   async () => {
                                       const chat = await fetchUserChats(chatId) as Chat;
                                       if (chatId != "nil" || !chat || !chat.participants || chat.participants.length < 2) {
-                                          const bothPremiumUsers = userData.is_premium && user?.is_premium
                                           navigate(`/dashboard/chat?recipient-user-id=${userData.uid}`, {
                                               state: {
                                                   chatId,
                                                   recipientUser: userData,
-                                                  chatUnlocked: bothPremiumUsers ? true : chat.is_unlocked ? chat.is_unlocked : false
+                                                  chatUnlocked: isChatWindowActive(chat)
                                               },
                                           });
                                           setChatId(chatId)
@@ -250,6 +268,7 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                             </div>}
                             {<div className="preview-profile__action-button"
                                   onClick={async () => {
+                                      if (!requireVerification()) return;
                                       toast.loading("Loading chat..")
                                       const chatId = [auth?.uid, userData.uid].sort().join('_');
                                       setChatId(chatId)
@@ -257,12 +276,11 @@ const ViewProfile: React.FC<ViewProfileProps> = (
                                           async () => {
                                               const chat = await fetchUserChats(chatId) as Chat;
                                               if (chatId != "nil" || !chat || !chat.participants || chat.participants.length < 2) {
-                                                  const bothPremiumUsers = userData.is_premium && user?.is_premium
                                                   navigate(`/dashboard/chat?recipient-user-id=${userData.uid}`, {
                                                       state: {
                                                           chatId,
                                                           recipientUser: userData,
-                                                          chatUnlocked: bothPremiumUsers ? true : chat.is_unlocked ? chat.is_unlocked : false
+                                                          chatUnlocked: isChatWindowActive(chat)
                                                       },
                                                   });
                                                   setChatId(chatId)

@@ -10,7 +10,7 @@ import { useChatIdStore } from '@/store/ChatStore';
 import { getUserProfile } from '@/hooks/useUser';
 import {ChatListItem} from "@/components/dashboard/ChatListItem.tsx";
 import {createOrFetchChat, getLastValidMessage} from "@/utils/chatService.ts";
-import {isConnectedTo, useMatchStore} from "@/store/Matches.tsx";
+import {isChatWindowActive} from "@/utils/chatCreditState";
 
 interface ChatDataWithUserData extends Chat {
     user: User;
@@ -27,7 +27,6 @@ const ChatInterface: FC = () => {
     const [, setRecipientData] = useState<User | null>(null);
     const { setChatId } = useChatIdStore();
     const [isLoadingChats, setIsLoadingChats] = useState(false);
-    const { matches } = useMatchStore();
 
     const fetchUserChats = async (id: string) => {
         const userChatsDocRef = doc(db, 'chats', id);
@@ -72,7 +71,7 @@ const ChatInterface: FC = () => {
                 }
 
                 // Check if the chat is sent, unlocked (or not if user is not premium), and not the user's own chat
-                return chat.status === "sent" && chat.last_sender_id !== auth?.uid && !chat.is_unlocked;
+                return chat.status === "sent" && chat.last_sender_id !== auth?.uid && !isChatWindowActive(chat);
             })
         );
 
@@ -202,9 +201,8 @@ const ChatInterface: FC = () => {
                                         userData={userData as User}
                                         onlineStatus={chat.user?.user_settings?.online_status && chat.user?.status?.online}
                                         profileImage={chat.user.photos && chat.user.photos[0]}
-                                        chatUnlocked={chat.is_unlocked}
+                                        chatUnlocked={isChatWindowActive(chat)}
                                         chat={chat}
-                                        connected={isConnectedTo(matches, chat.user?.uid)}
                                         openChat={async () => {
                                             if(chat.user.uid){
                                                 const chatId = chat.participants.sort().join('_')
@@ -213,7 +211,7 @@ const ChatInterface: FC = () => {
                                                     () => {
                                                         if (chatId != "nil") {
                                                             navigate(`/dashboard/chat?recipient-user-id=${chat.user.uid as string}`, {
-                                                                state: {chatId, recipientUser: chat.user, chatUnlocked: chat.is_unlocked},
+                                                                state: {chatId, recipientUser: chat.user, chatUnlocked: isChatWindowActive(chat)},
                                                             });
                                                             setChatId(chatId)
                                                         }

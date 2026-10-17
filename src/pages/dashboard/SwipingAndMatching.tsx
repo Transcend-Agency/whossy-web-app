@@ -41,6 +41,7 @@ import {useMatchStore} from "@/store/Matches.tsx";
 import { getUserProfile } from "@/hooks/useUser";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
 import ReportModal from "@/components/dashboard/ReportModal.tsx";
+import {useVerificationGate} from "@/hooks/useVerificationGate.tsx";
 
 interface ProfileCardProps {
     profiles: User[],
@@ -51,11 +52,15 @@ interface ProfileCardProps {
     setChosenActionScale: Dispatch<SetStateAction<MotionValue<number>>>;
     setActiveAction: Dispatch<SetStateAction<'like' | 'cancel'>>;
     controls: AnimationControls;
+    // Guards the like action behind face verification; returns false (and shows
+    // the gate modal) when the current user isn't approved yet. Owned by the
+    // parent so a single modal instance is shared across all cards.
+    requireVerification: () => boolean;
     index: number, nextCardOpacity: number, setNextCardOpacity: Dispatch<SetStateAction<MotionValue<number>>>
 }
 
 const ProfileCard: React.FC<ProfileCardProps> = ({
-    profiles, setProfiles, item, setActiveAction, setActionButtonsOpacity, setChosenActionButtonOpacity, setChosenActionScale, controls, index, nextCardOpacity, setNextCardOpacity
+    profiles, setProfiles, item, setActiveAction, setActionButtonsOpacity, setChosenActionButtonOpacity, setChosenActionScale, controls, requireVerification, index, nextCardOpacity, setNextCardOpacity
 }) => {
     const x = useMotionValue(0)
     const activeCardOpacity = useTransform(x, [-160, -30, 0, 30, 160], [0, 1, 1, 1, 0])
@@ -104,6 +109,10 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
 
     const handleDragEnd = () => {
         if (Math.abs(x.get()) > 160) {
+            const isLike = x.get() > 160;
+            // Unverified users can pass on profiles but not like them. Bail out
+            // before removing the card so the drag constraints snap it back.
+            if (isLike && !requireVerification()) return;
             setProfiles(profiles.filter((profileItem) => item !== profileItem))
             controls.start((item) => {
                 return (item == profiles[profiles.length - 2] ? {
@@ -116,10 +125,10 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
             })
             nextCardOpacityValue.set(0)
             setNextCardOpacity(nextCardOpacityValue)
-            if (x.get() > 160) {
+            if (isLike) {
                 addLike().catch(e => console.error(e))
             }
-            else if (x.get() <= -160) {
+            else {
                 addDislike().catch(e => console.error(e))
             }
         }
@@ -519,6 +528,10 @@ const SwipingAndMatching = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
+    // Blocks liking/messaging until the user's selfie is approved, and routes
+    // them into the capture flow when they still need to submit one.
+    const { requireVerification, modals: verificationModals } = useVerificationGate(loggedUserData, fetchLoggedUserData);
+
     const { fetchMatches } = useMatchStore()
     const { updateUser } = useAuthStore()
     const { userLikes, loading: likesLoading } = useSyncUserLikes(user!.uid!)
@@ -769,6 +782,7 @@ const SwipingAndMatching = () => {
     }, [])
     return (
         <>
+            {verificationModals}
             <nav className="dashboard-layout__mobile-top-nav">
                 <div className="dashboard-layout__moblie-top-nav__logo"></div>
                 <div className="icons">
@@ -797,6 +811,7 @@ const SwipingAndMatching = () => {
                                         <img src="/assets/icons/cancel.svg" alt={``}/>
                                     </button>
                                     <button data-cy="like-profile" onClick={() => {
+                                        if (!requireVerification()) return;
                                         setSwipedUser(item?.uid as string)
                                         setActionType('like');
                                     }} className="action-buttons__button">
@@ -804,6 +819,7 @@ const SwipingAndMatching = () => {
                                     </button>
                                     <button data-cy="chat-profile" className="action-buttons__button action-buttons__button--small"
                                         onClick={() => {
+                                            if (!requireVerification()) return;
                                             loggedUserData?.is_premium ?
                                                 navigate(`/dashboard/chat?recipient-user-id=${item.uid}`) :
                                                 toast.error('Upgrade to premium to chat');
@@ -813,7 +829,7 @@ const SwipingAndMatching = () => {
                                     </button>
                                 </motion.div>
                                 {/* @ts-expect-error type errors */}
-                                <ProfileCard key={uid(item)} controls={controls} profiles={profiles} setProfiles={setProfiles} item={item} setActiveAction={setActiveAction} setActionButtonsOpacity={setActionButtonsOpacity} setChosenActionButtonOpacity={setChosenActionButtonOpacity} setChosenActionScale={setChosenActionScale} index={index} nextCardOpacity={nextCardOpacity} setNextCardOpacity={setNextCardOpacity}/></>)}
+                                <ProfileCard key={uid(item)} controls={controls} profiles={profiles} setProfiles={setProfiles} item={item} setActiveAction={setActiveAction} setActionButtonsOpacity={setActionButtonsOpacity} setChosenActionButtonOpacity={setChosenActionButtonOpacity} setChosenActionScale={setChosenActionScale} requireVerification={requireVerification} index={index} nextCardOpacity={nextCardOpacity} setNextCardOpacity={setNextCardOpacity}/></>)}
             </motion.div>
             }
 
