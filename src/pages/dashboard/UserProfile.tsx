@@ -24,6 +24,9 @@ import ProfileBoostModal from "@/components/dashboard/ProfileBoostModal.tsx";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
 import { deriveVerificationStatus } from "@/utils/verification.ts";
 import { pressable } from '@/utils/pressable';
+import { buildDefaultFilters } from '@/utils/defaultFilters';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '@/firebase';
 
 const UserProfile = () => {
     // const [activePage, setActivePage] = useState<'user-profile' | 'edit-profile' | 'add-credits' | 'profile-settings' | 'preferences' | 'safety-guide' | 'interests' | 'user-interests' | 'subscription-plans'>('user-profile');
@@ -57,7 +60,15 @@ const UserProfile = () => {
     };
 
     const fetchUserFilters = async () => {
-        const data = await getUserProfile("filters", auth?.uid as string) as UserFilters;
+        let data = await getUserProfile("filters", auth?.uid as string) as UserFilters | undefined;
+        if (!data && auth?.uid) {
+            // Accounts made on the web before onboarding saved this had none, so
+            // Preferences showed "0 mi" and "NIL - NIL". Start them from the same
+            // defaults new accounts get.
+            const user = await getUserProfile("users", auth.uid) as User | undefined;
+            data = buildDefaultFilters(user?.meet, user?.distance);
+            await setDoc(doc(db, "filters", auth.uid), data, { merge: true });
+        }
         setUserFilters(data)
     }
 

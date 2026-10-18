@@ -13,6 +13,7 @@ import SmallSnapshots from "./SmallSnapshots";
 import { OnboardingProps } from "@/types/onboarding";
 import { AdvancedSearchPreferences } from "@/types/user.ts";
 import { toBirthDate } from "@/utils/birthDate";
+import { buildDefaultFilters } from "@/utils/defaultFilters";
 
 const ShareASnapshot: FC<OnboardingProps> = ({ advance, goBack }) => {
     const { photos, setPhotos, reset: resetPhoto } = usePhotoStore();
@@ -88,6 +89,15 @@ const ShareASnapshot: FC<OnboardingProps> = ({ advance, goBack }) => {
                 relationship_preference: null,
                 religion: null,
             } as AdvancedSearchPreferences);
+
+            // The mobile app creates this at onboarding too. Without it the
+            // Preferences page has nothing to show for distance and age range
+            // ("0 mi", "NIL - NIL") and the matching deck has no saved search.
+            await setDoc(
+                doc(db, "filters", auth.uid as string),
+                buildDefaultFilters(data["gender-preference"], data["distance-search"]),
+                { merge: true }
+            );
 
             resetPhoto();
         } catch (error) {
