@@ -33,7 +33,7 @@ import React, { useEffect } from "react";
 import useDashboardStore from "@/store/useDashboardStore.tsx";
 import useProfileFetcher from "@/hooks/useProfileFetcher.tsx";
 import useAutoLogout, {useAuthStore} from "@/store/UserId.tsx";
-import ViewProfile from "./components/dashboard/ViewProfile";
+import SelectedProfileView from "./components/dashboard/SelectedProfileView";
 import { TourProvider } from '@reactour/tour'
 import { CompletedTours } from "@/types/tourGuide.ts";
 import { TourGuideModal } from "@/components/dashboard/TourGuideModal.tsx";
@@ -52,7 +52,6 @@ function App() {
   useAutoLogout()
 
   const {
-    profiles,
     selectedProfile,
     setSelectedProfile,
     blockedUsers,
@@ -194,35 +193,30 @@ function App() {
               <Route path="user-profile"
                      element={
                 selectedProfile ?
-                         <ViewProfile
+                         <SelectedProfileView
                              onBackClick={() => { setSelectedProfile(null) }}
-                             userData={profiles.find(profile => selectedProfile as string == profile.uid)!}
                              onBlockChange={refreshProfiles}
                          /> :
                     <UserProfile />
               } />
               {/*<Route path="explore" element={<Explore />} />*/}
-              <Route path="explore" element={selectedProfile ? <ViewProfile
+              <Route path="explore" element={selectedProfile ? <SelectedProfileView
                 onBackClick={() => { setSelectedProfile(null) }}
-                userData={profiles.find(profile => selectedProfile as string == profile.uid)!}
                 onBlockChange={refreshProfiles}
             /> : <Explore />} />
               {/*<Route path="swipe-and-match" element={<SwipingAndMatching />} />*/}
 
-              <Route path="swipe-and-match" element={selectedProfile ? <ViewProfile
+              <Route path="swipe-and-match" element={selectedProfile ? <SelectedProfileView
                 onBackClick={() => { setSelectedProfile(null) }}
-                userData={profiles.find(profile => selectedProfile as string == profile.uid)!}
                 onBlockChange={refreshProfiles}
             /> : <SwipingAndMatching />} />
 
-              <Route path="matches" element={selectedProfile ? <ViewProfile
+              <Route path="matches" element={selectedProfile ? <SelectedProfileView
                 onBackClick={() => { setSelectedProfile(null) }}
-                userData={profiles.find(profile => selectedProfile as string == profile.uid)!}
                 onBlockChange={refreshProfiles}
               /> : <MatchesPage />} />
-              <Route path="chat" element={selectedProfile ? <ViewProfile
+              <Route path="chat" element={selectedProfile ? <SelectedProfileView
                 onBackClick={() => { setSelectedProfile(null) }}
-                userData={profiles.find(profile => selectedProfile as string == profile.uid)!}
                 onBlockChange={refreshProfiles}
               /> : <Chat />} />
               <Route path="notification" element={<Notification />} />

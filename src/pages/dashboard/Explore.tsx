@@ -25,7 +25,7 @@ import useLikesAndMatchesStore from "@/store/LikesAndMatches.tsx";
 import CustomIcon from "@/components/dashboard/CustomIcon.tsx";
 import useDashboardStore from "@/store/useDashboardStore.tsx";
 import useProfileFetcher from "@/hooks/useProfileFetcher.tsx";
-import ViewProfile from "@/components/dashboard/ViewProfile";
+import SelectedProfileView from "@/components/dashboard/SelectedProfileView";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
 import ConfirmModal from '@/components/ui/ConfirmModal';
 
@@ -392,9 +392,8 @@ const Explore = () => {
             </>
         }
         {selectedProfile &&
-            <ViewProfile
+            <SelectedProfileView
                 onBackClick={() => { setSelectedProfile(null) }}
-                userData={profiles.find(profile => selectedProfile as string == profile.uid)!}
                 onBlockChange={refreshProfiles}
             />}
     </>

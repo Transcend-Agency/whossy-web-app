@@ -7,7 +7,7 @@ import Skeleton from "react-loading-skeleton";
 import DashboardPageContainer from "./DashboardPageContainer";
 import { MatchItem } from "./MatchesSide";
 import useDashboardStore from "@/store/useDashboardStore";
-import ViewProfile from "./ViewProfile";
+import SelectedProfileView from "./SelectedProfileView";
 import useProfileFetcher from "@/hooks/useProfileFetcher";
 import SubscriptionPlans from "@/pages/dashboard/SubscriptionPlans.tsx";
 import {User} from "@/types/user.ts";
@@ -24,7 +24,7 @@ const MatchesPage = () => {
     const { matches, loading: matchesLoading } = useSyncUserMatches(auth?.uid as string)
     const { peopleWhoLiked, loading: likesLoading } = useSyncPeopleWhoLikedUser()
     const { peopleYouLiked, loading: likedByLoading } = useSyncPeopleWhoUserLiked();
-    const { profiles,  selectedProfile,  setSelectedProfile } = useDashboardStore()
+    const { selectedProfile, setSelectedProfile } = useDashboardStore()
     const { refreshProfiles } = useProfileFetcher()
     const { setActivePage: setPage } = useNavigationStore()
 
@@ -267,9 +267,8 @@ const MatchesPage = () => {
                 </AnimatePresence>
             </DashboardPageContainer> }
             {selectedProfile &&
-                <ViewProfile
+                <SelectedProfileView
                 onBackClick={() => { setSelectedProfile(null) }}
-                userData={profiles.find(profile => selectedProfile as string == profile.uid)!}
                 onBlockChange={refreshProfiles}
             />}
         </>
