@@ -7,28 +7,19 @@ import EmailVerification from "./components/auth/EmailVerification";
 import FinalizeSetup from "./components/auth/FinalizeSetup";
 import MarqueeImageSliderBackground from "./components/auth/MarqueeImageSliderBackground";
 import DashboardLayout from "./components/dashboard/DashboardLayout";
-const MatchesPage = lazy(() => import("./components/dashboard/MatchesPage"));
 import useTrackUserPresence from "./hooks/useTrackUserPresesnce";
 import "./index.scss";
 import AccountSetup from "./pages/AccountSetup";
 import AuthLayout from "./pages/AuthLayout";
-const Chat = lazy(() => import("./pages/Chat"));
 import CreateAccount from "./pages/CreateAccount";
-const Explore = lazy(() => import("./pages/dashboard/Explore"));
-const SwipingAndMatching = lazy(() => import("./pages/dashboard/SwipingAndMatching"));
-const UserProfile = lazy(() => import("./pages/dashboard/UserProfile"));
 import ForgotPassword from "./pages/ForgotPassword";
 import Home from "./pages/Home";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
-const Onboarding = lazy(() => import("./pages/Onboarding"));
 import OnboardingLayout from "./pages/OnboardingLayout";
 import PhoneNumber from "./pages/PhoneNumber";
 import { ProtectedDashboard } from "./pages/ProtectedRoute";
 import ResetPassword from "./pages/ResetPassword";
-const Notification = lazy(() => import("./pages/Notification"));
-const Faq = lazy(() => import("./pages/Faq"));
-const Contact = lazy(() => import("./pages/Contact"));
 import React, { lazy, Suspense, useEffect } from "react";
 import useDashboardStore from "@/store/useDashboardStore.tsx";
 import useProfileFetcher from "@/hooks/useProfileFetcher.tsx";
@@ -38,11 +29,23 @@ import { TourProvider } from '@reactour/tour'
 import { CompletedTours } from "@/types/tourGuide.ts";
 import { TourGuideModal } from "@/components/dashboard/TourGuideModal.tsx";
 import { styles, tourGuideSteps } from "@/data/tour-guide-steps.ts";
-const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 import {updateUserProfile} from "@/hooks/useUser.ts";
 import { User } from "@/types/user.ts";
+
+// Pages load on demand so the first visit does not download the whole app.
+const MatchesPage = lazy(() => import("./components/dashboard/MatchesPage"));
+const Chat = lazy(() => import("./pages/Chat"));
+const Explore = lazy(() => import("./pages/dashboard/Explore"));
+const SwipingAndMatching = lazy(() => import("./pages/dashboard/SwipingAndMatching"));
+const UserProfile = lazy(() => import("./pages/dashboard/UserProfile"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
+const Notification = lazy(() => import("./pages/Notification"));
+const Faq = lazy(() => import("./pages/Faq"));
+const Contact = lazy(() => import("./pages/Contact"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const DeleteAccount = lazy(() => import("./pages/DeleteAccount"));
 const PaymentCallback = lazy(() => import("./pages/PaymentCallback"));
+
 
 const queryClient = new QueryClient();
 
@@ -170,7 +173,7 @@ function App() {
         <AnimatePresence>
           <RouteWatcher key={`${currentLocation}_${previousLocation}`} />
           {/* Pages load on demand (see the lazy imports) so the first visit does not download the whole app. */}
-          <Suspense fallback={<div className="flex h-screen w-full items-center justify-center" role="status" aria-label="Loading" />}>
+          <Suspense key={location.pathname} fallback={<div className="flex h-screen w-full items-center justify-center" role="status" aria-label="Loading" />}>
           <Routes location={location} key={location.pathname}>
             <Route path="/auth" element={<AuthLayout />}>
               <Route index element={<Home />} />
