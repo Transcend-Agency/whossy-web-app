@@ -45,6 +45,7 @@ const Contact = lazy(() => import("./pages/Contact"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const DeleteAccount = lazy(() => import("./pages/DeleteAccount"));
 const PaymentCallback = lazy(() => import("./pages/PaymentCallback"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 
 const queryClient = new QueryClient();
@@ -236,6 +237,7 @@ function App() {
                 <PaymentCallback />
               </ProtectedDashboard>
             } />
+            <Route path="*" element={<NotFound />} />
           </Routes>
           </Suspense>
           <ToastContainer />
