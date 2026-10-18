@@ -192,7 +192,7 @@ const ViewProfile: React.FC<ViewProfileProps> = (
 
     if (!userData) {
         console.error("userData is missing in ViewProfile component");
-        toast("Unable to fetch user data")
+        toast("Unable to fetch user data", { id: "view-profile-missing" })
 
         onBackClick()
         return;

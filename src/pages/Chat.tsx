@@ -11,7 +11,7 @@ import { User } from '@/types/user';
 import {Chat, Messages} from '@/types/chat';
 import { useChatIdStore } from '@/store/ChatStore';
 import { getUserProfile } from '@/hooks/useUser';
-import ViewProfile from "@/components/dashboard/ViewProfile";
+import SelectedProfileView from "@/components/dashboard/SelectedProfileView";
 import useDashboardStore from "@/store/useDashboardStore";
 import useProfileFetcher from "@/hooks/useProfileFetcher";
 import {useMatchStore} from "@/store/Matches.tsx";
@@ -32,7 +32,7 @@ const ChatPage = () => {
     const { setChatId } = useChatIdStore();
     const { auth } = useAuthStore();
     const currentUserId = auth?.uid as string;
-    const { selectedProfile, setSelectedProfile, profiles } = useDashboardStore();
+    const { selectedProfile, setSelectedProfile } = useDashboardStore();
     const { refreshProfiles } = useProfileFetcher();
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [allChats, setAllChats] = useState<ChatDataWithUserData[]>([]);
@@ -298,9 +298,8 @@ const ChatPage = () => {
                 </DashboardPageContainer>
             )}
             {selectedProfile && (
-                <ViewProfile
+                <SelectedProfileView
                     onBackClick={() => setSelectedProfile(null)}
-                    userData={profiles.find(profile => selectedProfile === profile.uid)!}
                     onBlockChange={refreshProfiles}
                 />
             )}

@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Notifications } from '@/types/notification';
 import useDashboardStore from "@/store/useDashboardStore.tsx";
-import ViewProfile from "@/components/dashboard/ViewProfile.tsx";
+import SelectedProfileView from "@/components/dashboard/SelectedProfileView.tsx";
 import useProfileFetcher from "@/hooks/useProfileFetcher.tsx";
 import SkeletonNotification from "@/components/dashboard/SkeletonNotification.tsx";
 import {User} from "@/types/user.ts";
@@ -35,7 +35,7 @@ const Notification = () => {
     const {auth} = useAuthStore();
     const navigate = useNavigate();
     const { setChatId } = useChatIdStore();
-    const { profiles, selectedProfile, setSelectedProfile } = useDashboardStore()
+    const { selectedProfile, setSelectedProfile } = useDashboardStore()
     const { refreshProfiles } = useProfileFetcher()
     const { user } = useAuthStore()
     const loggedUserId = auth?.uid as string;
@@ -256,11 +256,10 @@ const Notification = () => {
                 </main>
             </motion.div>
         </DashboardPageContainer>) :
-            <ViewProfile
+            <SelectedProfileView
                 onBackClick={() => {
                     setSelectedProfile(null)
                 }}
-                userData={profiles.find(profile => selectedProfile as string == profile.uid)!}
                 onBlockChange={refreshProfiles}/>
         }
     </>
