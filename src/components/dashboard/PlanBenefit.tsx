@@ -62,11 +62,14 @@ const premium_benefits = [
   // {title: 'Profile boosts', desc: 'Available via credits', isAvailable:true, cat: "Visibility"},
 ]
 
+// Rendered on the Premium plan slide (see SubscriptionPlans.tsx), so it lists what
+// Premium gives. The Free plan's limits are in premium_benefits below, which the
+// Free plan slide renders with their unavailable marks.
 const free_benefits = [ 
   {title: 'Swipe and Match', desc: 'Unlimited likes', cat: 'Likes'},
   {title: 'Explore Feature', desc: 'Limited Basic Filters (New Members, Popular, In My Area, Online Members)', cat: 'Experience'},
-  {title: 'Chat Initiation', desc: 'Cannot Chat', cat: 'Chat'},
-  {title: 'Advertisements', desc: 'Display Ads', cat: 'Experience'},
+  {title: 'Chat Initiation', desc: 'Can Chat', cat: 'Chat'},
+  {title: 'Advertisements', desc: 'No Ads', cat: 'Experience'},
   // {title: 'Rewind (Undo Accidental Swipes)', desc: 'Not Available', cat: 'Experience'},
   {title: 'See Who Liked You', desc: 'Available', cat: 'Likes'},
   // {title: 'Top Picks', desc: 'Not Available', cat: 'Experience'},
