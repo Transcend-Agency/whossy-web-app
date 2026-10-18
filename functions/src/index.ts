@@ -39,6 +39,7 @@ export { mirrorPresenceToFirestore, reapplyPresenceVisibility } from "./presence
 export { deleteAccount, cleanUpUserData } from "./account";
 export { createMatchOnMutualLike } from "./matches";
 export { handlePlaySubscription } from "./playSubscriptions";
+export { verifyPlayPurchase } from "./playPurchases";
 export { notifyOnReverificationRequired, enforceReverification } from "./reverification";
 export { markMessageSent } from "./messages";
 export { cleanUpProfilePictures, cleanUpFaceVerification } from "./cleanup";
