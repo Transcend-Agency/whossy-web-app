@@ -36,8 +36,6 @@ const ShareASnapshot: FC<OnboardingProps> = ({ advance, goBack }) => {
         }
 
         try {
-            console.log(auth.uid);
-            console.log(data['date-of-birth']);
             const userDocRef = doc(db, "users", auth.uid);
 
             await updateDoc(userDocRef, {

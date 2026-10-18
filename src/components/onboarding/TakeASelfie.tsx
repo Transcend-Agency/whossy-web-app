@@ -67,8 +67,6 @@ export const TakeASelfie: React.FC<OnboardingProps> = ({ goBack }) => {
 				}
 
 				try {
-						console.log(auth.uid);
-						console.log(data['date-of-birth']);
 						const userDocRef = doc(db, "users", auth.uid);
 
 						await updateDoc(userDocRef, {

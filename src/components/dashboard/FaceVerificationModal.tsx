@@ -48,7 +48,6 @@ export const FaceVerificationModal: FC<FaceVerificationModalProps> = ({show, onC
 				}
 
 				try {
-						console.log(auth.uid);
 						const userDocRef = doc(db, "users", auth.uid);
 						if(capturedImage){
 								await updateDoc(userDocRef, {
