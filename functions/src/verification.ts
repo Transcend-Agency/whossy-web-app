@@ -17,6 +17,7 @@
  * and point Approve/Reject buttons at POST /reviewVerification.
  */
 
+import { timingSafeEqual } from "node:crypto";
 import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions/v2";
@@ -50,7 +51,11 @@ export const reviewVerification = onRequest(
 
     const authHeader = req.get("Authorization") ?? "";
     const expected = `Bearer ${VERIFICATION_REVIEW_SECRET.value()}`;
-    if (authHeader !== expected) {
+    // Constant-time comparison so response timing does not leak how much of
+    // the secret a guess got right.
+    const a = Buffer.from(authHeader);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) {
       res.status(401).json({ error: "UNAUTHORIZED" });
       return;
     }
