@@ -5,6 +5,8 @@ import { db } from "@/firebase";
 import { useAuthStore } from "@/store/UserId.tsx";
 import toast from "react-hot-toast";
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import { useMatchStore } from "@/store/Matches";
+import useProfileFetcher from "@/hooks/useProfileFetcher";
 
 interface BlockedContactsProps {
 	activePage: boolean;
@@ -22,6 +24,8 @@ const BlockedContacts: React.FC<BlockedContactsProps> = ({ activePage, closePage
 	const [pendingUnblock, setPendingUnblock] = useState<BlockedUser | null>(null);
 	const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
 	const { user } = useAuthStore();
+	const { fetchMatches } = useMatchStore();
+	const { refreshProfiles } = useProfileFetcher();
 
 	// Unblock a user
 	const handleUnblock = async (blockedUser: BlockedUser) => {
@@ -38,6 +42,10 @@ const BlockedContacts: React.FC<BlockedContactsProps> = ({ activePage, closePage
 			// Update UI by removing the unblocked user from the state
 			setBlockedUsers(prevUsers => prevUsers.filter(user => user.id !== blockedUser.id));
 			toast.success(`${blockedUser.firstName} has been unblocked successfully.`);
+
+			// Bring them back into the match panel and Explore without a reload.
+			fetchMatches(user.uid, true);
+			refreshProfiles().catch(e => console.error("Couldn't refresh profiles:", e));
 		} catch (error) {
 			console.error("Error unblocking user:", error);
 			toast.error("Couldn't unblock this user. Please try again.");
