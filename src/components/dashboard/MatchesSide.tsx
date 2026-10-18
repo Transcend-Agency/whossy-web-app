@@ -4,7 +4,7 @@ import React, {useEffect} from 'react';
 import { LazyLoadImage } from 'react-lazy-load-image-component';
 import 'react-lazy-load-image-component/src/effects/opacity.css';
 import { motion } from 'framer-motion'
-import { useMatchStore } from '@/store/Matches';
+import { useMatchStore, watchMatches } from '@/store/Matches';
 import Skeleton from 'react-loading-skeleton';
 import useDashboardStore from "@/store/useDashboardStore.tsx";
 import {useAuthStore} from "@/store/UserId.tsx";
@@ -91,6 +91,13 @@ const Matches: React.FC<MatchesProps> = () => {
             fetchMatches(user.uid);
         }
     }, [fetchMatches, user, user?.uid]);
+
+    // A new match shows up without a reload.
+    useEffect(() => {
+        const uid = user?.uid;
+        if (!uid) return;
+        return watchMatches(uid, () => { fetchMatches(uid, true); });
+    }, [fetchMatches, user?.uid]);
 
 
     return <div className='dashboard-layout__matches-wrapper'>
