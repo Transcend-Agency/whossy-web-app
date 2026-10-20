@@ -231,6 +231,10 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
 
             setChats(messages);
 
+            // With read receipts off, opening a chat must not tell the sender it
+            // was read. A missing setting counts as on, as it does on mobile.
+            const markSeen = currentUser.user_settings?.read_receipts !== false;
+
             // Fetch the chat document (used to get lastSenderId)
             const chatDocSnap = await getDoc(chatDocRef);
             if (chatDocSnap.exists()) {
@@ -238,7 +242,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                 const last_sender_id = chatData.last_sender_id;
 
                 // Check if the current user is not the last sender and the chat is open
-                if (last_sender_id !== currentUser.uid && chatData.status !== "seen" && activePage === "selected-chat") {
+                if (markSeen && last_sender_id !== currentUser.uid && chatData.status !== "seen" && activePage === "selected-chat") {
                     // Update the seen status in 'chats' collection
                     await updateDoc(chatDocRef, 'status', 'seen')
                         .then(() => console.log(`${last_sender_id}: ${currentUser.uid}`))
@@ -252,7 +256,8 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                 const messageSenderId = messageData.sender_id;
 
                 // Only update the message if the sender is not the current user and status is not 'seen'
-                if (messageSenderId !== currentUser.uid
+                if (markSeen
+                    && messageSenderId !== currentUser.uid
                     && messageData.status !== "seen"
                     && activePage === "selected-chat"
                     && !messageData.sender_id_blocked ) {
