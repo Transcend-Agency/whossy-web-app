@@ -5,6 +5,7 @@ import { FreePlanBenefit, PremiumPlanBenefit } from "@/components/dashboard/Plan
 import { CancelPlanModal, PaystackPaymentDetailsModal, SubscriptionPlanModal } from "@/components/dashboard/SubscriptionPlanModal";
 import { User } from "@/types/user";
 import { addCommasToNumber } from "@/constants";
+import { pressable } from '@/utils/pressable';
 // import { useVerify } from "@/hooks/usePaystack";
 // import { usePaystackStore } from "@/store/Paystack";
 
@@ -120,8 +121,8 @@ const  SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ activePage, clos
                         <PremiumPlansHeader plan={plan === 'premium'}/>
                     </section>
                     <div className="flex justify-center gap-x-[0.8rem] relative">
-                        <div className={`${plan !== 'free' ? 'w-[1rem]' : 'w-[2.4rem] bg-gradient-to-b from-[#FF5C00] to-[#F0174B] '} h-[1rem] cursor-pointer transition-all duration-700 ease-in-out`} style={{border: plan !== 'free' ? '1px solid #8A8A8E' : '', borderRadius: plan !== 'free' ? '100%' : '9999px'}} onClick={() => setPlan('free')}/>
-                        <div className={`${plan !== 'premium' ? 'w-[1rem]' : 'w-[2.4rem] bg-gradient-to-b from-[#8A8A8E] to-[#E3E3E3] '} h-[1rem] cursor-pointer transition-all duration-700 ease-in-out`} style={{border: plan !== 'premium' ? '1px solid #FF5C00' : '', borderRadius: plan !== 'premium' ? '100%' : '9999px'}} onClick={() => setPlan('premium')}/>
+                        <div className={`${plan !== 'free' ? 'w-[1rem]' : 'w-[2.4rem] bg-gradient-to-b from-[#FF5C00] to-[#F0174B] '} h-[1rem] cursor-pointer transition-all duration-700 ease-in-out`} style={{border: plan !== 'free' ? '1px solid #8A8A8E' : '', borderRadius: plan !== 'free' ? '100%' : '9999px'}} {...pressable(() => setPlan('free'))}/>
+                        <div className={`${plan !== 'premium' ? 'w-[1rem]' : 'w-[2.4rem] bg-gradient-to-b from-[#8A8A8E] to-[#E3E3E3] '} h-[1rem] cursor-pointer transition-all duration-700 ease-in-out`} style={{border: plan !== 'premium' ? '1px solid #FF5C00' : '', borderRadius: plan !== 'premium' ? '100%' : '9999px'}} {...pressable(() => setPlan('premium'))}/>
                     </div>
                     <section className="py-[1.6rem] flex relative space-y-4">
                         <FreePlanBenefit plan={plan === 'free'} isPremiumUser={isPremiumUser} onSubscribe={() => setShowPaymentOptionsModal('plan')} onCancel={() => setShowPaymentOptionsModal('cancel-subscription')}/>

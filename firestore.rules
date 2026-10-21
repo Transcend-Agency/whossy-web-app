@@ -1,0 +1,374 @@
+rules_version = '2';
+
+// Whossy Firestore rules.
+//
+// NOT YET DEPLOYED. Rules apply instantly and to every installed build with
+// no gradual rollout; the only rollback is redeploying the previous version,
+// so save that from the console first. Run `npm test` in firestore-tests/
+// before any deploy.
+//
+// Cloud Functions and Retool use the Admin SDK and bypass everything here.
+// That is the point of most of this file: the fields and collections that
+// carry money, trust or moderation state are writable only from there.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Keys that changed in this write, counting additions and removals.
+    // Comparing with `in request.resource.data` instead would let a client
+    // escape a protected field by deleting it (delete is_banned to unban).
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function account(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    // Verified and not banned: the gate on every action that reaches
+    // another user.
+    function canInteract() {
+      let me = account(request.auth.uid);
+      return me.get('is_approved', false) == true && me.get('is_banned', false) != true;
+    }
+
+    // chatId is the two uids sorted and joined with '_'. Membership comes
+    // from the id, never from a field, so it holds for a chat that does not
+    // exist yet and cannot be forged by writing a participants list.
+    function isChatMember(chatId) {
+      return isSignedIn() && request.auth.uid in chatId.split('_');
+    }
+
+    // ---- users/{uid} ---------------------------------------------------
+    //
+    // Read is still any signed-in user: discovery queries other users' full
+    // documents. Narrowing it needs the public/private split (plan
+    // section 7); until then this exposes more than it should.
+    match /users/{uid} {
+
+      // Set only by Cloud Functions or an admin.
+      function serverOnlyKeys() {
+        return [
+          'is_banned', 'is_premium', 'premium_expires_at',
+          'credit_balance', 'credits_on_hold',
+          'amount_paid_in_total', 'paystack',
+          'current_plan', 'payment_platform', 'purchase_token', 'customer_code',
+          'status', 'popularity_score_30d',
+          'isPremium', 'is_verified',
+          'reverify_by'
+        ];
+      }
+
+      // Written once at signup, then fixed.
+      function immutableKeys() {
+        return ['uid', 'created_at', 'auth_provider'];
+      }
+
+      allow read: if isSignedIn();
+
+      // A new account starts unverified, unbanned, free and empty, and may
+      // not arrive carrying any other server-owned state.
+      allow create: if isOwner(uid)
+        && request.resource.data.get('uid', uid) == uid
+        && request.resource.data.get('is_approved', false) == false
+        && request.resource.data.get('is_banned', false) == false
+        && request.resource.data.get('is_premium', false) == false
+        && request.resource.data.get('credit_balance', 0) == 0
+        && request.resource.data.get('credits_on_hold', 0) == 0
+        && !request.resource.data.keys().hasAny([
+             'premium_expires_at', 'amount_paid_in_total', 'paystack',
+             'current_plan', 'payment_platform', 'purchase_token', 'customer_code',
+             'status', 'popularity_score_30d', 'isPremium', 'is_verified', 'reverify_by'
+           ])
+        && newAccountVerificationValid()
+        && meetsPhotoMinimum()
+        && birthDateValidOnCreate();
+
+      allow update: if isOwner(uid)
+        && !changedKeys().hasAny(serverOnlyKeys())
+        && !changedKeys().hasAny(immutableKeys())
+        && isApprovedWriteValid()
+        && faceVerificationSubmissionOnly()
+        && (!changedKeys().hasAny(['photos', 'has_completed_onboarding']) || meetsPhotoMinimum())
+        && birthDateValid();
+
+      allow delete: if false; // deleteAccount (Admin SDK) only
+
+      // The client may only ever drop is_approved to false (self-revoke
+      // after changing its main photo). Only a reviewer sets it true.
+      function isApprovedWriteValid() {
+        return !('is_approved' in changedKeys()) || request.resource.data.is_approved == false;
+      }
+
+      // 18 or over on the day of the write, worked out from the date and not
+      // the year alone. Day-level on purpose: clients send local midnight,
+      // which can land on the neighbouring UTC day, so this can be off by one
+      // day around a birthday and no more.
+      function isAdultBirth(dob) {
+        return dob is timestamp
+          && dob.year() >= request.time.year() - 100
+          && (dob.year() < request.time.year() - 18
+              || (dob.year() == request.time.year() - 18
+                  && (dob.month() < request.time.month()
+                      || (dob.month() == request.time.month()
+                          && dob.day() <= request.time.day()))));
+      }
+
+      // A birth date that is written must be an adult's, and onboarding
+      // cannot be completed without one. An unrelated write to an account
+      // that has no birth date yet is not held up by this.
+      function birthDateValid() {
+        let dob = request.resource.data.get('date_of_birth', null);
+        return (!('date_of_birth' in changedKeys()) || isAdultBirth(dob))
+          && (!('has_completed_onboarding' in changedKeys())
+              || request.resource.data.get('has_completed_onboarding', false) != true
+              || isAdultBirth(dob));
+      }
+
+      function birthDateValidOnCreate() {
+        let dob = request.resource.data.get('date_of_birth', null);
+        return (!('date_of_birth' in request.resource.data) || isAdultBirth(dob))
+          && (request.resource.data.get('has_completed_onboarding', false) != true
+              || isAdultBirth(dob));
+      }
+
+      function newAccountVerificationValid() {
+        let fv = request.resource.data.get('face_verification', null);
+        return fv == null
+          || (fv.get('status', 'pending_review') == 'pending_review'
+              && !fv.keys().hasAny(['reviewed_by', 'reviewed_at']));
+      }
+
+      // The user may submit a selfie for review, withdraw one, or give up a
+      // badge. 'approved' and 'rejected' are a reviewer's verdict and never
+      // reachable from here.
+      function faceVerificationSubmissionOnly() {
+        let before = resource.data.get('face_verification', null);
+        let after = request.resource.data.get('face_verification', null);
+        return after == before ||
+          // Submission or resubmission. Old verdict fields may ride along
+          // (mobile merges into the existing map); they mean nothing while
+          // the status is pending and the reviewer overwrites them.
+          (after != null && after.get('status', null) == 'pending_review') ||
+          // Self-revoke: a status flip that leaves the reviewer's record intact.
+          (
+            after != null && before != null &&
+            after.get('status', null) == 'revoked' && before.get('status', null) == 'approved' &&
+            after.get('reviewed_by', null) == before.get('reviewed_by', null) &&
+            after.get('reviewed_at', null) == before.get('reviewed_at', null)
+          ) ||
+          // Self-cancel, only out of 'pending_review': an approved badge
+          // must go through self-revoke, not be erased.
+          (before != null && before.get('status', null) == 'pending_review' && after == null);
+      }
+
+      // Two photos to finish onboarding and to stay onboarded. Checked only
+      // when photos or the onboarding flag change, so an account that is
+      // already short is not locked out of every other write; it may add
+      // photos one at a time but not remove any until it is back to two.
+      function meetsPhotoMinimum() {
+        let photos = request.resource.data.get('photos', []);
+        return request.resource.data.get('has_completed_onboarding', false) != true
+          || photos.size() >= 2
+          || (resource != null
+              && resource.data.get('has_completed_onboarding', false) == true
+              && photos.size() > resource.data.get('photos', []).size());
+      }
+
+      match /notifications/{notificationId} {
+        allow read: if isOwner(uid);
+        allow update: if isOwner(uid) && changedKeys().hasOnly(['seen']);
+        allow create, delete: if false;
+      }
+
+      match /popularity_ledger/{likeId} {
+        allow read, write: if false;
+      }
+
+      // Billing identifiers. Server-only, not even owner-readable.
+      match /private/{docId} {
+        allow read, write: if false;
+      }
+    }
+
+    // ---- filters/{uid}, advancedSearchPreferences/{uid} ----------------
+    match /filters/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+    match /advancedSearchPreferences/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ---- likes/{likerId_likedId} ---------------------------------------
+    // The id is tied to the pair so one user can like another exactly once:
+    // each like document fires a notification and a popularity increment.
+    match /likes/{likeId} {
+      // `resource == null` lets a client check whether a like exists
+      // without the lookup itself being an error.
+      allow get: if isSignedIn()
+        && (resource == null
+            || resource.data.liker_id == request.auth.uid
+            || resource.data.liked_id == request.auth.uid);
+      allow list: if isSignedIn()
+        && (resource.data.liker_id == request.auth.uid || resource.data.liked_id == request.auth.uid);
+      allow create: if isSignedIn()
+        && request.resource.data.liker_id == request.auth.uid
+        && request.resource.data.liked_id is string
+        && request.resource.data.liked_id != request.auth.uid
+        && likeId == request.auth.uid + '_' + request.resource.data.liked_id
+        && canInteract();
+      allow update, delete: if false;
+    }
+
+    // ---- dislikes/{dislikerId_dislikedId} ------------------------------
+    match /dislikes/{dislikeId} {
+      allow get: if isSignedIn()
+        && (resource == null || resource.data.disliker_id == request.auth.uid);
+      allow list: if isSignedIn() && resource.data.disliker_id == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.disliker_id == request.auth.uid
+        && request.resource.data.disliked_id is string
+        && dislikeId == request.auth.uid + '_' + request.resource.data.disliked_id;
+      // Passing again on someone already passed on rewrites the same doc.
+      allow update: if isSignedIn()
+        && resource.data.disliker_id == request.auth.uid
+        && !changedKeys().hasAny(['disliker_id', 'disliked_id']);
+      // Both apps clear a dislike before liking without checking it exists.
+      allow delete: if isSignedIn()
+        && (resource == null || resource.data.disliker_id == request.auth.uid);
+    }
+
+    // ---- matches/{matchId} ---------------------------------------------
+    // Written only by the server once both likes exist. A client-written
+    // match needs no reciprocal like, so anyone could match with anyone.
+    match /matches/{matchId} {
+      allow read: if isSignedIn()
+        && (resource == null
+            || resource.data.user1_id == request.auth.uid
+            || resource.data.user2_id == request.auth.uid);
+      allow write: if false;
+    }
+
+    // ---- chats/{chatId} ------------------------------------------------
+    match /chats/{chatId} {
+
+      function creditKeys() {
+        return ['credit_status', 'initiator_id', 'hold_placed_at', 'connected_at',
+                'credit_held', 'expiration_time', 'is_unlocked', 'unlock_time'];
+      }
+
+      function participantsMatchId(data) {
+        return data.participants is list
+          && data.participants.size() == 2
+          && data.participants.toSet() == chatId.split('_').toSet();
+      }
+
+      // A single chat is read by id, which also works before it exists.
+      allow get: if isChatMember(chatId);
+      // The chat list is a query, and a query can only be authorised by
+      // something it filters on.
+      allow list: if isSignedIn() && request.auth.uid in resource.data.participants;
+
+      // initiateChat normally creates the chat. A client may create the
+      // empty shell, but none of the state that says a credit was held or
+      // a conversation unlocked.
+      allow create: if isChatMember(chatId)
+        && participantsMatchId(request.resource.data)
+        && !request.resource.data.keys().hasAny(
+             ['credit_status', 'initiator_id', 'hold_placed_at', 'connected_at', 'credit_held', 'unlock_time'])
+        && request.resource.data.get('is_unlocked', false) == false
+        && request.resource.data.get('expiration_time', null) == null;
+
+      allow update: if isChatMember(chatId)
+        && !changedKeys().hasAny(creditKeys())
+        // Mobile rewrites participants on every send, in its own order.
+        && (!('participants' in changedKeys()) || participantsMatchId(request.resource.data));
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+
+        // The credit gate. Without it a verified user could write messages
+        // straight into a chat and never pay: `pending` means initiateChat
+        // placed a hold (or the sender is premium), `connected` means the
+        // other side replied and the window is open. The window is checked
+        // against the server clock.
+        function chatIsOpen() {
+          let chat = get(/databases/$(database)/documents/chats/$(chatId)).data;
+          return chat.get('credit_status', null) == 'pending'
+            || (
+              (chat.get('credit_status', null) == 'connected' || chat.get('is_unlocked', false) == true)
+              && chat.get('expiration_time', null) != null
+              && chat.expiration_time > request.time
+            );
+        }
+
+        allow read: if isChatMember(chatId);
+
+        allow create: if isChatMember(chatId)
+          && request.resource.data.sender_id == request.auth.uid
+          && canInteract()
+          && chatIsOpen();
+
+        allow update: if isChatMember(chatId)
+          && (
+            // The recipient marks a message seen; the server marks it sent.
+            (resource.data.sender_id != request.auth.uid && changedKeys().hasOnly(['status']))
+            // The sender attaches the uploaded image to their own message.
+            || (resource.data.sender_id == request.auth.uid && changedKeys().hasOnly(['photo', 'local_photo']))
+          );
+
+        allow delete: if false;
+      }
+    }
+
+    // ---- Challenges/{id} -----------------------------------------------
+    match /Challenges/{challengeId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ---- config/{docId} ------------------------------------------------
+    // Minimum supported app build. Read before sign-in.
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ---- payments/{reference} ------------------------------------------
+    match /payments/{reference} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // ---- userReports/{id}, helpRequests/{id} ---------------------------
+    // Write-only mailboxes.
+    match /userReports/{reportId} {
+      allow create: if isSignedIn() && request.resource.data.reporterId == request.auth.uid;
+      // Reporting the same person again rewrites your own earlier report.
+      allow update: if isSignedIn()
+        && resource.data.reporterId == request.auth.uid
+        && request.resource.data.reporterId == request.auth.uid;
+      allow read, delete: if false;
+    }
+    match /helpRequests/{requestId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
+    // ---- deletePicQueue/{uid} ------------------------------------------
+    // A per-user flag asking the server to remove photos no longer on the
+    // profile. Carries nothing but the uid.
+    match /deletePicQueue/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+  }
+}

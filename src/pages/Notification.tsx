@@ -4,23 +4,44 @@ import {motion} from 'framer-motion';
 import { useAuthStore } from '@/store/UserId';
 import {collection, doc, getDoc, onSnapshot, updateDoc} from 'firebase/firestore';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Notifications } from '@/types/notification';
 import useDashboardStore from "@/store/useDashboardStore.tsx";
-import ViewProfile from "@/components/dashboard/ViewProfile.tsx";
+import SelectedProfileView from "@/components/dashboard/SelectedProfileView.tsx";
 import useProfileFetcher from "@/hooks/useProfileFetcher.tsx";
 import SkeletonNotification from "@/components/dashboard/SkeletonNotification.tsx";
 import {User} from "@/types/user.ts";
+import {useChatIdStore} from "@/store/ChatStore.tsx";
+import { pressable } from '@/utils/pressable';
+
+// The "other user" a notification is about, when it's about one — used both
+// to filter out notifications about a since-banned/blocked profile and to
+// know who to open on tap. 'verification' has no other user; it's about the
+// viewer's own submission, so it's never filtered this way.
+const subjectUserId = (notification: Notifications, viewerUid?: string | null): string | undefined => {
+    switch (notification.type) {
+        case 'like':
+            return notification.likerId;
+        case 'match':
+            return notification.user2_id === viewerUid ? notification.user1_id : notification.user2_id;
+        case 'message':
+            return notification.senderId;
+        case 'verification':
+            return undefined;
+    }
+};
 
 const Notification = () => {
     const {auth} = useAuthStore();
-    const { profiles, selectedProfile, setSelectedProfile } = useDashboardStore()
+    const navigate = useNavigate();
+    const { setChatId } = useChatIdStore();
+    const { selectedProfile, setSelectedProfile } = useDashboardStore()
     const { refreshProfiles } = useProfileFetcher()
     const { user } = useAuthStore()
     const loggedUserId = auth?.uid as string;
     const [loading, setLoading] = useState<boolean>(false);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [notifications, setNotifications] = useState<any[]>([]);
+    const [notifications, setNotifications] = useState<Notifications[]>([]);
 
     useEffect(() => {
         setLoading(true); // Start loading
@@ -36,19 +57,22 @@ const Notification = () => {
                 const filteredNotifications = [];
                 for (const notification of notifications) {
                     try {
-                        const id = notification.user2_id === user?.uid ? notification.user1_id : notification.user2_id
-                        const userId = notification.likerId || id
-                        if (userId) {
-                            const userData = await fetchUserData(userId);
-                            const currentUser = await fetchUserData(user?.uid as string)
-                            if (userData && userData.is_approved && currentUser && !currentUser.blockedIds?.includes(userId)) {
-                                filteredNotifications.push(notification);
-                            }
+                        const userId = subjectUserId(notification, user?.uid);
+                        if (!userId) {
+                            // 'verification' (or a malformed doc with neither) — always shown.
+                            if (notification.type === 'verification') filteredNotifications.push(notification);
+                            continue;
+                        }
+                        const userData = await fetchUserData(userId);
+                        const currentUser = await fetchUserData(user?.uid as string)
+                        if (userData && userData.is_approved && currentUser && !currentUser.blockedIds?.includes(userId)) {
+                            filteredNotifications.push(notification);
                         }
                     } catch (error) {
                         console.error("Error fetching user data for notification:", notification.id, error);
                     }
                 }
+                filteredNotifications.sort((a, b) => b.timestamp?.toMillis?.() - a.timestamp?.toMillis?.());
                 setNotifications(filteredNotifications);
                 setLoading(false);
             },
@@ -82,6 +106,36 @@ const Notification = () => {
         }
     };
 
+    const markSeen = async (notificationId: string) => {
+        const userDocRef = doc(db, `users/${loggedUserId}/notifications`, notificationId);
+        await updateDoc(userDocRef, {seen: true})
+    };
+
+    const openNotification = async (notification: Notifications) => {
+        await markSeen(notification.id);
+        switch (notification.type) {
+            case 'like':
+                setSelectedProfile(notification.likerId as string);
+                return;
+            case 'match':
+                setSelectedProfile(subjectUserId(notification, user?.uid) as string);
+                return;
+            case 'message': {
+                if (!notification.chatId || !notification.senderId) return;
+                const senderData = await fetchUserData(notification.senderId);
+                if (!senderData) return;
+                setChatId(notification.chatId);
+                navigate(`/dashboard/chat?recipient-user-id=${notification.senderId}`, {
+                    state: { chatId: notification.chatId, recipientUser: senderData },
+                });
+                return;
+            }
+            case 'verification':
+                navigate('/dashboard/user-profile');
+                return;
+        }
+    };
+
     return (
     <>
         { !selectedProfile ? (
@@ -108,17 +162,13 @@ const Notification = () => {
                             </p>
                         </div>
                     ) : (
-                        notifications.map((notification: Notifications, i) =>
-                            notification.title === 'Like' ? (
+                        notifications.map((notification) =>
+                            notification.type === 'like' ? (
                                 <div
                                     className='flex justify-between pb-[1.2rem] cursor-pointer'
                                     style={{borderBottom: '1px solid #ECECEC'}}
-                                    key={i}
-                                    onClick={async () => {
-                                        setSelectedProfile(notification.likerId as string);
-                                        const userDocRef = doc(db, `users/${loggedUserId}/notifications`, notification.id);
-                                        await updateDoc(userDocRef, {seen: true})
-                                    }}
+                                    key={notification.id}
+                                    onClick={() => openNotification(notification)}
                                 >
                                     <div className='space-y-[1.2rem]'>
                                         <h1 className='text-[2rem] font-bold flex items-center gap-x-2'>
@@ -126,7 +176,7 @@ const Notification = () => {
                                             <div className='size-[0.8rem] bg-[#F2243E] rounded-full'/>}
                                         </h1>
                                         <p className='text-[1.6rem] text-[#8A8A8E]'>
-                                            Someone new liked your profile. Check it out now.
+                                            {notification.body || 'Someone new liked your profile. Check it out now.'}
                                         </p>
                                     </div>
                                     <img
@@ -135,12 +185,8 @@ const Notification = () => {
                                         alt=''
                                     />
                                 </div>
-                            ) : (
-                                <div onClick={async () => {
-                                    setSelectedProfile(notification.user2_id === user?.uid ? notification.user1_id : notification.user2_id as string);
-                                    const userDocRef = doc(db, `users/${loggedUserId}/notifications`, notification.id);
-                                    await updateDoc(userDocRef, {seen: true})
-                                }} className='flex justify-between pb-[1.2rem] cursor-pointer'
+                            ) : notification.type === 'match' ? (
+                                <div key={notification.id} {...pressable(() => openNotification(notification))} className='flex justify-between pb-[1.2rem] cursor-pointer'
                                      style={{borderBottom: '1px solid #ECECEC'}}>
                                     <div className='space-y-[1.2rem]'>
                                         <h1 className='text-[2rem] font-bold flex items-center gap-x-2'>
@@ -164,17 +210,56 @@ const Notification = () => {
                                         />
                                     </div>
                                 </div>
+                            ) : notification.type === 'message' ? (
+                                <div
+                                    className='flex justify-between pb-[1.2rem] cursor-pointer'
+                                    style={{borderBottom: '1px solid #ECECEC'}}
+                                    key={notification.id}
+                                    onClick={() => openNotification(notification)}
+                                >
+                                    <div className='space-y-[1.2rem]'>
+                                        <h1 className='text-[2rem] font-bold flex items-center gap-x-2'>
+                                            {notification.senderName ? `Message from ${notification.senderName}` : 'New Message'} {!notification.seen &&
+                                            <div className='size-[0.8rem] bg-[#F2243E] rounded-full'/>}
+                                        </h1>
+                                        <p className='text-[1.6rem] text-[#8A8A8E]'>
+                                            {notification.body || 'You have a new message.'}
+                                        </p>
+                                    </div>
+                                    {notification.senderProfilePicture &&
+                                        <img
+                                            src={notification.senderProfilePicture}
+                                            className='size-[4.8rem] object-cover rotate-6 rounded-[1.2rem]'
+                                            alt=''
+                                        />}
+                                </div>
+                            ) : (
+                                <div
+                                    className='flex justify-between pb-[1.2rem] cursor-pointer'
+                                    style={{borderBottom: '1px solid #ECECEC'}}
+                                    key={notification.id}
+                                    onClick={() => openNotification(notification)}
+                                >
+                                    <div className='space-y-[1.2rem]'>
+                                        <h1 className='text-[2rem] font-bold flex items-center gap-x-2'>
+                                            {notification.title} {!notification.seen &&
+                                            <div className='size-[0.8rem] bg-[#F2243E] rounded-full'/>}
+                                        </h1>
+                                        <p className='text-[1.6rem] text-[#8A8A8E]'>
+                                            {notification.body}
+                                        </p>
+                                    </div>
+                                </div>
                             )
                         )
                     )}
                 </main>
             </motion.div>
         </DashboardPageContainer>) :
-            <ViewProfile
+            <SelectedProfileView
                 onBackClick={() => {
                     setSelectedProfile(null)
                 }}
-                userData={profiles.find(profile => selectedProfile as string == profile.uid)!}
                 onBlockChange={refreshProfiles}/>
         }
     </>

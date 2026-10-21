@@ -1,3 +1,4 @@
+import AccountGate from "@/components/dashboard/AccountGate";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
 import { Toaster } from "react-hot-toast";
@@ -6,41 +7,46 @@ import EmailVerification from "./components/auth/EmailVerification";
 import FinalizeSetup from "./components/auth/FinalizeSetup";
 import MarqueeImageSliderBackground from "./components/auth/MarqueeImageSliderBackground";
 import DashboardLayout from "./components/dashboard/DashboardLayout";
-import MatchesPage from "./components/dashboard/MatchesPage";
 import useTrackUserPresence from "./hooks/useTrackUserPresesnce";
 import "./index.scss";
 import AccountSetup from "./pages/AccountSetup";
 import AuthLayout from "./pages/AuthLayout";
-import Chat from "./pages/Chat";
 import CreateAccount from "./pages/CreateAccount";
-import Explore from "./pages/dashboard/Explore";
-import SwipingAndMatching from "./pages/dashboard/SwipingAndMatching";
-import UserProfile from "./pages/dashboard/UserProfile";
 import ForgotPassword from "./pages/ForgotPassword";
 import Home from "./pages/Home";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
-import Onboarding from "./pages/Onboarding";
 import OnboardingLayout from "./pages/OnboardingLayout";
 import PhoneNumber from "./pages/PhoneNumber";
 import { ProtectedDashboard } from "./pages/ProtectedRoute";
 import ResetPassword from "./pages/ResetPassword";
-import Notification from "./pages/Notification";
-import Faq from "./pages/Faq";
-import Contact from "./pages/Contact";
-import React, { useEffect } from "react";
+import React, { lazy, Suspense, useEffect } from "react";
 import useDashboardStore from "@/store/useDashboardStore.tsx";
 import useProfileFetcher from "@/hooks/useProfileFetcher.tsx";
 import useAutoLogout, {useAuthStore} from "@/store/UserId.tsx";
-import ViewProfile from "./components/dashboard/ViewProfile";
+import SelectedProfileView from "./components/dashboard/SelectedProfileView";
 import { TourProvider } from '@reactour/tour'
 import { CompletedTours } from "@/types/tourGuide.ts";
 import { TourGuideModal } from "@/components/dashboard/TourGuideModal.tsx";
 import { styles, tourGuideSteps } from "@/data/tour-guide-steps.ts";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
 import {updateUserProfile} from "@/hooks/useUser.ts";
 import { User } from "@/types/user.ts";
-import DeleteAccount from "./pages/DeleteAccount";
+
+// Pages load on demand so the first visit does not download the whole app.
+const MatchesPage = lazy(() => import("./components/dashboard/MatchesPage"));
+const Chat = lazy(() => import("./pages/Chat"));
+const Explore = lazy(() => import("./pages/dashboard/Explore"));
+const SwipingAndMatching = lazy(() => import("./pages/dashboard/SwipingAndMatching"));
+const UserProfile = lazy(() => import("./pages/dashboard/UserProfile"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
+const Notification = lazy(() => import("./pages/Notification"));
+const Faq = lazy(() => import("./pages/Faq"));
+const Contact = lazy(() => import("./pages/Contact"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const DeleteAccount = lazy(() => import("./pages/DeleteAccount"));
+const PaymentCallback = lazy(() => import("./pages/PaymentCallback"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
 
 const queryClient = new QueryClient();
 
@@ -50,7 +56,6 @@ function App() {
   useAutoLogout()
 
   const {
-    profiles,
     selectedProfile,
     setSelectedProfile,
     blockedUsers,
@@ -168,6 +173,8 @@ function App() {
         {location.pathname.startsWith("/auth") && (<MarqueeImageSliderBackground />)}
         <AnimatePresence>
           <RouteWatcher key={`${currentLocation}_${previousLocation}`} />
+          {/* Pages load on demand (see the lazy imports) so the first visit does not download the whole app. */}
+          <Suspense key={location.pathname} fallback={<div className="flex h-screen w-full items-center justify-center" role="status" aria-label="Loading" />}>
           <Routes location={location} key={location.pathname}>
             <Route path="/auth" element={<AuthLayout />}>
               <Route index element={<Home />} />
@@ -187,39 +194,35 @@ function App() {
               <ProtectedDashboard>
                 <DashboardLayout />
                 <TourGuideModal />
+                <AccountGate />
               </ProtectedDashboard>}>
               <Route path="user-profile"
                      element={
                 selectedProfile ?
-                         <ViewProfile
+                         <SelectedProfileView
                              onBackClick={() => { setSelectedProfile(null) }}
-                             userData={profiles.find(profile => selectedProfile as string == profile.uid)!}
                              onBlockChange={refreshProfiles}
                          /> :
                     <UserProfile />
               } />
               {/*<Route path="explore" element={<Explore />} />*/}
-              <Route path="explore" element={selectedProfile ? <ViewProfile
+              <Route path="explore" element={selectedProfile ? <SelectedProfileView
                 onBackClick={() => { setSelectedProfile(null) }}
-                userData={profiles.find(profile => selectedProfile as string == profile.uid)!}
                 onBlockChange={refreshProfiles}
             /> : <Explore />} />
               {/*<Route path="swipe-and-match" element={<SwipingAndMatching />} />*/}
 
-              <Route path="swipe-and-match" element={selectedProfile ? <ViewProfile
+              <Route path="swipe-and-match" element={selectedProfile ? <SelectedProfileView
                 onBackClick={() => { setSelectedProfile(null) }}
-                userData={profiles.find(profile => selectedProfile as string == profile.uid)!}
                 onBlockChange={refreshProfiles}
             /> : <SwipingAndMatching />} />
 
-              <Route path="matches" element={selectedProfile ? <ViewProfile
+              <Route path="matches" element={selectedProfile ? <SelectedProfileView
                 onBackClick={() => { setSelectedProfile(null) }}
-                userData={profiles.find(profile => selectedProfile as string == profile.uid)!}
                 onBlockChange={refreshProfiles}
               /> : <MatchesPage />} />
-              <Route path="chat" element={selectedProfile ? <ViewProfile
+              <Route path="chat" element={selectedProfile ? <SelectedProfileView
                 onBackClick={() => { setSelectedProfile(null) }}
-                userData={profiles.find(profile => selectedProfile as string == profile.uid)!}
                 onBlockChange={refreshProfiles}
               /> : <Chat />} />
               <Route path="notification" element={<Notification />} />
@@ -229,7 +232,14 @@ function App() {
             <Route path="/contact" element={<Contact />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/delete-account" element={<DeleteAccount />} />
+            <Route path="/payment-callback" element={
+              <ProtectedDashboard>
+                <PaymentCallback />
+              </ProtectedDashboard>
+            } />
+            <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
           <ToastContainer />
         </AnimatePresence>
       </TourProvider>

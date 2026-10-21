@@ -2,7 +2,8 @@ import { family_goal, preference } from "@/constants";
 import { User } from "@/types/user";
 import { AnimatePresence, motion } from "framer-motion";
 import React, { useRef, useState } from "react";
-import {getYearFromFirebaseDate} from "@/utils/date.ts";
+import {calculateAge} from "@/utils/age.ts";
+import { pressable } from '@/utils/pressable';
 
 interface PreviewProfileProps {
     activePage: string;
@@ -71,12 +72,12 @@ const PreviewProfile: React.FC<PreviewProfileProps> = ({ activePage, closePage, 
                             )}
                         </figure>
                         <div className="preview-profile__overlay">
-                            <div onClick={goToPreviousPost} className={`previous-button ${currentImage > 0 && 'clickable'}`}>
+                            <div {...pressable(goToPreviousPost)} className={`previous-button ${currentImage > 0 && 'clickable'}`}>
                                 <button>
                                     <img src="/assets/icons/arrow-right.svg" alt={``} />
                                 </button>
                             </div>
-                            <div onClick={goToNextPost} className={`next-button ${currentImage < profileImages?.length - 1 && 'clickable'}`}>
+                            <div {...pressable(goToNextPost)} className={`next-button ${currentImage < profileImages?.length - 1 && 'clickable'}`}>
                                 <button>
                                     <img src="/assets/icons/arrow-right.svg" alt={``} />
                                 </button>
@@ -85,12 +86,18 @@ const PreviewProfile: React.FC<PreviewProfileProps> = ({ activePage, closePage, 
                         {/* <div className="bg-red-400 size-[60rem]"></div> */}
                         <div className="preview-profile__profile-details">
                             <div className="status-row">
+                                {/* This is the viewer's own profile preview (Edit Profile → Preview), not
+                                    another user's card — always-active-for-self is correct here, not the
+                                    hardcode C1 fixes elsewhere. See isRecentlyOnline for the real check. */}
                                 <div className="active-badge">Active</div>
-                                <p className="location">~ {userData?.distance} miles away</p>
+                                {/* No distance line here — this is the viewer's own preview, and
+                                    "distance from yourself" is always 0 and not useful to show
+                                    (mobile's equivalent, EditProfileData.distance, is null for the
+                                    same reason). */}
                             </div>
                             <motion.div animate={expanded ? { marginBottom: '2.8rem' } : { marginBottom: '1.2rem' }} className="name-row">
                                 <div className="left">
-                                    <p className="details">{userData?.first_name}, <span className="age">{userData?.date_of_birth ? (new Date()).getFullYear() - getYearFromFirebaseDate(userData.date_of_birth) : 'NIL'}</span></p>
+                                    <p className="details">{userData?.first_name}, <span className="age">{calculateAge(userData?.date_of_birth) ?? 'NIL'}</span></p>
                                     <img src="/assets/icons/verified.svg" alt={``} />
                                 </div>
                                 <AnimatePresence>
@@ -118,7 +125,7 @@ const PreviewProfile: React.FC<PreviewProfileProps> = ({ activePage, closePage, 
                             </motion.div>
                             <div className="preview-profile__image-counter-container">
                                 {profileImages?.map((_image, index) => (
-                                    <div key={index} onClick={() => { setCurrentImage(index); }} className={`preview-profile__image-counter ${index == currentImage && "preview-profile__image-counter--active"}`}></div>
+                                    <div key={index} {...pressable(() => { setCurrentImage(index); })} className={`preview-profile__image-counter ${index == currentImage && "preview-profile__image-counter--active"}`}></div>
                                 ))}
                             </div>
                         </div>

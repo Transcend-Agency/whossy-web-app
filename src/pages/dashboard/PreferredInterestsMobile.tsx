@@ -6,6 +6,7 @@ import { alphabet } from "@/constants";
 import { useAuthStore } from "@/store/UserId";
 import HabitSearch from "@/components/dashboard/HabitSearch";
 import { Oval } from "react-loader-spinner";
+import { notifyError } from '@/utils/notifyError';
 
 interface ProfileSettingsProps {
     activePage: boolean;
@@ -25,7 +26,7 @@ const PreferredInterestsMobile: React.FC<ProfileSettingsProps> = ({ activePage, 
     
     const [isLoading, setIsLoading] = useState(false);
 
-    const updateUserPreferences = (s: UserFilters) => {updateUserProfile("filters",auth?.uid as string, () => {refetchUserPreferencesData(); setIsLoading(false)}, s).catch(e => console.error(e))}
+    const updateUserPreferences = (s: UserFilters) => {updateUserProfile("filters",auth?.uid as string, () => {refetchUserPreferencesData(); setIsLoading(false)}, s).catch((e) => { setIsLoading(false); notifyError("Couldn't save your interests. Please try again.")(e) })}
 
     useEffect(() => setMutatedData(userPreferencesData?.interests || []), [userPreferencesData?.interests])
 

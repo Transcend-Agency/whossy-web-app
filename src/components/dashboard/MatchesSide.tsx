@@ -1,10 +1,10 @@
 import { User } from '@/types/user';
-import { getYearFromFirebaseDate } from '@/utils/date';
+import { calculateAge } from '@/utils/age';
 import React, {useEffect} from 'react';
 import { LazyLoadImage } from 'react-lazy-load-image-component';
 import 'react-lazy-load-image-component/src/effects/opacity.css';
 import { motion } from 'framer-motion'
-import { useMatchStore } from '@/store/Matches';
+import { useMatchStore, watchMatches } from '@/store/Matches';
 import Skeleton from 'react-loading-skeleton';
 import useDashboardStore from "@/store/useDashboardStore.tsx";
 import {useAuthStore} from "@/store/UserId.tsx";
@@ -71,7 +71,7 @@ export const MatchItem: React.FC<MatchesProps> = ({ userData, isLazyLoaded}) => 
                                 : ''}
                               {userData?.date_of_birth ? ',' : ''}
                           </span>{userData?.date_of_birth && (
-                                <span className='age'>{(new Date()).getFullYear() - getYearFromFirebaseDate(userData.date_of_birth)}</span>
+                                <span className='age'>{calculateAge(userData.date_of_birth) ?? ''}</span>
                             )}{userData?.is_approved && <img src="/assets/icons/verified.svg" alt=""/>}
                         </div>
 
@@ -91,6 +91,13 @@ const Matches: React.FC<MatchesProps> = () => {
             fetchMatches(user.uid);
         }
     }, [fetchMatches, user, user?.uid]);
+
+    // A new match shows up without a reload.
+    useEffect(() => {
+        const uid = user?.uid;
+        if (!uid) return;
+        return watchMatches(uid, () => { fetchMatches(uid, true); });
+    }, [fetchMatches, user?.uid]);
 
 
     return <div className='dashboard-layout__matches-wrapper'>

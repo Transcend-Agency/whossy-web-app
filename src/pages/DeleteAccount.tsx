@@ -31,7 +31,7 @@ const DeleteAccount: React.FC = () => {
                                 <li>Confirm your decision, and your account will be permanently deleted.</li>
                             </ol>
                             <p className="terms-content">Once deleted, all your data will be removed from our platform, and this action cannot be undone.
-                                If you need further assistance, please contact our support team at <a href="maito:support@whossy.com" style={{ color: 'blue' }}>support@whossy.com.</a></p>
+                                If you need further assistance, please contact our support team at <a href="mailto:support@whossy.com" style={{ color: 'blue' }}>support@whossy.com.</a></p>
                         </div>
 
                     </div>

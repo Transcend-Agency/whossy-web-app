@@ -2,6 +2,7 @@ import { LazyLoadImage } from 'react-lazy-load-image-component';
 import 'react-lazy-load-image-component/src/effects/opacity.css';
 import { motion } from 'framer-motion'
 import {FC } from "react";
+import { pressable } from '@/utils/pressable';
 
 interface ExploreGridProfileProps {
     profile_image?: string
@@ -18,9 +19,10 @@ const ExploreGridProfile: FC<ExploreGridProfileProps> = ({profile_image, distanc
 }) => {
 
     return (
-        <div onClick={onProfileClick} className='min-h-[20rem] h-[20rem] w-full rounded-[0.8rem] overflow-hidden relative transition duration-200 active:scale-100 cursor-pointer block mb-[0.8rem] explore-grid__profile2 group'>
+        <div {...pressable(onProfileClick)} aria-label={`View ${first_name}'s profile`} className='min-h-[20rem] h-[20rem] w-full rounded-[0.8rem] overflow-hidden relative transition duration-200 active:scale-100 cursor-pointer block mb-[0.8rem] explore-grid__profile2 group'>
             <figure className='w-full h-full transition-all duration-[0.3s] bg-[#ebebeb] group-hover:scale-110'>
                 <LazyLoadImage
+                    alt={`${first_name}'s photo`}
                     className='w-full h-full object-cover min-h-[20rem]'
                     height={'100%'}
                     effect="opacity"
@@ -36,7 +38,7 @@ const ExploreGridProfile: FC<ExploreGridProfileProps> = ({profile_image, distanc
                         </figure>}
                         {distance && <span className={`text-[10px]`}>~{distance} miles</span>}
                     </div>
-                    {hasBeenLiked && <motion.img initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="size-[20px] block" src="/assets/icons/heart.svg" />}
+                    {hasBeenLiked && <motion.img initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="size-[20px] block" src="/assets/icons/heart.svg" alt="Liked" />}
                 </div>
             </div>
             <div className={`absolute bottom-0 right-0 w-full z-20 text-white tracking-wide pb-4 pl-3`}>
@@ -48,7 +50,7 @@ const ExploreGridProfile: FC<ExploreGridProfileProps> = ({profile_image, distanc
                             </span>
                             <span className='text-[14px] md:text-[16px]'> {age}</span>
                         </div>
-                        {isVerified && <img src='/assets/icons/verified.svg' className={`size-[18px]`} alt={``} />}
+                        {isVerified && <img src='/assets/icons/verified.svg' className={`size-[18px]`} alt="Verified" />}
                     </div>
                 </div>
             </div>

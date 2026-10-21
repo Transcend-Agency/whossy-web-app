@@ -22,24 +22,8 @@ import { updateUserProfile } from "@/hooks/useUser";
 import { useAuthStore } from "@/store/UserId";
 import { User, UserProfile } from "@/types/user";
 import { FaceVerificationModal } from "@/components/dashboard/FaceVerificationModal.tsx";
-
-// Mirrors the mobile app's status label (FaceVerification.getVerificationStatus)
-// so the Edit Profile row reads identically across platforms.
-const getFaceVerificationLabel = (fv?: User["face_verification"]): string => {
-    if (!fv) return "Not Complete";
-    switch (fv.status) {
-        case "approved":
-            return "Complete";
-        case "rejected":
-            return "Not Complete, Declined";
-        case "pending_review":
-            return "Pending";
-    }
-    // Fallback for documents written before the `status` field existed.
-    if (!fv.photo) return "Not Complete";
-    if (fv.retake_photo) return "Not Complete, Declined";
-    return "Complete";
-};
+import { deriveVerificationStatus, verificationStatusLabel } from "@/utils/verification.ts";
+import { notifyError } from '@/utils/notifyError';
 
 interface EditProfileProps {
     activePage: string;
@@ -63,13 +47,13 @@ const EditProfile: React.FC<EditProfileProps> = ({ activePage, activeSubPage, cl
 
     const updateUser = async (s: UserProfile) => {
         updateUserProfile("users", auth?.uid as string, () => {hideModal(); refetchUserData()}, s)
-            .catch(err => console.error(err))
+            .catch(notifyError("Couldn't save your changes. Please try again."))
     }
 
     return (
         <>
             <NameSettingsModal showing={settingsModalShowing === 'name'} hideModal={hideModal} first_name={userData?.first_name as string} last_name={userData?.last_name as string} handleSave={(first_name, last_name) =>
-            {updateUser({first_name, last_name}).catch(err => console.error(err) )}} />
+            {updateUser({first_name, last_name})}} />
             <GenderSettingsModal showing={settingsModalShowing === 'gender'} hideModal={hideModal} userGender={userData?.gender as string} handleSave={gender => updateUser({gender})}/>
             <EmailSettingsModal showing={settingsModalShowing === 'email'} hideModal={hideModal} />
             <PhoneNumberSettingsModal showing={settingsModalShowing === 'phone'} hideModal={hideModal} phone_number={userData?.phone_number as string} handleSave={(phone_number) => updateUser({phone_number})}/>
@@ -90,7 +74,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ activePage, activeSubPage, cl
             <EducationSettingsModal showing={settingsModalShowing === 'education'} hideModal={hideModal} userEducation={userData?.education as number}  handleSave={(education) => updateUser({education}) }/>
             <BioSettingsModal showing={settingsModalShowing === 'bio'} hideModal={hideModal} bio={userData?.bio as string}  handleSave={(bio) => updateUser({bio}) }/>
 
-            <FaceVerificationModal show={showFaceVModal} onCloseModal={() => setShowFaceVModal(false)} refetchUserData={refetchUserData} />
+            <FaceVerificationModal show={showFaceVModal} onCloseModal={() => setShowFaceVModal(false)} refetchUserData={refetchUserData} mainPhoto={userData?.photos?.[0]} />
 
             <motion.div
                 animate={activePage == 'edit-profile' ? (activeSubPage == 0 ? { x: "-100%", opacity: 1 } : { scale: 0.9, opacity: 0.3, x: "-100%" }) : { x: 0 }}
@@ -116,7 +100,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ activePage, activeSubPage, cl
                             setSettingsModalShowing('phone')
                         }],
                         ]} />
-                        <SettingsGroup data={[['Photo Verification', getFaceVerificationLabel(userData?.face_verification), () => { setShowFaceVModal(true) }]]}/>
+                        <SettingsGroup data={[['Photo Verification', verificationStatusLabel(deriveVerificationStatus(userData?.face_verification)), () => { setShowFaceVModal(true) }]]}/>
                         <SettingsGroup data={[['Add personalized interests', 'Change', () => {onInterests()}]]}/>
                         <SettingsGroup data={[['Education', education[userData?.education as number], () => {
                             setSettingsModalShowing('education')

@@ -8,6 +8,8 @@ import {Oval} from "react-loader-spinner";
 import {User} from "@/types/user";
 import {doc, getDoc, setDoc} from "firebase/firestore";
 import {db} from "@/firebase";
+import {deriveVerificationStatus, MainPhotoChangeConsequence} from "@/utils/verification";
+import Modal from "@/components/ui/Modal";
 interface CardProps {
   photo?: string;
   colspan?: string;
@@ -52,7 +54,13 @@ type PhotoModal = "hidden" | "photo-one" | "photo-two" | "photo-three" | "photo-
 const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
   const [photo, setPhoto] = useState<string[]>([]);
   const [mutatedPhoto, setMutatedPhoto] = useState<string[]>([]);
-  const [fileMap, setFileMap] = useState<Map<number, File>>(new Map());
+
+  const [fileMap, setFileMap] = useState<Map<string, File>>(new Map());
+
+  const [replacingIndex, setReplacingIndex] = useState<number | null>(null);
+  const [faceVerification, setFaceVerification] = useState<User["face_verification"]>();
+
+  const [pendingConsequence, setPendingConsequence] = useState<MainPhotoChangeConsequence>('none');
 
   const { auth } = useAuthStore();
 
@@ -61,7 +69,31 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
   const fetchUserPhotos = async () => {
     const data = await getUserProfile("users", auth?.uid as string) as User;
     setPhoto(data?.photos as string[] || [])
+    setFaceVerification(data?.face_verification)
   }
+  const isMainPhotoChange = (newPhotos: string[]) => newPhotos[0] !== photo[0];
+
+  // `faceVerification` (React state) is only as fresh as the last
+  // fetchUserPhotos() call, which races the page's own interactivity —
+  // there's no loading gate on the photo grid, so a user who reuploads
+  // before that fetch resolves would have this evaluate against `undefined`
+  // (never_submitted) and silently skip the warning entirely. It can also go
+  // stale on its own if a reviewer's verdict lands while this screen is
+  // already open. Reading the document directly, right before acting,
+  // removes the race instead of just narrowing it.
+  const getLatestFaceVerification = async (): Promise<User["face_verification"]> => {
+    if (!auth?.uid) return faceVerification;
+    const fresh = await getUserProfile("users", auth.uid) as User | undefined;
+    return fresh?.face_verification;
+  };
+
+  const mainPhotoChangeConsequence = (newPhotos: string[], fv: User["face_verification"]): MainPhotoChangeConsequence => {
+    if (!isMainPhotoChange(newPhotos)) return 'none';
+    const status = deriveVerificationStatus(fv);
+    if (status === 'approved') return 'revokes_approval';
+    if (status === 'awaiting_review') return 'cancels_pending_review';
+    return 'none';
+  };
 
   const updateUserPhotos = async (s: string[]) => {
     if (!auth?.uid) {
@@ -71,13 +103,28 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
 
     const userId = auth.uid;
     const deletePicRef = doc(db, `deletePicQueue/${userId}`);
+    // Independently re-derived here rather than trusted from whatever
+    // requestSave decided — this is the function that actually constructs
+    // the write, so it's the one place that must never act on stale data,
+    // regardless of what triggered the call.
+    const freshFv = await getLatestFaceVerification();
+    const consequence = mainPhotoChangeConsequence(s, freshFv);
 
     try {
       await updateUserProfile("users", userId, async () => {
         await fetchUserPhotos().catch(e => console.error(e));
         refetchUserData();
         setIsUpdating(false);
-      }, { photos: s, is_approved: false });
+      }, {
+        photos: s,
+        ...(consequence === 'revokes_approval' ? {
+          is_approved: false,
+          face_verification: { ...freshFv, status: 'revoked' },
+        } : {}),
+        ...(consequence === 'cancels_pending_review' ? {
+          face_verification: null,
+        } : {}),
+      });
 
       const existingDeleteRequest = await getDoc(deletePicRef);
       if (!existingDeleteRequest.exists()) {
@@ -87,8 +134,27 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
       }
 
     } catch (error) {
+      // Previously left `isUpdating` stuck true forever on any failure (e.g.
+      // Firestore rejecting an oversized payload) — the spinner would never
+      // stop and the user got no indication anything had gone wrong.
       console.error("Error updating photos or queuing deletion:", error);
+      setIsUpdating(false);
+      toast.error("Couldn't save your photos — please try again.");
     }
+  };
+
+  const requestSave = async () => {
+    if (mutatedPhoto.length < 2) {
+      toast.error("A minumum of 2 images is required");
+      return;
+    }
+    const freshFv = await getLatestFaceVerification();
+    const consequence = mainPhotoChangeConsequence(mutatedPhoto, freshFv);
+    if (consequence !== 'none') {
+      setPendingConsequence(consequence);
+      return;
+    }
+    finalizePhotos();
   };
 
   useEffect(() => { fetchUserPhotos().catch(err => console.log("Error occurred while fetching photos: ", err)) }, [])
@@ -101,7 +167,10 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
   const uploadImage = async (file: File): Promise<string> => {
     try {
       const storage = getStorage();
-      const storageRef = ref(storage, `tests/${auth}/profile_pictures/${file.name}`);
+      // Per-user folder — this used to interpolate the whole auth object
+      // (`${auth}` → the literal string "[object Object]"), so every user's
+      // uploads collided in one shared, un-scoped folder.
+      const storageRef = ref(storage, `users/${auth?.uid}/profile_pictures/${Date.now()}_${file.name}`);
       await uploadBytes(storageRef, file);
       return await getDownloadURL(storageRef);
     } catch (error) {
@@ -112,14 +181,41 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    // Reset now so picking the same file again still fires a change event.
+    event.target.value = '';
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setMutatedPhoto((prev) => [...prev, reader.result as string]);
-        setFileMap((prev) => new Map(prev).set(prev.size, file));
+        const dataUri = reader.result as string;
+        setMutatedPhoto((prev) =>
+          replacingIndex !== null && replacingIndex < prev.length
+            ? prev.map((p, i) => (i === replacingIndex ? dataUri : p))
+            : [...prev, dataUri]
+        );
+        setFileMap((prev) => new Map(prev).set(dataUri, file));
+        setReplacingIndex(null);
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  // Opens the picker to replace an existing slot's photo in place — used by
+  // "Re-upload" so the old photo stays put until a new one is actually
+  // chosen, instead of being deleted immediately and the replacement then
+  // landing at the end of the list as a new slot.
+  const startReplacePhoto = (index: number) => {
+    setReplacingIndex(index);
+    setPhotoModalShowing('hidden');
+    handleButtonClick();
+  };
+
+  // Opens the picker to add a new photo into a currently-empty slot — clears
+  // any stale replace-intent (e.g. a previous "Re-upload" whose file picker
+  // was cancelled) so this add can't be mistaken for that replacement.
+  const startAddPhoto = () => {
+    setReplacingIndex(null);
+    setPhotoModalShowing('hidden');
+    handleButtonClick();
   };
 
   const handleButtonClick = () => {
@@ -128,34 +224,42 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
 
   const finalizePhotos = async () => {
     setIsUpdating(true)
-    const newMutatedPhotos = await Promise.all(
-      mutatedPhoto.map(async (photo, index) => {
-        if (!photo.startsWith("https://")) {
-          const file = fileMap.get(index);
-          if (file) {
-            return await uploadImage(file);
+    try {
+      const newMutatedPhotos = await Promise.all(
+        mutatedPhoto.map(async (photo) => {
+          if (!photo.startsWith("https://")) {
+            const file = fileMap.get(photo);
+            if (file) {
+              return await uploadImage(file);
+            }
           }
-        }
-        return photo;
-      })
-    );
-    updateUserPhotos(newMutatedPhotos);
+          return photo;
+        })
+      );
+      await updateUserPhotos(newMutatedPhotos);
+    } catch (error) {
+      // Covers an upload failure specifically — updateUserPhotos handles its
+      // own failure (and its own spinner reset) internally.
+      console.error("Error uploading photos:", error);
+      toast.error("Couldn't upload your photos — please try again.");
+      setIsUpdating(false);
+    }
   };
 
   return (
     <>
-    <PhotoModal showing={photoModalShowing === 'photo-one'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[0]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => {setPhotoModalShowing('hidden'); handleButtonClick()}}/>
-    <PhotoModal showing={photoModalShowing === 'photo-two'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[1]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => {setPhotoModalShowing('hidden'); handleButtonClick()}}/>
-    <PhotoModal showing={photoModalShowing === 'photo-three'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[2]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => {setPhotoModalShowing('hidden'); handleButtonClick()}}/>
-    <PhotoModal showing={photoModalShowing === 'photo-four'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[3]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => {setPhotoModalShowing('hidden'); handleButtonClick()}}/>
-    <PhotoModal showing={photoModalShowing === 'photo-five'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[4]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => {setPhotoModalShowing('hidden'); handleButtonClick()}}/>
-    <PhotoModal showing={photoModalShowing === 'photo-six'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[5]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => {setPhotoModalShowing('hidden'); handleButtonClick()}}/>
-    <UploadPhotoModal showing={photoModalShowing === 'photo-one-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={() => {handleButtonClick(); setPhotoModalShowing('hidden')}}/>
-    <UploadPhotoModal showing={photoModalShowing === 'photo-two-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={() => {handleButtonClick(); setPhotoModalShowing('hidden')}}/>
-    <UploadPhotoModal showing={photoModalShowing === 'photo-three-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={() => {handleButtonClick(); setPhotoModalShowing('hidden')}}/>
-    <UploadPhotoModal showing={photoModalShowing === 'photo-four-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={() => {handleButtonClick(); setPhotoModalShowing('hidden')}}/>
-    <UploadPhotoModal showing={photoModalShowing === 'photo-five-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={() => {handleButtonClick(); setPhotoModalShowing('hidden')}}/>
-    <UploadPhotoModal showing={photoModalShowing === 'photo-six-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={() => {handleButtonClick(); setPhotoModalShowing('hidden')}}/>
+    <PhotoModal showing={photoModalShowing === 'photo-one'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[0]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => startReplacePhoto(0)}/>
+    <PhotoModal showing={photoModalShowing === 'photo-two'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[1]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => startReplacePhoto(1)}/>
+    <PhotoModal showing={photoModalShowing === 'photo-three'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[2]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => startReplacePhoto(2)}/>
+    <PhotoModal showing={photoModalShowing === 'photo-four'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[3]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => startReplacePhoto(3)}/>
+    <PhotoModal showing={photoModalShowing === 'photo-five'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[4]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => startReplacePhoto(4)}/>
+    <PhotoModal showing={photoModalShowing === 'photo-six'} onModalClose={() => setPhotoModalShowing('hidden')} deleteImage={() => { const updatedPhotos = mutatedPhoto.filter(item => item !== mutatedPhoto[5]); setMutatedPhoto(updatedPhotos); setPhotoModalShowing('hidden')}} changeImage={() => startReplacePhoto(5)}/>
+    <UploadPhotoModal showing={photoModalShowing === 'photo-one-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={startAddPhoto}/>
+    <UploadPhotoModal showing={photoModalShowing === 'photo-two-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={startAddPhoto}/>
+    <UploadPhotoModal showing={photoModalShowing === 'photo-three-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={startAddPhoto}/>
+    <UploadPhotoModal showing={photoModalShowing === 'photo-four-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={startAddPhoto}/>
+    <UploadPhotoModal showing={photoModalShowing === 'photo-five-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={startAddPhoto}/>
+    <UploadPhotoModal showing={photoModalShowing === 'photo-six-first-upload'} onModalClose={() => setPhotoModalShowing('hidden')} changeImage={startAddPhoto}/>
 
 
       <section className="bg-[#F6F6F6] py-[1.2rem] px-[1.6rem] flex flex-col">
@@ -168,8 +272,44 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
           <Card photo={mutatedPhoto[4]} index={5} colspan="col-span-2" height="h-[88px]" onPress={() => { if (mutatedPhoto[4]) { setPhotoModalShowing('photo-five') } else { setPhotoModalShowing('photo-five-first-upload') } }} onDelete={() => { const updatedPhotos = photo.filter(item => item !== photo[4]); updateUserPhotos(updatedPhotos); }} />
           <Card photo={mutatedPhoto[5]} index={6} colspan="col-span-2" height="h-[88px]" onPress={() => { if (mutatedPhoto[5]) { setPhotoModalShowing('photo-six') } else { setPhotoModalShowing('photo-six-first-upload') } }} />
         </div>
-        {JSON.stringify(mutatedPhoto) !== JSON.stringify(photo) && <button className="text-center modal__body__header__save-button mt-4 flex justify-center" onClick={() => { if (mutatedPhoto.length < 2) { toast.error("A minumum of 2 images is required") } else { finalizePhotos() } }}>{!isUpdating ? 'Save' : <Oval color="#485FE6" secondaryColor="#485FE6" width={20} height={20} />}</button>}
+        {JSON.stringify(mutatedPhoto) !== JSON.stringify(photo) && <button className="text-center modal__body__header__save-button mt-4 flex justify-center" onClick={requestSave}>{!isUpdating ? 'Save' : <Oval color="#485FE6" secondaryColor="#485FE6" width={20} height={20} />}</button>}
       </section>
+      {pendingConsequence !== 'none' && (
+        <Modal>
+          <div className="bg-white w-[47rem] p-8 rounded-2xl text-center flex flex-col relative gap-y-6">
+            <h1 className="text-[2.4rem] font-bold">
+              {pendingConsequence === 'revokes_approval' ? 'Change your main photo?' : 'Cancel your pending review?'}
+            </h1>
+            <p className="text-[1.6rem] text-[#8A8A8E] leading-[130%]">
+              {pendingConsequence === 'revokes_approval' ? (
+                <>
+                  Your verified badge was approved against your current main photo. Changing it
+                  will <span className="font-bold text-[#121212]">remove your verified badge</span> and
+                  stop liking and messaging until a reviewer approves your profile again.
+                </>
+              ) : (
+                <>
+                  Your selfie is still under review against your current main photo. Changing it
+                  now will <span className="font-bold text-[#121212]">cancel that review</span> —
+                  you'll need to retake your selfie to verify again.
+                </>
+              )}
+            </p>
+            <div className="flex gap-x-4">
+              <button
+                className="bg-[#F6F6F6] py-[1.3rem] w-full text-[1.6rem] font-bold text-center rounded-lg hover:bg-[#ececec] transition-all duration-300 cursor-pointer"
+                onClick={() => setPendingConsequence('none')}>
+                Cancel
+              </button>
+              <button
+                className="bg-gradient-to-br from-orange-400 to-red text-white py-[1.3rem] w-full text-[1.6rem] font-bold text-center rounded-lg hover:opacity-80 transition-all duration-300 cursor-pointer"
+                onClick={() => { setPendingConsequence('none'); finalizePhotos(); }}>
+                Change photo
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </>
   );
 };

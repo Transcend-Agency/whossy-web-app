@@ -1,14 +1,36 @@
 import { create } from 'zustand';
-import { collection, doc, getDoc, getDocs, query, where, or } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, onSnapshot, query, where, or } from 'firebase/firestore';
 import { db } from '@/firebase'; // Adjust the path to your Firebase config
 import { Match } from '@/types/likingAndMatching';
 import { User } from '@/types/user';
 import useDashboardStore from '@/store/useDashboardStore';
 import {useAuthStore} from "@/store/UserId.tsx";
+import { fetchHiddenUserIds } from "@/utils/blocking";
 
 export interface PopulatedMatchData extends Match {
     matchedUserData: User | null; // Ensure this matches your User type
 }
+
+/**
+ * Calls `onChange` whenever a match involving `userId` is added or removed
+ * (not for the initial load). The server writes a match from the two likes a
+ * moment after the second one, so the lists need telling.
+ */
+export const watchMatches = (userId: string, onChange: () => void) => {
+    let initial = true;
+    const matchesQuery = query(
+        collection(db, 'matches'),
+        or(where('user1_id', '==', userId), where('user2_id', '==', userId))
+    );
+    return onSnapshot(
+        matchesQuery,
+        () => {
+            if (initial) { initial = false; return; }
+            onChange();
+        },
+        (error) => console.error('Match watcher failed:', error)
+    );
+};
 
 // Two users are "connected" when a `matches` doc exists containing both UIDs,
 // in either user1_id/user2_id slot.
@@ -20,13 +42,15 @@ export const isConnectedTo = (matches: PopulatedMatchData[], otherUid?: string |
 interface MatchStore {
     matches: PopulatedMatchData[];
     loading: boolean;
-    fetchMatches: (userId: string) => Promise<void>; // Method to fetch matches
+    // `silent` refetches without flipping `loading`, so a live update does not
+    // blank the list while it reloads.
+    fetchMatches: (userId: string, silent?: boolean) => Promise<void>;
 }
 
 export const useMatchStore = create<MatchStore>((set) => ({
     matches: [],
     loading: true,
-    fetchMatches: async (userId: string) => {
+    fetchMatches: async (userId: string, silent = false) => {
         if (!userId) {
             console.error("Invalid userId provided");
             return;
@@ -34,7 +58,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
 
 
         try {
-            set({ loading: true });
+            if (!silent) set({ loading: true });
 
             const { setBlockedUsers } = useDashboardStore.getState();
             const { user } = useAuthStore.getState();
@@ -45,10 +69,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
                         return;
                     }
 
-                    const userRef = doc(db, "users", user?.uid as string);
-                    const userDoc = await getDoc(userRef);
-                    const userData = userDoc.exists() ? userDoc.data() : {};
-                    const blockedIds = userData.blockedIds || [];
+                    const blockedIds = await fetchHiddenUserIds(user.uid);
                     setBlockedUsers(blockedIds);
                     return blockedIds;
                 } catch (error) {
@@ -57,7 +78,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
                 }
             };
 
-            const blockedUsers = await fetchBlockedUsers();
+            const blockedUsers = (await fetchBlockedUsers()) ?? [];
 
             // Fetch matches
             const matchesRef = collection(db, 'matches');

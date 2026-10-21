@@ -1,6 +1,6 @@
 import { db } from '@/firebase';
 import { useAuthStore } from '@/store/UserId';
-import {collection, getDocs } from 'firebase/firestore';
+import {collection, onSnapshot } from 'firebase/firestore';
 import { AnimatePresence } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
 import { IoIosNotifications } from "react-icons/io";
@@ -10,6 +10,7 @@ import DashboardNavIcon from './DashboardNavIcon';
 import ShortcutControls from './ShortcutControls';
 import MatchesSide from "@/components/dashboard/MatchesSide.tsx";
 import { useVerificationStatusBanner } from './VerificationStatusBanner';
+import { pressable } from '@/utils/pressable';
 
 type Notification = {
     id: string;
@@ -30,27 +31,23 @@ const Dashboard: React.FC = () => {
     const { banner: verificationBanner, visible: bannerVisible } = useVerificationStatusBanner();
 
     useEffect(() => {
-        fetchNotifications()
-    }, []);
-
-    const fetchNotifications = async () => {
-        if (!auth?.uid) {
-            console.error("User is not authenticated");
-            return;
-        }
+        if (!auth?.uid) return;
+        // Live count — a one-time fetch would miss a notification that
+        // arrives while the dashboard is already open.
         const notificationsRef = collection(db, `users/${auth.uid}/notifications`);
-        try {
-            const querySnapshot = await getDocs(notificationsRef);
-            const notifications = querySnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })) as Notification[];
-            const unreadNotifications = notifications.filter(notifications => notifications.seen == false).length
-            setUnseenNotificationsCount(unreadNotifications);
-        } catch (error) {
-            console.error("Error fetching notifications:", error);
-        }
-    };
+        const unSub = onSnapshot(
+            notificationsRef,
+            (snapshot) => {
+                const notifications = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                })) as Notification[];
+                setUnseenNotificationsCount(notifications.filter(n => n.seen == false).length);
+            },
+            (error) => console.error("Error fetching notifications:", error)
+        );
+        return () => unSub();
+    }, [auth?.uid]);
 
     return <>
         <div className='dashboard-layout hidden lg:block'>
@@ -72,7 +69,7 @@ const Dashboard: React.FC = () => {
                         <DashboardNavIcon active={pathname === '/dashboard/chat'} icon='chat' />
                         <DashboardNavIcon active={pathname === '/dashboard/user-profile'} icon='user-profile' />
                     </div>
-                    <div className='dashboard-layout__top-nav__control-icons-container relative nav-notification' onClick={() => navigate('/dashboard/notification')}>
+                    <div className='dashboard-layout__top-nav__control-icons-container relative nav-notification' {...pressable(() => navigate('/dashboard/notification'))}>
                         <IoIosNotifications className={`size-[2.8rem] hover:scale-[1.02] active:scale-[0.95] cursor-pointer ${pathname === '/dashboard/notification' ? 'text-[#F2243E]' : 'text-[#8A8A8E]'}`} />
                         {unseenNotificationsCount > 0 &&
                             <div className='bg-[#ff0000]/70 absolute font-medium size-[1.6rem] text-[1.3rem] rounded-full right-[1px] text-white'>

@@ -1,7 +1,10 @@
-import {collection, doc, getDoc, getDocs, orderBy, query, setDoc, Timestamp} from "firebase/firestore";
+import {collection, doc, getDoc, getDocs, orderBy, query, setDoc} from "firebase/firestore";
 import { db } from "@/firebase";
 import {checkIfUserBlocked} from "@/components/dashboard/SelectedChat.tsx";
 import {Chat, Messages} from "@/types/chat.ts";
+import {User} from "@/types/user.ts";
+import {isChatWindowActive} from "@/utils/chatCreditState";
+import {NavigateFunction} from "react-router-dom";
 
 export const createOrFetchChat = async ( currentUserId: string,  recipientUserId: string, updateChatId: (id: string) => void): Promise<void> => {
 	const newChatId = [currentUserId, recipientUserId].sort().join('_');
@@ -14,21 +17,17 @@ export const createOrFetchChat = async ( currentUserId: string,  recipientUserId
 		const recipientBlockedCurrentUser = await checkIfUserBlocked(recipientUserId, currentUserId);
 		const userBlockedStatus = [currentUserBlockedRecipient, recipientBlockedCurrentUser];
 
-		const getExpirationTime = () => {
-			const oneWeekInMs = 7 * 24 * 60 * 60 * 1000;
-			return Timestamp.fromMillis(Date.now() + oneWeekInMs);
-		};
-
+		// Only the empty shell. Whether the chat is unlocked, and until when,
+		// is decided by the initiateChat Cloud Function; the rules reject a
+		// client that tries to set any of it.
 		await setDoc(chatDocRef, {
 			last_message: null,
 			last_message_id: null,
 			last_sender_id: null,
 			user_blocked: userBlockedStatus,
-			participants: [currentUserId, recipientUserId],
+			participants: [currentUserId, recipientUserId].sort(),
 			status: 'inactive',
 			last_message_timestamp: null,
-			unlock_time: Timestamp.now(),
-			expiration_time: getExpirationTime(),
 			is_unlocked: false,
 		});
 	}
@@ -42,6 +41,29 @@ export const createOrFetchChat = async ( currentUserId: string,  recipientUserId
 	// 	});
 	// 	setChatId(chatId)
 	// }
+};
+
+/**
+ * Opens the chat screen with `recipient`, creating the empty chat shell if
+ * needed. Opening is never gated on premium or credits: the chat screen
+ * itself blocks sending until the user has either (or the other side
+ * started the chat), so a user with neither can still read and be prompted.
+ * The screen reads chatId/recipientUser from router state, so every entry
+ * point has to go through here rather than navigate to the URL alone.
+ */
+export const openChatWith = async (
+	currentUserId: string,
+	recipient: User,
+	setChatId: (id: string) => void,
+	navigate: NavigateFunction,
+): Promise<void> => {
+	const chatId = [currentUserId, recipient.uid].sort().join('_');
+	await createOrFetchChat(currentUserId, recipient.uid as string, setChatId);
+	const chatSnap = await getDoc(doc(db, "chats", chatId));
+	const chat = chatSnap.exists() ? chatSnap.data() as Chat : null;
+	navigate(`/dashboard/chat?recipient-user-id=${recipient.uid}`, {
+		state: {chatId, recipientUser: recipient, chatUnlocked: isChatWindowActive(chat)},
+	});
 };
 
 export const getLastValidMessage = async (chat: Chat, currentUserUid: string) => {

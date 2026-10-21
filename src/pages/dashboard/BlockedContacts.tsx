@@ -4,6 +4,9 @@ import { arrayRemove, getDoc, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/firebase";
 import { useAuthStore } from "@/store/UserId.tsx";
 import toast from "react-hot-toast";
+import ConfirmModal from '@/components/ui/ConfirmModal';
+import { useMatchStore } from "@/store/Matches";
+import useProfileFetcher from "@/hooks/useProfileFetcher";
 
 interface BlockedContactsProps {
 	activePage: boolean;
@@ -18,8 +21,11 @@ interface BlockedUser {
 
 const BlockedContacts: React.FC<BlockedContactsProps> = ({ activePage, closePage }) => {
 	const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
+	const [pendingUnblock, setPendingUnblock] = useState<BlockedUser | null>(null);
 	const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
 	const { user } = useAuthStore();
+	const { fetchMatches } = useMatchStore();
+	const { refreshProfiles } = useProfileFetcher();
 
 	// Unblock a user
 	const handleUnblock = async (blockedUser: BlockedUser) => {
@@ -36,8 +42,13 @@ const BlockedContacts: React.FC<BlockedContactsProps> = ({ activePage, closePage
 			// Update UI by removing the unblocked user from the state
 			setBlockedUsers(prevUsers => prevUsers.filter(user => user.id !== blockedUser.id));
 			toast.success(`${blockedUser.firstName} has been unblocked successfully.`);
+
+			// Bring them back into the match panel and Explore without a reload.
+			fetchMatches(user.uid, true);
+			refreshProfiles().catch(e => console.error("Couldn't refresh profiles:", e));
 		} catch (error) {
 			console.error("Error unblocking user:", error);
+			toast.error("Couldn't unblock this user. Please try again.");
 		} finally {
 			setUnblockingUserId(null);
 		}
@@ -116,7 +127,7 @@ const BlockedContacts: React.FC<BlockedContactsProps> = ({ activePage, closePage
 										</div>
 									) : (
 										<button
-											onClick={() => handleUnblock(blockedUser)}
+											onClick={() => setPendingUnblock(blockedUser)}
 											className="bg-red text-[1.35rem] text-center cursor-pointer text-white border-none w-[75px] h-[30px] rounded-md">
 											Unblock
 										</button>
@@ -133,6 +144,15 @@ const BlockedContacts: React.FC<BlockedContactsProps> = ({ activePage, closePage
 					)}
 				</div>
 			</div>
+			<ConfirmModal
+				show={pendingUnblock !== null}
+				tone="primary"
+				title={`Unblock ${pendingUnblock?.firstName ?? ''}?`}
+				message="They'll be able to appear in your discovery again and you can chat with them."
+				confirmLabel="Unblock"
+				onCancel={() => setPendingUnblock(null)}
+				onConfirm={() => { const target = pendingUnblock; setPendingUnblock(null); if (target) handleUnblock(target); }}
+			/>
 		</motion.div>
 	);
 };

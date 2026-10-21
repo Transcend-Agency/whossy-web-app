@@ -5,14 +5,13 @@ import OnboardingButton from "./OnboardingButton";
 import OnboardingPage from "./OnboardingPage";
 import toast from "react-hot-toast";
 import { OnboardingProps } from "@/types/onboarding.ts";
+import { birthDateError } from "@/utils/birthDate";
 
 const HowOldAreYou: React.FC<OnboardingProps> = ({ advance, goBack }) => {
   const [birth_date, setBirthDate] = useState({ day: "", month: "", year: "" });
   const [active, setActive] = useState<boolean | null | undefined>(null);
   const { updateOnboardingData, "onboarding-data": data } =
     useOnboardingStore();
-  const currentDate = new Date();
-  const currentYear = currentDate.getFullYear();
 
   const [toastActive, setToastActive] = useState(false); // To track toast state
 
@@ -27,18 +26,24 @@ const HowOldAreYou: React.FC<OnboardingProps> = ({ advance, goBack }) => {
   };
 
   useEffect(() => {
-    if (
+    const entered =
       birth_date.day.length > 0 &&
       birth_date.month.length > 0 &&
-      birth_date.year.length === 4
-    ) {
-      if (parseInt(birth_date.year) <= currentYear - 18) {
-        setActive(true);
-      } else {
-        showErrorToast("You must be 18 years or above");
-      }
-    } else {
+      birth_date.year.length === 4;
+
+    if (!entered) {
       setActive(null);
+      return;
+    }
+
+    const error = birthDateError(birth_date);
+    if (error) {
+      // null is what blocks Continue; leaving the previous value in place let
+      // someone enter a valid date, change it to a minor's and carry on.
+      setActive(null);
+      showErrorToast(error);
+    } else {
+      setActive(true);
     }
   }, [birth_date]);
 
@@ -51,7 +56,7 @@ const HowOldAreYou: React.FC<OnboardingProps> = ({ advance, goBack }) => {
       // @ts-expect-error legacy type mismatch
       const the_date = new Date(data["date-of-birth"]);
       setBirthDate({
-        day: (the_date.getDate() - 1).toString(),
+        day: the_date.getDate().toString(),
         month: (the_date.getMonth() + 1).toString(),
         year: the_date.getFullYear().toString(),
       });
@@ -108,9 +113,12 @@ const HowOldAreYou: React.FC<OnboardingProps> = ({ advance, goBack }) => {
           placeholder="YYYY"
           maxLength={4}
           value={birth_date.year}
-          onChange={(e) =>
-            setBirthDate((prev) => ({ ...prev, year: e.target.value }))
-          }
+          onChange={(e) => {
+            const value = e.target.value;
+            if (/^\d{0,4}$/.test(value)) {
+              setBirthDate((prev) => ({ ...prev, year: value }));
+            }
+          }}
         />
       </section>
       <div className="onboarding-page__section-one__buttons">

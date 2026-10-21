@@ -1,6 +1,7 @@
 import { AnimatePresence, motion, useCycle } from "framer-motion";
 import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { pressable } from '@/utils/pressable';
 
 const Navbar = () => {
   const [mobileNav, toggleMobileNav] = useCycle(false, true);
@@ -16,7 +17,7 @@ const Navbar = () => {
       {/* MOBILE HEADER */}
       <header className="absolute top-0 z-50 lg:hidden bg-red text-white max-w-[10000px] rounded-[8px] m-[28px] overflow-hidden">
         <div className="container flex items-center justify-between py-[12px] px-[12px]">
-          <div onClick={handleLogoClick} className="flex items-center mr-[80px]">
+          <div {...pressable(handleLogoClick)} className="flex items-center mr-[80px]">
             <img src={"/assets/icons/logo.svg"} alt="Logo" className="mr-[8px]" />
             <p className="text-[16px] font-black">whossy</p>
           </div>
@@ -94,7 +95,7 @@ const Navbar = () => {
       {/* DESKTOP HEADER */}
       <header className="relative z-50 bg-red text-white max-w-[35rem] m-[4rem] rounded-[0.8rem] hidden lg:block">
         <div className="container flex justify-between items-center py-[1.2rem] px-[2.4rem]">
-          <div onClick={handleLogoClick} className="flex items-center">
+          <div {...pressable(handleLogoClick)} className="flex items-center">
             <img src={"/assets/icons/logo.svg"} alt="Logo" className="mr-[0.8rem]" />
             <p className="text-[1.6rem] font-black">whossy</p>
           </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { pressable } from '@/utils/pressable';
 
 type AlternateSignupOptionsProps = {
     text: string
@@ -15,8 +16,8 @@ const AlternateSignupOptions: React.FC<AlternateSignupOptionsProps> = ({ text = 
             <div></div>
         </div>
         <div className='auth-page__modal__alternate-options__container'>
-            <div onClick={google} className='auth-page__modal__alternate-options__item'><img src="/assets/icons/google.svg" alt={`google signup`} /></div>
-            <div onClick={phone} className='auth-page__modal__alternate-options__item'><img src="/assets/icons/phone.svg" alt={`phone signup`} /></div>
+            <div {...pressable(google)} className='auth-page__modal__alternate-options__item'><img src="/assets/icons/google.svg" alt={`google signup`} /></div>
+            <div {...pressable(phone)} className='auth-page__modal__alternate-options__item'><img src="/assets/icons/phone.svg" alt={`phone signup`} /></div>
         </div>
     </div>
 }

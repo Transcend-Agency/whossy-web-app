@@ -4,16 +4,17 @@ import SettingsToggleItem from "../../components/dashboard/SettingsToggleItem";
 import ProfileSettingsGroup from "@/components/dashboard/ProfileSettingsGroup";
 import SettingsModal from "@/components/dashboard/SettingsModal";
 import { useNavigate } from "react-router-dom";
-import {auth } from "@/firebase";
+import {auth, functions, googleProvider } from "@/firebase";
 import { useAuthStore } from "@/store/UserId";
 import { updateUserProfile } from "@/hooks/useUser";
 import HelpModal from "@/components/dashboard/HelpModal";
 import BlockedContacts from "@/pages/dashboard/BlockedContacts.tsx";
-import { deleteUser, EmailAuthProvider, getAuth, reauthenticateWithCredential } from "firebase/auth";
+import { EmailAuthProvider, getAuth, reauthenticateWithCredential, reauthenticateWithPopup } from "firebase/auth";
+import { httpsCallable } from "firebase/functions";
 import toast from "react-hot-toast";
-import { deleteDoc, doc, getFirestore } from "firebase/firestore";
 import DeleteAccountModal from "@/components/dashboard/DeleteAccountModal.tsx";
 import {FaceVerificationModal} from "@/components/dashboard/FaceVerificationModal.tsx";
+import { pressable } from '@/utils/pressable';
 
 interface ProfileSettingsProps {
     activePage: boolean;
@@ -45,9 +46,14 @@ const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, user
         });
 
         try {
-            const updatedSettings = { ...profileSettings, [settingName]: value };
+            // Most accounts have no incoming_messages setting, so it arrives
+            // here as undefined, which Firestore refuses to write.
+            const updatedSettings = Object.fromEntries(
+                Object.entries({ ...profileSettings, [settingName]: value }).filter(([, v]) => v !== undefined)
+            );
+            // Only user_settings: `currentUser` is a login-time snapshot, and
+            // writing it back reverts server-managed fields like credit_balance.
             await updateUserProfile("users", user?.uid as string, prefetchUserData, {
-                ...currentUser,
                 user_settings: updatedSettings,
             });
         } catch (err) {
@@ -69,68 +75,50 @@ const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, user
         })
     }
 
-    const deleteAuthUser = async (password: string) => {
-        const auth = getAuth();
-        const user = auth.currentUser;
+    // Confirms it is really the account owner before anything is deleted.
+    // The server refuses a deletion unless the sign-in is recent, so each
+    // provider proves itself the way it signed in.
+    const reauthenticate = async (password: string) => {
+        const user = getAuth().currentUser;
+        if (!user) throw new Error("No user is logged in.");
 
-        if (!user || !user.email) {
-            toast.error("No authenticated user found.");
-            console.error("No authenticated user found.");
-            return;
+        if (currentUser?.auth_provider === 'local') {
+            await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email as string, password));
+        } else if (currentUser?.auth_provider === 'google') {
+            await reauthenticateWithPopup(user, googleProvider);
         }
-
-        try {
-            const credential = EmailAuthProvider.credential(user.email, password);
-            await reauthenticateWithCredential(user, credential);
-            console.log("User reauthenticated successfully.");
-
-            await deleteUser(user);
-            console.log("User deleted successfully.");
-
-        } catch (error: unknown) {
-            console.error("Error during reauthentication or deletion:", error);
-            if (error && typeof error === 'object' && 'code' in error && error.code === "auth/wrong-password") {
-                toast.error("Incorrect password. Please try again.");
-            } else {
-                toast.error("An error occurred while deleting the account.");
-            }
-        }
-    };
-
-    const deleteUserData = async (userId: string) => {
-        const db = getFirestore();
-        try {
-            const userDocRef = doc(db, "users", userId);
-            await deleteDoc(userDocRef);
-            console.log("User document deleted.");
-        } catch (error) {
-            console.error("Error deleting user data:", error);
-            toast.error("Failed to delete user data.");
-            throw error;
-        }
+        // Phone sign-ins cannot be re-confirmed in place; the server check
+        // below sends those users to sign in again if their session is old.
+        await user.getIdToken(true);
     };
 
     const deleteAccount = async (password: string) => {
-        const auth = getAuth();
-        const user = auth.currentUser;
-
-        if (!user) {
-            console.error("No authenticated user found.");
-            toast.error("No user is logged in.");
+        try {
+            await reauthenticate(password);
+        } catch (error: unknown) {
+            const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+            toast.error(code === "auth/wrong-password" || code === "auth/invalid-credential"
+                ? "Incorrect password. Please try again."
+                : "We couldn't confirm it's you. Please try again.");
             return;
         }
 
         try {
-            await deleteUserData(user.uid);
-            await deleteAuthUser(password);
-            clearCookiesAndStorage();
-            console.log("User account deleted successfully.");
-            toast.success("User account deleted successfully.");
-            navigate("/auth")
+            await httpsCallable(functions, 'deleteAccount')();
         } catch (error) {
             console.error("Error during account deletion:", error);
-            toast.error("Failed to delete user account.");
+            const message = error instanceof Error ? error.message : String(error);
+            toast.error(message.includes("RECENT_LOGIN_REQUIRED")
+                ? "For your security, log out, sign in again, then delete your account."
+                : "We couldn't delete your account. Nothing was removed; please try again.");
+            return;
         }
+
+        await auth.signOut().catch(() => undefined);
+        reset();
+        clearCookiesAndStorage();
+        toast.success("Your account has been deleted.");
+        navigate("/auth")
     };
 
     const clearCookiesAndStorage = () => {
@@ -148,7 +136,7 @@ const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, user
             <SettingsModal show={showModal == 'logout'} onCloseModal={() => setShowModal('hidden')} onLogout={logout}/>
             <HelpModal show={openModal} onCloseModal={() => setOpenModal(false)} />
             <DeleteAccountModal show={deleteModal} onCloseModal={() => setDeleteModal(false)} onDeleteAccount={deleteAccount} passwordRequired={currentUser?.auth_provider === 'local'} />
-            <FaceVerificationModal show={openFaceVModal} onCloseModal={() => setOpenFaceVModal(false)} refetchUserData={prefetchUserData} />
+            <FaceVerificationModal show={openFaceVModal} onCloseModal={() => setOpenFaceVModal(false)} refetchUserData={prefetchUserData} mainPhoto={currentUser?.photos?.[0]} />
 
             <motion.div animate={activePage ? { x: "-100%", opacity: 1 } : { x: 0 }} transition={{ duration: 0.25 }} className="dashboard-layout__main-app__body__secondary-page edit-profile settings-page z-20">
                 <div className="settings-page__container">
@@ -193,7 +181,7 @@ const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, user
                             updateUserSetting('read_receipts', updatedValue);
                         }} />
 
-                        <SettingsToggleItem title="Online status" subtext="Users won’t be able to see when you’re online." isActive={profileSettings.online_status as boolean} onButtonToggle={() => {
+                        <SettingsToggleItem title="Show when I’m online" subtext="Other users can see when you’re online. Turn off to hide it." isActive={profileSettings.online_status as boolean} onButtonToggle={() => {
                             const updatedValue = !profileSettings.online_status;
                             setProfileSettings({
                                 ...profileSettings,
@@ -222,10 +210,7 @@ const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, user
                         <img src="/assets/icons/logout.svg" alt="" />
                         <p>Logout</p>
                     </div>
-                    <div onClick={() => {
-                        setDeleteModal(true)
-                        console.log(deleteModal)
-                    }} className="flex mt-8 gap-x-2 justify-center cursor-pointer px-[2.8rem] py-[1.6rem] bg-[#F6F6F6] text-[#F2243E] hover:bg-[#ececec] items-center">
+                    <div {...pressable(() => setDeleteModal(true))} className="flex mt-8 gap-x-2 justify-center cursor-pointer px-[2.8rem] py-[1.6rem] bg-[#F6F6F6] text-[#F2243E] hover:bg-[#ececec] items-center">
                         <img className={`size-[20px]`} src="/assets/icons/danger.svg" alt=""/>
                         <p>Delete Account</p>
                     </div>
