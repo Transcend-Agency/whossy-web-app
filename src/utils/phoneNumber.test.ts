@@ -14,6 +14,18 @@ describe("withTypedDialCode", () => {
         expect(withTypedDialCode("+2348148836800")).toBe("+2348148836800")
     })
 
+    it("drops the local trunk zero once the number is complete", () => {
+        expect(withTypedDialCode("+23408148836800")).toBe("+2348148836800")
+    })
+
+    it("keeps the zero in Italian numbers", () => {
+        expect(withTypedDialCode("+390612345678")).toBe("+390612345678")
+    })
+
+    it("leaves a partly typed number alone", () => {
+        expect(withTypedDialCode("+2340814")).toBe("+2340814")
+    })
+
     it("leaves an empty field alone", () => {
         expect(withTypedDialCode(undefined)).toBeUndefined()
         expect(withTypedDialCode("")).toBe("")
