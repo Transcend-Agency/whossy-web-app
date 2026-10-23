@@ -364,6 +364,28 @@ service cloud.firestore {
       allow read, update, delete: if false;
     }
 
+    // ---- contactMessages/{id} ------------------------------------------
+    // The public site's contact form, so signed out is allowed. Write-only,
+    // with the shape and sizes pinned so it cannot be used as free storage.
+    // Limits match src/utils/contactForm.ts (the client also requires 10+
+    // message characters; not enforced here as the two count emoji
+    // differently).
+    match /contactMessages/{messageId} {
+      allow create: if request.resource.data.keys().hasOnly(['name', 'email', 'message', 'createdAt'])
+        && request.resource.data.keys().hasAll(['name', 'email', 'message', 'createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.email.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$')
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 5000
+        && request.resource.data.createdAt == request.time;
+      allow read, update, delete: if false;
+    }
+
     // ---- deletePicQueue/{uid} ------------------------------------------
     // A per-user flag asking the server to remove photos no longer on the
     // profile. Carries nothing but the uid.
