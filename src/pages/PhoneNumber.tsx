@@ -19,6 +19,7 @@ import { auth, db } from "@/firebase"
 import useAccountSetupFormStore from "../store/AccountSetup"
 import usePhoneNumberStore from "../store/PhoneNumberSignIn"
 import { FormData } from "../types/auth"
+import { withTypedDialCode } from "@/utils/phoneNumber"
 
 
 interface PhoneNumberProps {
@@ -104,7 +105,7 @@ const FillInPhoneNumber: React.FC<PhoneNumberPageProps> = ({ advance, key }) => 
                     <Controller control={control} name={"phone_number"}
                         render={({ field: { onChange, onBlur, value, ref } }) => (
                             <>
-                                <PhoneInput ref={ref} international defaultCountry='US' placeholder="Phone Number" onChange={(value) => { if (value == undefined) onChange(''); onChange(value) }} onBlur={onBlur} value={value as string} className={`PhoneInput ${errors?.phone_number?.message && `PhoneInput--error`}`} />
+                                <PhoneInput ref={ref} international defaultCountry='US' placeholder="Phone Number" onChange={(value) => { if (value == undefined) onChange(''); onChange(withTypedDialCode(value)) }} onBlur={onBlur} value={value as string} className={`PhoneInput ${errors?.phone_number?.message && `PhoneInput--error`}`} />
                                 <div className='error-message-container'><motion.span animate={{ opacity: errors?.phone_number?.message ? 1 : 0, transition: { duration: 0.2 } }} className="error-message">{errors?.phone_number?.message as string}</motion.span></div>
                             </>
                         )}
