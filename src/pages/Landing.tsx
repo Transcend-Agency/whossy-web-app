@@ -7,6 +7,69 @@ import Footer from '../components/landing/Footer';
 import Navbar from '../components/landing/Navbar';
 import Marquee from 'react-fast-marquee';
 
+// The phone layout of the features: one card per feature, stacked. Sized
+// from the content and the screen width, never from the screen height, so a
+// tall phone cannot push a card wider than the screen.
+const MOBILE_FEATURES = [
+    {
+        title: 'Get Matched Faster',
+        body: 'Our smart algorithm connects you with compatible matches in no time, so you can spend less time searching and more time building real connections.',
+        image: '/assets/images/website/match.png',
+        alt: 'The Whossy match screen',
+    },
+    {
+        title: 'Find Your Match, Anywhere',
+        body: 'From Africa to anywhere in the world, explore connections that feel right. Discover profiles tailored to your preferences and start your story today.',
+        image: '/assets/images/website/chat.png',
+        alt: 'A Whossy chat',
+    },
+    {
+        title: 'Swipe, Explore, Connect',
+        body: 'Discover unique connections as you swipe through an international community. Explore profiles tailored to your preferences, and watch sparks fly with every match.',
+        image: '/assets/images/website/explore.png',
+        alt: 'The Whossy explore screen',
+    },
+    {
+        title: 'Speak Your Love Language',
+        body: 'Instant messaging that adapts to your style. Whether deep or playful, our chat helps you express yourself and truly connect, no matter where you are.',
+        image: '/assets/images/website/swipe.png',
+        alt: 'Swiping on Whossy',
+    },
+];
+
+const MobileWebsiteFeatures = () => (
+    <div className='lg:hidden w-full px-[24px] pt-[64px] space-y-[72px]'>
+        {MOBILE_FEATURES.map(({ title, body, image, alt }) => (
+            <motion.section
+                key={title}
+                initial={{ opacity: 0, y: 32 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{ duration: 0.6, ease: 'easeOut' }}
+                className='flex flex-col items-center text-center'
+            >
+                <h2 className='text-[22px] leading-[28px] font-bold'>{title}</h2>
+                <p className='text-gray text-[15px] leading-[22px] mt-[8px] max-w-[360px]'>{body}</p>
+
+                <svg className='mt-[12px]' width="24" height="51" viewBox="0 0 24 51" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M12 48V26.2989V1.78814e-07" stroke="#D9D9D9" strokeWidth="1.5" />
+                    <circle cx="12" cy="39" r="10" fill="#FEFEFE" stroke="#FF5C00" strokeWidth="4" />
+                    <circle cx="12" cy="39" r="6" fill="#FF5C00" />
+                </svg>
+
+                <img
+                    src={image}
+                    alt={alt}
+                    loading='lazy'
+                    width={917}
+                    height={1857}
+                    className='mt-[12px] w-auto h-auto max-w-[min(100%,340px)] max-h-[72svh] object-contain'
+                />
+            </motion.section>
+        ))}
+    </div>
+);
+
 const DesktopWebsiteFeatures = () => {
     gsap.registerPlugin(useGSAP);
     gsap.registerPlugin(ScrollTrigger);
@@ -58,8 +121,8 @@ const DesktopWebsiteFeatures = () => {
         }
     );
     return (
-        <div className=''>
-            <div className='w-screen h-[400dvh] relative features-section hidden lg:block mt-[50px]  '>
+        <div className='w-full'>
+            <div className='w-full h-[400dvh] relative features-section hidden lg:block mt-[50px]'>
                 <div className=' w-full sticky bottom-0 top-0 h-[100dvh] hidden lg:flex items-end justify-center'>
                     <div className='relative '>
                         <div className='lg:h-[94dvh] relative top-[8dvh] lg:aspect-[0.49] '>
@@ -140,137 +203,37 @@ const DesktopWebsiteFeatures = () => {
                 </div>
             </div>
 
-            <div className='block lg:hidden space-y-[8rem] pt-[20rem]'>
-                <div className="h-[90dvh] relative top-[10dvh] aspect-[0.49] px-[5rem] ">
-                    <div className="flex flex-col items-center justify-center bg-white">
-                        <h1 className="text-[2rem] font-bold text-center">Get Matched Faster</h1>
-                        <p className="text-gray text-[1.6rem] leading-[1.68rem] text-center px-6 mt-4">
-                            Our smart algorithm connects you with compatible matches in no time,
-                            so you can spend less time searching and more time building real connections.
-                        </p>
-
-                        <svg className='mt-3' width="24" height="51" viewBox="0 0 24 51" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 48V26.2989V1.78814e-07" stroke="#D9D9D9" stroke-width="1.5" />
-                            <circle cx="12" cy="39" r="10" fill="#FEFEFE" stroke="#FF5C00" stroke-width="4" />
-                            <circle cx="12" cy="39" r="6" fill="#FF5C00" />
-                        </svg>
-
-                        <div className="mt-3">
-                            <img
-                                src="/assets/images/website/match.png" alt="Matched Profile" />
-                        </div>
-                    </div>
-                </div>
-
-
-                <div className='h-[90dvh] relative top-[10dvh] aspect-[0.49] px-[5rem]'>
-                    <div className="flex flex-col items-center justify-center bg-white">
-                        <h1 className="text-[2rem] font-bold text-center">Find Your Match, Anywhere</h1>
-                        <p className="text-gray text-[1.6rem] leading-[1.68rem] text-center px-6 mt-4">
-                            From Africa to anywhere in the world, explore connections that feel right. Discover profiles tailored to your preferences and start your story today.
-                        </p>
-
-                        <svg className='mt-3' width="24" height="51" viewBox="0 0 24 51" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 48V26.2989V1.78814e-07" stroke="#D9D9D9" stroke-width="1.5" />
-                            <circle cx="12" cy="39" r="10" fill="#FEFEFE" stroke="#FF5C00" stroke-width="4" />
-                            <circle cx="12" cy="39" r="6" fill="#FF5C00" />
-                        </svg>
-
-                        <div className="mt-3">
-                            <img
-                                src="/assets/images/website/chat.png"
-                                alt="Matched Profile"
-                                className=""
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <div className='h-[90dvh] relative top-[10dvh] aspect-[0.49] px-[5rem]'>
-                    <div className="flex flex-col items-center justify-center bg-white">
-                        <h1 className="text-[2rem] font-bold text-center">Swipe, Explore, Connect</h1>
-                        <p className="text-gray text-[1.6rem] leading-[1.68rem] text-center px-6 mt-4">
-                            Discover unique connections as you swipe through an international community. Explore profiles tailored to your preferences, and watch sparks fly with every match.
-                        </p>
-
-                        <svg className='mt-3' width="24" height="51" viewBox="0 0 24 51" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 48V26.2989V1.78814e-07" stroke="#D9D9D9" stroke-width="1.5" />
-                            <circle cx="12" cy="39" r="10" fill="#FEFEFE" stroke="#FF5C00" stroke-width="4" />
-                            <circle cx="12" cy="39" r="6" fill="#FF5C00" />
-                        </svg>
-
-                        <div className="mt-3">
-                            <img
-                                src="/assets/images/website/explore.png"
-                                alt="Matched Profile"
-                                className=""
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <div className='h-[90dvh] relative top-[10dvh] aspect-[0.49] px-[5rem] '>
-                    <div className="flex flex-col items-center justify-center bg-white">
-                        <h1 className="text-[2rem] font-bold text-center">Speak Your Love Language</h1>
-                        <p className="text-gray text-[1.6rem] leading-[1.68rem] text-center px-6 mt-4">
-                            Instant messaging that adapts to your style. Whether deep or playful, our chat helps you express yourself and truly connect, no matter where you are.
-                        </p>
-
-                        <svg className='mt-3' width="24" height="51" viewBox="0 0 24 51" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 48V26.2989V1.78814e-07" stroke="#D9D9D9" stroke-width="1.5" />
-                            <circle cx="12" cy="39" r="10" fill="#FEFEFE" stroke="#FF5C00" stroke-width="4" />
-                            <circle cx="12" cy="39" r="6" fill="#FF5C00" />
-                        </svg>
-
-                        <div className="mt-3 ">
-                            <img
-                                src="/assets/images/website/swipe.png"
-                                alt="Matched Profile"
-                                className=""
-                            />
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <MobileWebsiteFeatures />
         </div>
 
 
     )
 }
 
-const MarqueeImageSlider = () => {
-    const imageNumbers = Array.from({ length: 40 }, (_, i) => i + 1);
+// Six rows of photos: enough to cover the hero on tall phones, where five
+// left a black band under the last row.
+const MARQUEE_ROWS = [
+    { images: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], direction: 'left' },
+    { images: [31, 32, 33, 34, 35, 36, 37, 38, 39, 40], direction: 'right' },
+    { images: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20], direction: 'left' },
+    { images: [21, 22, 23, 24, 25, 26, 27, 28, 29, 30], direction: 'right' },
+    { images: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], direction: 'left' },
+    { images: [31, 32, 33, 34, 35, 36, 37, 38, 39, 40], direction: 'right' },
+] as const;
 
+const MarqueeImageSlider = () => {
     return <motion.div
         initial={{ scale: 1.1 }} animate={{ scale: 1, transition: { duration: 5, ease: 'easeOut' } }}
         className='marquee-landing'>
 
         <div className='marquee-background__landing'>
-            <Marquee speed={20}>
-                {imageNumbers.slice(0, 10).map(image => (
-                    <img key={image} src={`/assets/images/auth-bg/${image}.webp`} className='marquee-background__image' alt={``} />
-                ))}
-            </Marquee>
-            <Marquee direction='right' speed={20}>
-                {imageNumbers.slice(30, 40).map(image => (
-                    <img key={image} src={`/assets/images/auth-bg/${image}.webp`} className='marquee-background__image' alt={``} />
-                ))}
-            </Marquee>
-            <Marquee speed={20}>
-                {imageNumbers.slice(0, 10).map(image => (
-                    <img key={image} src={`/assets/images/auth-bg/${image}.webp`} className='marquee-background__image' alt={``} />
-                ))}
-            </Marquee>
-            <Marquee direction='right' speed={20}>
-                {imageNumbers.slice(30, 40).map(image => (
-                    <img key={image} src={`/assets/images/auth-bg/${image}.webp`} className='marquee-background__image' alt={``} />
-                ))}
-            </Marquee>
-            <Marquee speed={20}>
-                {imageNumbers.slice(0, 10).map(image => (
-                    <img key={image} src={`/assets/images/auth-bg/${image}.webp`} className='marquee-background__image' alt={``} />
-                ))}
-            </Marquee>
+            {MARQUEE_ROWS.map(({ images, direction }, row) => (
+                <Marquee key={row} direction={direction} speed={20}>
+                    {images.map(image => (
+                        <img key={image} src={`/assets/images/auth-bg/${image}.webp`} className='marquee-background__image' alt='' />
+                    ))}
+                </Marquee>
+            ))}
         </div>
     </motion.div>
 }
@@ -283,45 +246,40 @@ const Landing = () => {
                 <div className="flex flex-col items-center">
                     {/* FIRST PAGE */}
                     
-                    <section className='relative h-screen flex flex-col justify-center items-center overflow-hidden'>
-                        {/* <MarqueeImageSliderBackground /> */}
-
-                        <div className='relative w-full mb-[20rem]'>
-                            <div className='absolute w-full inset-0 bg-[#080808] opacity-80 z-20'></div>
+                    {/* Fills the first screen exactly; svh so the mobile browser bar
+                        showing or hiding does not resize it. */}
+                    <section className='relative w-full h-[100svh] min-h-[560px] flex flex-col justify-center items-center overflow-hidden bg-black'>
+                        <div className='absolute inset-0 flex items-center justify-center'>
                             <MarqueeImageSlider />
                         </div>
-                       
+                        <div className='absolute inset-0 bg-[#080808] opacity-80 z-20' aria-hidden='true'></div>
+
                         <div className="fixed top-0 w-full z-50 pointer-events-none">
                             <Navbar />
                         </div>
-    
-                        <div className="absolute z-30 flex flex-col items-center mx-[28px] max-w-[600px] max-h-[100vh]">
-                            <div className="text-[4.8rem] text-white font-bold leading-[5.6rem] lg:text-[4rem] lg:leading-[4.8rem] text-center px-[2rem]">
+
+                        <motion.div
+                            initial={{ opacity: 0, y: 24 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.7, delay: 0.15, ease: 'easeOut' }}
+                            className="relative z-30 flex flex-col items-center px-[24px] max-w-[600px]"
+                        >
+                            <h1 className="text-[34px] leading-[40px] sm:text-[4.8rem] sm:leading-[5.6rem] lg:text-[4rem] lg:leading-[4.8rem] text-white font-bold text-center">
                                 Swipe, Match, Love - Your Perfect Partner Awaits!
-                            </div>
-    
-                            <div className='mt-6'>
-                                <button className="w-full rounded-[0.8rem] cursor-pointer bg-[#F2243E] py-6 px-[15rem] lg:px-[20rem] text-white text-[1.8rem] font-medium leading-[2.16rem] active:scale-[0.98] disabled:hover:scale-100 disabled:opacity-70 transition-all duration-200 flex items-center justify-center">
+                            </h1>
+
+                            <div className='mt-[24px] w-full sm:w-auto'>
+                                <button className="w-full sm:min-w-[36rem] lg:min-w-[48rem] whitespace-nowrap rounded-[8px] cursor-pointer bg-[#F2243E] py-[14px] px-[32px] text-white text-[16px] lg:text-[1.8rem] font-medium active:scale-[0.98] transition-all duration-200 flex items-center justify-center">
                                     Download Now
                                 </button>
                             </div>
-                            {/* <div className='mt-6'>
-                                <button onClick={() => navigate("/auth/login")} className="w-full rounded-[0.8rem] cursor-pointer bg-[#F2243E] py-6 px-[15rem] lg:px-[20rem] text-white text-[1.8rem] font-medium leading-[2.16rem] active:scale-[0.98] disabled:hover:scale-100 disabled:opacity-70 transition-all duration-200 flex items-center justify-center">
-                                    Login
-                                </button>
-                            </div>
-    
-                            <div className="mt-4">
-                                <p className="text-[1.6rem] text-white">Don't have an account? <a className="text-[1.6rem] font-bold underline cursor-pointer" onClick={() => navigate("/auth/create-account")}>Create Account</a></p>
-                            </div> */}
-                        </div>
-
+                        </motion.div>
                     </section>
 
                     <DesktopWebsiteFeatures />
                     
-                    <div className='bottom-0 w-full z-20 pt-64'>
-                    <Footer />
+                    <div className='w-full'>
+                        <Footer />
                     </div>
                 </div>
             </>
