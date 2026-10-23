@@ -1,15 +1,10 @@
-import Footer from '@/components/landing/Footer';
-import Navbar from '@/components/landing/Navbar';
+import PublicPageLayout from '@/components/landing/PublicPageLayout';
 import React from 'react';
 
 const PrivacyPolicy: React.FC = () => {
 
-    return <>
-        <div className="fixed top-0 w-full z-50">
-            <Navbar />
-        </div>
-
-        <section className="terms-conditions section-padding mt-[140px] md:mt-[200px]">
+    return <PublicPageLayout>
+        <section className="terms-conditions section-padding px-[2.8rem] sm:px-[4rem]">
             <div className="w-layout-blockcontainer container w-container">
                 <div data-w-id="547556ae-59ac-cbdf-43cf-dda5d1a11535" className="section-content-wrapper align-center">
                     <div data-w-id="008484c4-0682-ca17-6e0a-f1312f6a9209" className="review-hero-content-wrapper align-center">
@@ -114,11 +109,7 @@ const PrivacyPolicy: React.FC = () => {
                 </div>
             </div>
         </section>
-
-
-        <Footer />
-
-    </>
+    </PublicPageLayout>
 
 }
 export default PrivacyPolicy;
