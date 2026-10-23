@@ -1,5 +1,5 @@
 import { useGSAP } from '@gsap/react';
-import { motion } from "framer-motion";
+import { MotionConfig, motion } from "framer-motion";
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/dist/ScrollTrigger';
 // import { useNavigate } from 'react-router';
@@ -223,7 +223,9 @@ const MARQUEE_ROWS = [
 
 const MarqueeImageSlider = () => {
     return <motion.div
-        initial={{ scale: 1.1 }} animate={{ scale: 1, transition: { duration: 5, ease: 'easeOut' } }}
+        initial={{ scale: 1.1, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ scale: { duration: 5, ease: 'easeOut' }, opacity: { duration: 0.6, ease: 'easeOut' } }}
         className='marquee-landing'>
 
         <div className='marquee-background__landing'>
@@ -242,7 +244,7 @@ const Landing = () => {
     // const navigate = useNavigate()
 
         return (
-            <>  
+            <MotionConfig reducedMotion="user">
                 <div className="flex flex-col items-center">
                     {/* FIRST PAGE */}
                     
@@ -282,7 +284,7 @@ const Landing = () => {
                         <Footer />
                     </div>
                 </div>
-            </>
+            </MotionConfig>
         )
     }
     export default Landing;
