@@ -44,6 +44,7 @@ export { notifyOnReverificationRequired, enforceReverification } from "./reverif
 export { markMessageSent } from "./messages";
 export { cleanUpProfilePictures, cleanUpFaceVerification } from "./cleanup";
 export { incrementPopularityOnLike, prunePopularityScores } from "./popularity";
+export { notifyOnContactMessage } from "./contact";
 export {
   createTransaction,
   verifyTransaction,
