@@ -70,7 +70,7 @@ const PrivacyPolicy: React.FC = () => {
                                 <li>Right to Object: Object to data processing for marketing purposes.</li>
                                 <li>Right to Non-Discrimination (CCPA): You will not be discriminated against for exercising your rights.</li>
                             </ol>
-                            <p className="terms-content">To exercise your rights, please contact us at [Insert Contact Information].</p>
+                            <p className="terms-content">To exercise your rights, please contact us at <a href="mailto:support@whossy.com" className="text-red underline underline-offset-2">support@whossy.com</a>.</p>
                         </div>
 
                         <div className="single-terms">
