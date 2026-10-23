@@ -1,68 +1,60 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+
+const FOOTER_LINKS = [
+  { to: "/faq", label: "FAQ" },
+  { to: "/contact", label: "Contact Us" },
+  { to: "/privacy-policy", label: "Privacy Policy" },
+  { to: "/delete-account", label: "Delete Account" },
+];
 
 const Footer = () => {
-  const navigate = useNavigate();
-
-
   return (
-
-    <div className="lg:flex lg:justify-center px-[4rem] bg-red w-full lg:h-[25rem] mt-[10rem]">
-      <footer className=" text-white py-[4rem] w-full space-y-[1.6rem] lg:grid lg:grid-cols-3 lg:items-center">
+    <div className="lg:flex lg:justify-center px-[24px] sm:px-[4rem] bg-red w-full mt-[64px] lg:mt-[10rem]">
+      <footer className="text-white py-[40px] lg:py-[6rem] w-full grid gap-[32px] lg:gap-[4rem] sm:grid-cols-2 lg:grid-cols-3 lg:items-start">
         <div className="space-y-[2.4rem]">
-          <Link to="/">
-            <div className="flex items-center">
-              <img src={'/assets/icons/logo.svg'} alt="Logo" className="mr-[0.8rem]" />
-              <p className="text-[1.6rem]">whossy</p>
-            </div>
+          <Link to="/" className="inline-flex items-center" aria-label="Whossy home">
+            <img src={'/assets/icons/logo.svg'} alt="" className="mr-[0.8rem]" />
+            <p className="text-[16px] lg:text-[1.6rem]">whossy</p>
           </Link>
-          <div>
-            <p className="mb-[2.4rem] font-medium text-[1.6rem]" >whossy © 2024. All rights reserved</p>
-          </div>
+          <p className="font-medium text-[14px] lg:text-[1.6rem]">whossy © {new Date().getFullYear()}. All rights reserved</p>
           <div className="flex space-x-[4rem]">
-            <a href="#x">
-              <img src={'/assets/icons/twitter.svg'} alt="X" />
+            <a href="#x" aria-label="X">
+              <img src={'/assets/icons/twitter.svg'} alt="" />
             </a>
-            <a href="#instagram">
-              <img src={'/assets/icons/instagram.svg'} alt="Instagram" />
+            <a href="#instagram" aria-label="Instagram">
+              <img src={'/assets/icons/instagram.svg'} alt="" />
             </a>
-            <a href="#facebook">
-              <img src={'/assets/icons/facebookLogo.svg'} alt="Facebook" />
+            <a href="#facebook" aria-label="Facebook">
+              <img src={'/assets/icons/facebookLogo.svg'} alt="" />
             </a>
-            <a href="#telegram">
-              <img src={'/assets/icons/telegram.svg'} alt="Telegram" />
+            <a href="#telegram" aria-label="Telegram">
+              <img src={'/assets/icons/telegram.svg'} alt="" />
             </a>
           </div>
         </div>
 
-        <div className="flex flex-col items-start space-y-[2.4rem] text-[1.6rem]">
-          <button onClick={() => navigate('/faq')}>FAQ</button>
-          <button onClick={() => navigate('/contact')}>Contact Us</button>
-          <button onClick={() => navigate('/privacy-policy')}>Privacy Policy</button>
-          <button onClick={() => navigate('/delete-account')}>Delete Account</button>
-        </div>
+        <nav aria-label="Footer" className="flex flex-col items-start space-y-[16px] lg:space-y-[2.4rem] text-[15px] lg:text-[1.6rem]">
+          {FOOTER_LINKS.map(({ to, label }) => (
+            <Link key={to} to={to} className="hover:underline underline-offset-4">
+              {label}
+            </Link>
+          ))}
+        </nav>
 
-        <div className="flex flex-col space-y-[4rem] ">
-          <h3 className="font-bold text-[1.6rem]">DOWNLOAD OUR APP</h3>
-          <div className="space-y-[2rem] lg:space-y-0 lg:grid lg:grid-cols-2 lg:space-x-[0.8rem]">
-            <div>
-              <a href="#app-store">
-                <img src={'/assets/icons/AppleStore.svg'} alt="App Store" />
-              </a>
-            </div>
-            <div>
-              <a href="#play-store">
-                <img src={'/assets/icons/Play-Store.svg'} alt="Play Store" />
-              </a>
-            </div>
+        <div className="flex flex-col space-y-[2.4rem] sm:col-span-2 lg:col-span-1">
+          <h3 className="font-bold text-[14px] lg:text-[1.6rem]">DOWNLOAD OUR APP</h3>
+          <div className="flex flex-wrap gap-[1.6rem]">
+            <a href="#app-store">
+              <img src={'/assets/icons/AppleStore.svg'} alt="Download on the App Store" />
+            </a>
+            <a href="#play-store">
+              <img src={'/assets/icons/Play-Store.svg'} alt="Get it on Google Play" />
+            </a>
           </div>
-
         </div>
-
       </footer>
     </div>
-
   );
 };
 
 export default Footer;
-

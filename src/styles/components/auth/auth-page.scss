@@ -133,6 +133,9 @@
                 background-color: $color-dark-black;
                 font-family: $font-neue-montreal;
                 @apply text-[1.6rem] font-medium leading-[1] -tracking-[0.001em] text-white w-full py-[2.1rem] px-[1.6rem] rounded-[8px] outline-0 focus:outline-0 focus:outline-none focus:border-[#1D1D1D] border border-transparent transition-all;
+                // Never below 16px: rem shrinks with the screen, and iOS Safari
+                // zooms the whole page into any field smaller than that.
+                font-size: max(16px, 1.6rem);
 
                 &:-webkit-autofill {
                     border: none;
@@ -169,6 +172,7 @@
                 background-color: $color-dark-black;
                 font-family: $font-neue-montreal;
                 @apply text-[1.6rem] font-medium leading-[1] -tracking-[0.001em] text-white w-full py-[1.4rem] px-[1.6rem] rounded-[8px] outline-0 focus:outline-0 focus:outline-none focus:border-[#1D1D1D] border border-transparent transition-all;
+                font-size: max(16px, 1.6rem); // see __input
 
                 &--focus {
                     border: 1px solid #1D1D1D;

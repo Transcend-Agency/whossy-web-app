@@ -1,7 +1,7 @@
 import ExpandableSection from "@/components/landing/ExpandableSection";
-import Footer from "@/components/landing/Footer";
-import Navbar from "@/components/landing/Navbar";
+import PublicPageLayout from "@/components/landing/PublicPageLayout";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 const Faq = () => {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -10,18 +10,12 @@ const Faq = () => {
     setOpenIndex(openIndex === index ? null : index); // Close if the same section is clicked
   };
   return (
-    <>
-    <div className="flex flex-col min-h-screen">
-      <Navbar />
+    <PublicPageLayout>
+      <h1 className="text-[28px] sm:text-[3.2rem] lg:text-[4.8rem] px-[2.8rem] sm:px-[4rem] italic">
+        GOT A QUESTION?
+      </h1>
 
-      <main className="flex-grow">
-      <div className="relative z-10 flex flex-col pt-[12.8rem] lg:pt-[3rem]">
-        <p className="text-[3.2rem] lg:text-[4.8rem] px-[2rem] lg:px-[4rem] italic">
-          GOT A QUESTION?
-        </p>
-      </div>
-
-      <div className="p-20 text-[1.6rem] leading-[3.2rem] lg:text-[2rem] lg:leading-[4rem]">
+      <div className="px-[2.8rem] sm:px-[4rem] py-[2.4rem]">
         <ExpandableSection
           index={0}
           isOpen={openIndex === 0}
@@ -51,11 +45,14 @@ const Faq = () => {
           answer="Our app offers essential features for free, allowing you to match, chat, and connect. Premium features, like seeing who viewed your profile and boosting your visibility, are available through our subscription plans."
         />
       </div>
-      </main>
 
-      <Footer />
-      </div>
-    </>
+      <p className="px-[2.8rem] sm:px-[4rem] text-center text-[15px] lg:text-[1.6rem] text-gray">
+        Still have a question?{" "}
+        <Link to="/contact" className="text-red underline underline-offset-4">
+          Send us a message
+        </Link>
+      </p>
+    </PublicPageLayout>
   );
 };
 

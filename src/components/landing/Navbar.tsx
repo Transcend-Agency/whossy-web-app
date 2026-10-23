@@ -1,32 +1,142 @@
-import { AnimatePresence, motion, useCycle } from "framer-motion";
-import { useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { pressable } from '@/utils/pressable';
 
+// Pages reachable from the public site's header. The footer links to these
+// too, plus the legal pages.
+const NAV_LINKS = [
+  { to: "/", label: "Home" },
+  { to: "/faq", label: "FAQ" },
+  { to: "/contact", label: "Contact Us" },
+];
+
+const MOBILE_MENU_ID = "mobile-menu";
+
 const Navbar = () => {
-  const [mobileNav, toggleMobileNav] = useCycle(false, true);
+  const [mobileNav, setMobileNav] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
-  
+  const { pathname } = useLocation();
+
+  const closeMobileNav = () => setMobileNav(false);
+
+  // Close on navigation, so following a link never leaves the menu covering
+  // the page it opened.
+  useEffect(() => {
+    setMobileNav(false);
+  }, [pathname]);
+
+  // While open: Escape closes, the page behind does not scroll, and the menu
+  // closes by itself if the window grows past the mobile breakpoint.
+  useEffect(() => {
+    if (!mobileNav) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMobileNav(false);
+        buttonRef.current?.focus();
+      }
+    };
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const onBreakpoint = (e: MediaQueryListEvent) => {
+      if (e.matches) setMobileNav(false);
+    };
+    const previousOverflow = document.body.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKeyDown);
+    desktop.addEventListener("change", onBreakpoint);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      desktop.removeEventListener("change", onBreakpoint);
+    };
+  }, [mobileNav]);
+
   const handleLogoClick = () => {
+    closeMobileNav();
     navigate('/');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
   return (
     <>
+      {/* MOBILE MENU — sits under the header, so the toggle stays visible and
+          doubles as the close button. */}
+      <AnimatePresence>
+        {mobileNav && (
+          <motion.div
+            id={MOBILE_MENU_ID}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Site menu"
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="lg:hidden pointer-events-auto fixed inset-0 z-40 bg-white text-black flex flex-col overflow-y-auto pt-[120px] pb-[32px] px-[28px]"
+          >
+            <nav aria-label="Main" className="flex flex-col items-start">
+              {NAV_LINKS.map(({ to, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end
+                  onClick={closeMobileNav}
+                  className={({ isActive }) =>
+                    `w-full py-[16px] text-[24px] uppercase border-b border-solid border-lightgray transition-colors ${isActive ? "text-red" : "text-black active:text-red"}`
+                  }
+                >
+                  {label}
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="flex flex-col gap-[12px] mt-[32px]">
+              <button
+                onClick={() => navigate("/auth/login")}
+                className="w-full rounded-[8px] border border-solid border-red text-red text-[16px] font-medium py-[14px] active:scale-[0.98] transition-transform"
+              >
+                Login
+              </button>
+              <button
+                onClick={() => navigate("/auth/create-account")}
+                className="w-full rounded-[8px] bg-red text-white text-[16px] font-medium py-[14px] active:scale-[0.98] transition-transform"
+              >
+                Create account
+              </button>
+            </div>
+
+            <div className="mt-auto pt-[32px] flex gap-[12px]">
+              <a href="#app-store" onClick={closeMobileNav}>
+                <img src={'/assets/icons/AppleStore.svg'} alt="Download on the App Store" />
+              </a>
+              <a href="#play-store" onClick={closeMobileNav}>
+                <img src={'/assets/icons/Play-Store.svg'} alt="Get it on Google Play" />
+              </a>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* MOBILE HEADER */}
-      <header className="absolute top-0 z-50 lg:hidden bg-red text-white max-w-[10000px] rounded-[8px] m-[28px] overflow-hidden">
-        <div className="container flex items-center justify-between py-[12px] px-[12px]">
-          <div {...pressable(handleLogoClick)} className="flex items-center mr-[80px]">
-            <img src={"/assets/icons/logo.svg"} alt="Logo" className="mr-[8px]" />
+      <header className="pointer-events-auto absolute top-0 z-50 lg:hidden bg-red text-white rounded-[8px] m-[28px] overflow-hidden">
+        <div className="flex items-center justify-between py-[12px] px-[12px]">
+          <div {...pressable(handleLogoClick)} className="flex items-center mr-[48px] min-[400px]:mr-[80px]" aria-label="Whossy home">
+            <img src={"/assets/icons/logo.svg"} alt="" className="mr-[8px]" />
             <p className="text-[16px] font-black">whossy</p>
           </div>
           <div className="h-[20px]" style={{ borderLeft: '1px solid #FFFFFF' }} />
           <motion.button
+            type="button"
             animate={mobileNav ? "open" : "closed"}
             ref={buttonRef}
-            onClick={() => toggleMobileNav()}
-            className="flex flex-col space-y-[6px] px-[16px]"
+            onClick={() => setMobileNav((open) => !open)}
+            aria-label={mobileNav ? "Close menu" : "Open menu"}
+            aria-expanded={mobileNav}
+            aria-controls={MOBILE_MENU_ID}
+            className="flex flex-col space-y-[6px] px-[16px] py-[6px]"
           >
             <motion.span
               variants={{
@@ -51,76 +161,42 @@ const Navbar = () => {
             ></motion.span>
           </motion.button>
         </div>
-
-        {/* Mobile Menu */}
-        <AnimatePresence>
-          {mobileNav && (
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed inset-0 bg-white text-black flex flex-col items-start pt-20 space-y-8 z-30"
-            >
-              {/* <button onClick={() => toggleMobileNav()} ref={buttonRef} className="absolute top-8 right-8"><img src={"/assets/icons/close-button.svg"} alt="close-button" /></button> */}
-
-
-
-              <div className="flex flex-col items-start pl-10 space-y-12">
-                <button onClick={() => navigate("/auth/login")} className="text-[2.4rem]">
-                  LOGIN
-                </button>
-                <button onClick={() => navigate("/auth/create-account")} className="text-[2.4rem]">
-                  CREATE ACCOUNT
-                </button>
-              </div>
-
-              <div className="space-y-[2rem] fixed bottom-12 pl-10 flex flex-col">
-                <div>
-                  <a href="#app-store">
-                    <img src={'/assets/icons/AppleStore.svg'} alt="App Store" />
-                  </a>
-                </div>
-                <div>
-                  <a href="#play-store">
-                    <img src={'/assets/icons/Play-Store.svg'} alt="Play Store" />
-                  </a>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </header>
 
       {/* DESKTOP HEADER */}
-      <header className="relative z-50 bg-red text-white max-w-[35rem] m-[4rem] rounded-[0.8rem] hidden lg:block">
-        <div className="container flex justify-between items-center py-[1.2rem] px-[2.4rem]">
-          <div {...pressable(handleLogoClick)} className="flex items-center">
-            <img src={"/assets/icons/logo.svg"} alt="Logo" className="mr-[0.8rem]" />
+      <header className="pointer-events-auto relative z-50 bg-red text-white w-fit m-[4rem] rounded-[0.8rem] hidden lg:block">
+        <div className="flex items-center gap-[2.4rem] py-[1.2rem] px-[2.4rem]">
+          <div {...pressable(handleLogoClick)} className="flex items-center" aria-label="Whossy home">
+            <img src={"/assets/icons/logo.svg"} alt="" className="mr-[0.8rem]" />
             <p className="text-[1.6rem] font-black">whossy</p>
           </div>
 
-          {/* <div className="h-[3rem]" style={{ borderLeft: '1px solid #FFFFFF' }}></div> */}
+          <div className="h-[2.4rem]" style={{ borderLeft: '1px solid #FFFFFF' }} />
 
-          {/* <nav className="flex items-center space-x-[2.4rem]">
-            <button onClick={() => navigate('/auth/login')} className="text-[1.6rem]">Login</button>
-            <button
-              onClick={() => navigate('/auth/create-account')}
-              className="border bg-white text-red text-[1.6rem] px-[1.2rem] py-[1.4rem] rounded-[0.8rem]"
-            >
-              Create account
-            </button>
-          </nav> */}
+          <nav aria-label="Main" className="flex items-center gap-[2.4rem] text-[1.6rem]">
+            {NAV_LINKS.map(({ to, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end
+                className={({ isActive }) =>
+                  `underline-offset-[0.6rem] decoration-2 transition-opacity ${isActive ? "underline" : "opacity-80 hover:opacity-100"}`
+                }
+              >
+                {label}
+              </NavLink>
+            ))}
+          </nav>
 
-          {/* <div className="h-[3rem]" style={{ borderLeft: '1px solid #FFFFFF' }}></div> */}
+          <div className="h-[2.4rem]" style={{ borderLeft: '1px solid #FFFFFF' }} />
 
           <div className="flex items-center text-[1.6rem] space-x-[1.6rem]">
             <p>Download on</p>
-            <a href="#ios-download">
-              <img src={'/assets/icons/apple.svg'} alt="Download on Apple Store" />
+            <a href="#ios-download" aria-label="Download on the App Store">
+              <img src={'/assets/icons/apple.svg'} alt="" />
             </a>
-            <a href="#android-download">
-              <img src={'assets/icons/playstore.svg'} alt="Download on Google Play" />
+            <a href="#android-download" aria-label="Get it on Google Play">
+              <img src={'/assets/icons/playstore.svg'} alt="" />
             </a>
           </div>
         </div>
