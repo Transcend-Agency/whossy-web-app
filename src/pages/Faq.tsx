@@ -11,11 +11,11 @@ const Faq = () => {
   };
   return (
     <PublicPageLayout>
-      <h1 className="text-[3.2rem] lg:text-[4.8rem] px-[2.8rem] sm:px-[4rem] italic">
+      <h1 className="text-[28px] sm:text-[3.2rem] lg:text-[4.8rem] px-[2.8rem] sm:px-[4rem] italic">
         GOT A QUESTION?
       </h1>
 
-      <div className="px-[2.8rem] sm:px-[4rem] py-[2.4rem] text-[1.6rem] leading-[3.2rem] lg:text-[2rem] lg:leading-[4rem]">
+      <div className="px-[2.8rem] sm:px-[4rem] py-[2.4rem]">
         <ExpandableSection
           index={0}
           isOpen={openIndex === 0}
@@ -46,7 +46,7 @@ const Faq = () => {
         />
       </div>
 
-      <p className="px-[2.8rem] sm:px-[4rem] text-center text-[1.6rem] text-gray">
+      <p className="px-[2.8rem] sm:px-[4rem] text-center text-[15px] lg:text-[1.6rem] text-gray">
         Still have a question?{" "}
         <Link to="/contact" className="text-red underline underline-offset-4">
           Send us a message
