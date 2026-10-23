@@ -40,10 +40,17 @@ const SwipingAndMatching = lazy(() => import("./pages/dashboard/SwipingAndMatchi
 const UserProfile = lazy(() => import("./pages/dashboard/UserProfile"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Notification = lazy(() => import("./pages/Notification"));
-const Faq = lazy(() => import("./pages/Faq"));
-const Contact = lazy(() => import("./pages/Contact"));
-const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
-const DeleteAccount = lazy(() => import("./pages/DeleteAccount"));
+const loadFaq = () => import("./pages/Faq");
+const loadContact = () => import("./pages/Contact");
+const loadPrivacyPolicy = () => import("./pages/PrivacyPolicy");
+const loadDeleteAccount = () => import("./pages/DeleteAccount");
+const Faq = lazy(loadFaq);
+const Contact = lazy(loadContact);
+const PrivacyPolicy = lazy(loadPrivacyPolicy);
+const DeleteAccount = lazy(loadDeleteAccount);
+// The public pages are small; fetching them once the browser is idle means
+// moving between them never shows the blank loading screen.
+const PUBLIC_PAGE_LOADERS = [loadFaq, loadContact, loadPrivacyPolicy, loadDeleteAccount];
 const PaymentCallback = lazy(() => import("./pages/PaymentCallback"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -76,6 +83,16 @@ function App() {
     // Scroll to the top of the page whenever the route changes
     window.scrollTo(0, 0);
   }, [location]);
+
+  useEffect(() => {
+    const prefetch = () => PUBLIC_PAGE_LOADERS.forEach((load) => load().catch(() => {}));
+    if ("requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(prefetch, { timeout: 4000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(prefetch, 2000);
+    return () => clearTimeout(id);
+  }, []);
 
   //
   useEffect(() => {
