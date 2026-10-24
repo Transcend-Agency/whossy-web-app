@@ -9,7 +9,7 @@ describe('links in auth emails', () => {
         expect(authContinueUrl('/auth/login', 'https://whossy.com')).toBe('https://whossy.com/auth/login'))
 
     it('sends with the continue URL when Firebase accepts it', async () => {
-        const send = vi.fn(async (_settings?: ActionCodeSettings) => 'ok')
+        const send = vi.fn<(settings?: ActionCodeSettings) => Promise<string>>(async () => 'ok')
         await expect(sendWithContinueUrl(send, '/auth/login', 'https://whossy.com')).resolves.toBe('ok')
         expect(send).toHaveBeenCalledTimes(1)
         expect(send).toHaveBeenCalledWith({ url: 'https://whossy.com/auth/login' })
