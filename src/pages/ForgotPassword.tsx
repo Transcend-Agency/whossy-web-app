@@ -9,6 +9,7 @@ import { useForm } from 'react-hook-form';
 import { ZodType, z } from 'zod';
 import { auth } from "@/firebase";
 import { sendPasswordResetEmail } from 'firebase/auth';
+import { sendWithContinueUrl } from '@/utils/authEmailLinks';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import AuthModalRequestMessage from '../components/auth/AuthModalRequestMessage';
@@ -50,9 +51,10 @@ const ForgotPasswordInputPage: React.FC<ForgotPasswordPage> = ({ advance, key })
             // No "does this account exist" check: it would need the users
             // collection to be readable while signed out, and it tells anyone
             // which emails are registered.
-            await sendPasswordResetEmail(auth, data.email as string, {
-                url: `${import.meta.env.VITE_APP_FRONTEND_URL}/auth/login`
-            });
+            await sendWithContinueUrl(
+                (settings) => sendPasswordResetEmail(auth, data.email as string, settings),
+                '/auth/login'
+            );
             advance()
         } catch (err: unknown) {
             // An unknown email gets the same "sent" screen as a known one.

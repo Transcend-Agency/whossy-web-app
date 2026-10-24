@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { getAuth, sendEmailVerification, updateProfile, verifyBeforeUpdateEmail } from 'firebase/auth';
+import { sendWithContinueUrl } from '@/utils/authEmailLinks';
 import { collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import { AnimatePresence, motion } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
@@ -230,9 +231,10 @@ const FillInGender: React.FC<AccountSetupFormPage> = ({ goBack, pageKey }) => {
                     ...getAccountSetupData(),
                 });
 
-                await verifyBeforeUpdateEmail(auth.currentUser!, email, {
-                    url: `${import.meta.env.VITE_APP_FRONTEND_URL}/auth/finalize-setup`,
-                });
+                await sendWithContinueUrl(
+                    (settings) => verifyBeforeUpdateEmail(auth.currentUser!, email, settings),
+                    '/auth/finalize-setup'
+                );
 
                 navigate('/auth/email-verification');
             } else {
@@ -252,9 +254,10 @@ const FillInGender: React.FC<AccountSetupFormPage> = ({ goBack, pageKey }) => {
                 await auth.currentUser?.reload();
 
                 if (!auth.currentUser?.emailVerified) {
-                    await sendEmailVerification(auth.currentUser!, {
-                        url: `${import.meta.env.VITE_APP_FRONTEND_URL}/auth/finalize-setup`,
-                    });
+                    await sendWithContinueUrl(
+                        (settings) => sendEmailVerification(auth.currentUser!, settings),
+                        '/auth/finalize-setup'
+                    );
 
                     navigate('/auth/email-verification');
                 } else {
