@@ -8,7 +8,15 @@
 }
 
 .auth-page {
-    @apply fixed w-full h-[100dvh] flex items-center justify-center px-[2.5rem];
+    // Scrolls when the card is taller than the screen (small phones), and
+    // keeps clear of the "back to whossy" link fixed at the top-left
+    // (AuthLayout). The card centres itself with auto margins rather than
+    // flex centring, which would clip its top once it overflowed.
+    @apply fixed w-full h-[100dvh] overflow-y-auto flex flex-col items-center px-[2.5rem] pt-[88px] pb-[24px] lg:pt-[10rem] lg:pb-[4rem];
+
+    > .auth-page__modal {
+        @apply my-auto;
+    }
 
     &.email-verification {
         .auth-page__modal__header__title {
