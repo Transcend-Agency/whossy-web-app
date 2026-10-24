@@ -51,6 +51,7 @@ const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
 // One line, no control characters, bounded: safe for a subject or a name.
+// eslint-disable-next-line no-control-regex -- matching control characters is the point
 const headerSafe = (s: string, max: number) => s.replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, max);
 
 export function buildContactEmail(
