@@ -6,6 +6,8 @@ import { ScrollTrigger } from 'gsap/dist/ScrollTrigger';
 import Footer from '../components/landing/Footer';
 import Navbar from '../components/landing/Navbar';
 import Marquee from 'react-fast-marquee';
+import { Link } from 'react-router-dom';
+import useAccountEntry from '@/hooks/useAccountEntry';
 
 // The phone layout of the features: one card per feature, stacked. Sized
 // from the content and the screen width, never from the screen height, so a
@@ -241,7 +243,7 @@ const MarqueeImageSlider = () => {
 }
 
 const Landing = () => {
-    // const navigate = useNavigate()
+    const { signedIn, appPath } = useAccountEntry();
 
         return (
             <MotionConfig reducedMotion="user">
@@ -275,6 +277,31 @@ const Landing = () => {
                                     Download Now
                                 </button>
                             </div>
+
+                            {/* Whossy also runs in the browser; say so where people look first. */}
+                            {signedIn ? (
+                                <Link
+                                    to={appPath}
+                                    className="mt-[12px] w-full sm:w-auto sm:min-w-[36rem] lg:min-w-[48rem] text-center rounded-[8px] border border-solid border-white/70 py-[13px] px-[32px] text-white text-[16px] lg:text-[1.8rem] font-medium hover:bg-white/10 transition-colors"
+                                >
+                                    Open Whossy
+                                </Link>
+                            ) : (
+                                <>
+                                    <Link
+                                        to="/auth/create-account"
+                                        className="mt-[12px] w-full sm:w-auto sm:min-w-[36rem] lg:min-w-[48rem] text-center rounded-[8px] border border-solid border-white/70 py-[13px] px-[32px] text-white text-[16px] lg:text-[1.8rem] font-medium hover:bg-white/10 transition-colors"
+                                    >
+                                        Create an account on the web
+                                    </Link>
+                                    <p className="mt-[16px] text-[15px] lg:text-[1.6rem] text-white/80 text-center">
+                                        Already have an account?{" "}
+                                        <Link to="/auth/login" className="font-bold text-white underline underline-offset-4">
+                                            Log in
+                                        </Link>
+                                    </p>
+                                </>
+                            )}
                         </motion.div>
                     </section>
 
