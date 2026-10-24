@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { pressable } from '@/utils/pressable';
+import useAccountEntry from '@/hooks/useAccountEntry';
 
 // Pages reachable from the public site's header. The footer links to these
 // too, plus the legal pages.
@@ -18,6 +19,7 @@ const Navbar = () => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const { signedIn, appPath } = useAccountEntry();
 
   const closeMobileNav = () => setMobileNav(false);
 
@@ -94,18 +96,35 @@ const Navbar = () => {
             </nav>
 
             <div className="flex flex-col gap-[12px] mt-[32px]">
-              <button
-                onClick={() => navigate("/auth/login")}
-                className="w-full rounded-[8px] border border-solid border-red text-red text-[16px] font-medium py-[14px] active:scale-[0.98] transition-transform"
-              >
-                Login
-              </button>
-              <button
-                onClick={() => navigate("/auth/create-account")}
-                className="w-full rounded-[8px] bg-red text-white text-[16px] font-medium py-[14px] active:scale-[0.98] transition-transform"
-              >
-                Create account
-              </button>
+              {signedIn ? (
+                <Link
+                  to={appPath}
+                  onClick={closeMobileNav}
+                  className="w-full text-center rounded-[8px] bg-red text-white text-[16px] font-medium py-[14px] active:scale-[0.98] transition-transform"
+                >
+                  Open Whossy
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    to="/auth/create-account"
+                    onClick={closeMobileNav}
+                    className="w-full text-center rounded-[8px] bg-red text-white text-[16px] font-medium py-[14px] active:scale-[0.98] transition-transform"
+                  >
+                    Create account
+                  </Link>
+                  <Link
+                    to="/auth/login"
+                    onClick={closeMobileNav}
+                    className="w-full text-center rounded-[8px] border border-solid border-red text-red text-[16px] font-medium py-[14px] active:scale-[0.98] transition-transform"
+                  >
+                    Log in
+                  </Link>
+                </>
+              )}
+              <p className="text-center text-[14px] text-gray mt-[4px]">
+                Use Whossy right here in your browser, or get the app.
+              </p>
             </div>
 
             <div className="mt-auto pt-[32px] flex gap-[12px]">
@@ -191,13 +210,39 @@ const Navbar = () => {
           <div className="h-[2.4rem]" style={{ borderLeft: '1px solid #FFFFFF' }} />
 
           <div className="flex items-center text-[1.6rem] space-x-[1.6rem]">
-            <p>Download on</p>
+            <p className="hidden xl:block">Download on</p>
             <a href="#ios-download" aria-label="Download on the App Store">
               <img src={'/assets/icons/apple.svg'} alt="" />
             </a>
             <a href="#android-download" aria-label="Get it on Google Play">
               <img src={'/assets/icons/playstore.svg'} alt="" />
             </a>
+          </div>
+
+          <div className="h-[2.4rem]" style={{ borderLeft: '1px solid #FFFFFF' }} />
+
+          {/* The web app: sign in or sign up here, no download needed. */}
+          <div className="flex items-center gap-[1.6rem] text-[1.6rem]">
+            {signedIn ? (
+              <Link
+                to={appPath}
+                className="whitespace-nowrap bg-white text-red font-medium px-[1.6rem] py-[0.8rem] rounded-[0.6rem] hover:bg-white/90 transition-colors"
+              >
+                Open Whossy
+              </Link>
+            ) : (
+              <>
+                <Link to="/auth/login" className="whitespace-nowrap opacity-90 hover:opacity-100 transition-opacity">
+                  Log in
+                </Link>
+                <Link
+                  to="/auth/create-account"
+                  className="whitespace-nowrap bg-white text-red font-medium px-[1.6rem] py-[0.8rem] rounded-[0.6rem] hover:bg-white/90 transition-colors"
+                >
+                  Create account
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
