@@ -1,5 +1,22 @@
+// Autofilled fields keep the dark field colours (see __input below).
+@mixin auth-autofill {
+    -webkit-text-fill-color: #fff;
+    caret-color: #fff;
+    -webkit-box-shadow: 0 0 0 1000px $color-dark-black inset;
+    box-shadow: 0 0 0 1000px $color-dark-black inset;
+    transition: background-color 9999s ease-out 0s;
+}
+
 .auth-page {
-    @apply fixed w-full h-[100dvh] flex items-center justify-center px-[2.5rem];
+    // Scrolls when the card is taller than the screen (small phones), and
+    // keeps clear of the "back to whossy" link fixed at the top-left
+    // (AuthLayout). The card centres itself with auto margins rather than
+    // flex centring, which would clip its top once it overflowed.
+    @apply fixed w-full h-[100dvh] overflow-y-auto flex flex-col items-center px-[2.5rem] pt-[88px] pb-[24px] lg:pt-[10rem] lg:pb-[4rem];
+
+    > .auth-page__modal {
+        @apply my-auto;
+    }
 
     &.email-verification {
         .auth-page__modal__header__title {
@@ -137,20 +154,13 @@
                 // zooms the whole page into any field smaller than that.
                 font-size: max(16px, 1.6rem);
 
-                &:-webkit-autofill {
-                    border: none;
-                    border-radius: .3rem;
-                    caret-color: #fff;
-                    /* Pour le I quand on édite */
-                    color: #fff;
-                    background: #292a2d;
-                    /* webkit autofill */
-                    -webkit-text-fill-color: #fff;
-                    /* Surcharge la font color d'autofill */
-                    -webkit-background-clip: text;
-                    /* Supprime le background autofill, utile pour le border radius */
-                    box-shadow: 0 0 0 50px #292a2d inset;
-                    /* Ajoute un fake background à base d'ombrage aplatit */
+                // Chrome paints autofilled fields light blue with dark text;
+                // keep them looking like every other field. The inset shadow
+                // covers the autofill background, which cannot be overridden.
+                &:-webkit-autofill,
+                &:-webkit-autofill:hover,
+                &:-webkit-autofill:focus {
+                    @include auth-autofill;
                 }
 
                 &::placeholder {
@@ -186,6 +196,12 @@
                     -webkit-appearance: none;
                     font-family: $font-neue-montreal;
                     @apply ml-[1.6rem] bg-transparent py-[0.7rem] outline-0 focus:outline-0;
+
+                    &:-webkit-autofill,
+                    &:-webkit-autofill:hover,
+                    &:-webkit-autofill:focus {
+                        @include auth-autofill;
+                    }
 
                     &::placeholder {
                         color: #8A8A8E;
