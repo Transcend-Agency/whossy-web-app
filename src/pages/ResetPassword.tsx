@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { confirmPasswordReset } from 'firebase/auth';
 import { AnimatePresence, motion } from 'framer-motion';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ZodType, z } from 'zod';
@@ -14,6 +14,7 @@ import ResetPasswordRequirementParameter from '../components/auth/ResetPasswordR
 import Button from '../components/ui/Button';
 import { auth } from '@/firebase';
 import { FormData } from '../types/auth';
+import { PASSWORD_MAX_LENGTH, PASSWORD_RULES, meetsPasswordRules } from '@/utils/passwordRules';
 
 type ResetPasswordProps = Record<string, never>;
 
@@ -27,10 +28,8 @@ const ResetPasswordFormSchema: ZodType<FormData> = z
     .object({
         password: z
             .string()
-            .min(8, { message: "Password is too short" })
-            .max(20, { message: "Password is too long" })
-            .regex(/\d/, { message: "Password must contain at least one digit" })
-            .regex(/[^A-Za-z0-9]/, { message: "Password must contain at least one special character" }),
+            .max(PASSWORD_MAX_LENGTH, { message: `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer` })
+            .refine(meetsPasswordRules, { message: "Password must meet every requirement below" }),
         confirmPassword: z.string()
     })
     .refine((data) => data.password === data.confirmPassword, {
@@ -82,23 +81,11 @@ const ResetPasswordDetails: React.FC<ResetPasswordPage> = ({ advance, goBack }) 
         }
 
     }
-    const password = watch('password')
-    useEffect(() => {
-        console.log(errors, isValid)
-    }, [password])
-    const validatePassword = (password: string) => {
-        const hasEnoughCharacters = (password?.length ?? 0) >= 8
-        const hasLowerAndUpperCaseLetters = /^(?=.*[a-z])(?=.*[A-Z]).*$/
-        const hasDigit = /\d/
-        const hasSpecialCharacter = /[^A-Za-z0-9]/
-
-        return {
-            hasEnoughCharacters,
-            hasLowerAndUpperCaseLetters: hasLowerAndUpperCaseLetters.test(password),
-            hasDigit: hasDigit.test(password),
-            hasSpecialCharacter: hasSpecialCharacter.test(password)
-        }
-    }
+    const password = watch('password') ?? ''
+    // The checklist already shows which rules are unmet, so the only message
+    // under the field is for a password that is too long, which the
+    // checklist has no line for.
+    const passwordError = errors.password?.type === 'too_big' ? errors.password : undefined
 
     return <AuthPage className='reset-password'>
         <div className='auth-page__modal'>
@@ -108,12 +95,11 @@ const ResetPasswordDetails: React.FC<ResetPasswordPage> = ({ advance, goBack }) 
             <AuthModalBackButton onClick={onGoToLogin} />
             <AuthModalHeader title='Reset your password' subtitle="Choose a new password that you can easily remember." />
             <form onSubmit={handleSubmit(onFormSubmit)} className='auth-page__modal__form'>
-                <AuthInput register={register} name="password" type='password' placeholder='Password' />
+                <AuthInput error={passwordError} register={register} name="password" type='password' placeholder='Password' />
                 <div className='auth-page__modal__password-requirements'>
-                    <ResetPasswordRequirementParameter criteriaPassed={validatePassword(password!).hasEnoughCharacters} text="Be at least 8 characters or more" />
-                    <ResetPasswordRequirementParameter criteriaPassed={validatePassword(password!).hasLowerAndUpperCaseLetters} text="At least 1 uppercase and lower case letter" />
-                    <ResetPasswordRequirementParameter criteriaPassed={validatePassword(password!).hasDigit} text="Must contain a digit or number" />
-                    <ResetPasswordRequirementParameter criteriaPassed={validatePassword(password!).hasSpecialCharacter} text="Must contain a special character e,g '@$!%*?&'." />
+                    {PASSWORD_RULES.map((rule) => (
+                        <ResetPasswordRequirementParameter key={rule.text} criteriaPassed={rule.test(password)} text={rule.text} />
+                    ))}
                 </div>
                 <AuthInput error={errors.confirmPassword} register={register} name="confirmPassword" type='password' placeholder='Confirm Password' />
                 <Button loading={loading} disabled={!isValid} className='auth-page__modal__form__button' text='Submit' />

@@ -1,4 +1,5 @@
 import { getAuth, sendEmailVerification } from 'firebase/auth';
+import { sendWithContinueUrl } from '@/utils/authEmailLinks';
 import { AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import Countdown from 'react-countdown';
@@ -29,9 +30,10 @@ const EmailVerification = () => {
     const onResendCodeClick = async () => {
         setCanResendCode(false);
         try {
-            await sendEmailVerification(auth.currentUser!, {
-                url: `${import.meta.env.VITE_APP_FRONTEND_URL}/auth/login`
-            });
+            await sendWithContinueUrl(
+                (settings) => sendEmailVerification(auth.currentUser!, settings),
+                '/auth/login'
+            );
         } catch (error) {
             setRequestError("Failed to resend verification email. Please try again.");
         }
