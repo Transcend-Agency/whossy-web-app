@@ -40,3 +40,29 @@ export function withTypedDialCode(value: string | undefined): string | undefined
 
     return withoutTrunkZero(value)
 }
+
+/**
+ * What to tell someone whose request for a sign-in code failed, from the
+ * Firebase error code. Firebase's own messages mean nothing to a user.
+ */
+export function phoneSignInErrorMessage(code: string): string {
+    switch (code) {
+        case "auth/invalid-phone-number":
+        case "auth/missing-phone-number":
+            return "That phone number doesn't look right. Check the country and the number."
+        case "auth/too-many-requests":
+            return "Too many attempts. Please wait a few minutes and try again."
+        case "auth/quota-exceeded":
+            return "We can't send codes right now. Please try again later, or sign in another way."
+        case "auth/network-request-failed":
+            return "No connection. Check your internet and try again."
+        // The reCAPTCHA check failed: an expired or refused token, or a site
+        // that is not on Firebase's authorized domains.
+        case "auth/invalid-app-credential":
+        case "auth/captcha-check-failed":
+        case "auth/unauthorized-domain":
+            return "We couldn't confirm you're not a robot. Refresh the page and try again, or sign in another way."
+        default:
+            return "We couldn't send your code. Please try again."
+    }
+}
