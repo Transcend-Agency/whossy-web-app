@@ -8,7 +8,7 @@ import React, { useEffect, useRef, useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 import OtpInput from 'react-otp-input'
 import PhoneInput, { isPossiblePhoneNumber } from "react-phone-number-input"
-import { useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { ZodType, z } from "zod"
 import AuthModalBackButton from "../components/auth/AuthModalBackButton"
 import AuthModalHeader from "../components/auth/AuthModalHeader"
@@ -19,7 +19,7 @@ import { auth, db } from "@/firebase"
 import useAccountSetupFormStore from "../store/AccountSetup"
 import usePhoneNumberStore from "../store/PhoneNumberSignIn"
 import { FormData } from "../types/auth"
-import { phoneSignInErrorMessage, withTypedDialCode } from "@/utils/phoneNumber"
+import { phoneOnOtherAccountMessage, phoneSignInErrorMessage, withTypedDialCode } from "@/utils/phoneNumber"
 
 
 interface PhoneNumberProps {
@@ -138,6 +138,8 @@ const FillInPhoneNumberOtp: React.FC<PhoneNumberPageProps> = ({ goBack, key }) =
     const setAuthProvider = useAccountSetupFormStore(state => state.setAuthProvider)
     const [loading, setLoading] = useState(false);
     const [requestError, setRequestError] = useState('')
+    // Set when the number is on an account that signs in another way.
+    const [phoneOnOtherAccount, setPhoneOnOtherAccount] = useState(false)
     const navigate = useNavigate()
 
     const {
@@ -161,24 +163,32 @@ const FillInPhoneNumberOtp: React.FC<PhoneNumberPageProps> = ({ goBack, key }) =
             const ownDoc = await getDoc(doc(db, "users", verificationData.user.uid));
             if (!ownDoc.exists()) {
                 // The number may already belong to an account that signs in
-                // another way. This check used to run before sign-in, which
-                // needed the users collection readable by anyone; now that we
-                // are signed in it is an ordinary query. The phone login just
-                // created is removed so it does not linger as an empty account.
+                // another way and has not linked it, so this sign-in made a
+                // separate, empty login. This check used to run before
+                // sign-in, which needed the users collection readable by
+                // anyone; now that we are signed in it is an ordinary query.
+                // The empty login is removed so it does not linger.
                 const sameNumber = await getDocs(query(collection(db, "users"), where("phone_number", "==", verificationData.user.phoneNumber)));
-                if (sameNumber.docs.some(d => d.data().auth_provider !== 'phone')) {
+                const otherAccount = sameNumber.docs.find(d => d.data().auth_provider !== 'phone')
+                if (otherAccount) {
                     await verificationData.user.delete()
-                    setRequestError("Sign In Using Another Method")
+                    setPhoneOnOtherAccount(true)
+                    setRequestError(phoneOnOtherAccountMessage(otherAccount.data().auth_provider))
                     return
                 }
             }
-            if (ownDoc.exists() && ownDoc.data().auth_provider == 'phone') {
+            // The number signed in to an existing account. That includes an
+            // account made with email, Google or Apple whose number the
+            // mobile app verified and linked: it is the same login, so it is
+            // treated as theirs whatever it first signed up with. These used
+            // to be sent to account setup as new phone accounts.
+            if (ownDoc.exists()) {
                 const user = ownDoc.data()
                 if (!user.has_completed_account_creation) {
                     navigate('/auth/account-setup')
                     setId(verificationData.user.uid)
                     setUserId(verificationData.user.uid)
-                    setAuthProvider('phone')
+                    setAuthProvider(user.auth_provider ?? 'phone')
                 } else if (!user.has_completed_onboarding) {
                     navigate('/onboarding')
                 } else {
@@ -200,6 +210,13 @@ const FillInPhoneNumberOtp: React.FC<PhoneNumberPageProps> = ({ goBack, key }) =
                 setTimeout(() => {
                     setRequestError('')
                 }, 2000)
+            } else if (code === 'auth/code-expired') {
+                setRequestError('This code has expired. Go back and request a new one.')
+            } else {
+                // Anything else used to leave the screen with no message.
+                setRequestError(code === 'auth/network-request-failed'
+                    ? 'No connection. Check your internet and try again.'
+                    : "We couldn't check your code. Please try again.")
             }
         } finally {
             setLoading(false)
@@ -235,6 +252,9 @@ const FillInPhoneNumberOtp: React.FC<PhoneNumberPageProps> = ({ goBack, key }) =
                     />
                     <p className="auth-page__modal__otp-input__notifier">Didn’t receive the code? <span className="auth-page__modal__otp-input__notifier__cta">Resend code</span> in 20s</p>
                     <Button loading={loading} disabled={!isValid} className='auth-page__modal__form__button' text='Verify' />
+                    {phoneOnOtherAccount && (
+                        <p className='auth-page__modal__form__cta'>Signed up another way? <Link to="/auth/login" className='underline'>Go to log in</Link></p>
+                    )}
                 </form>
             </div>
         </AuthPage>

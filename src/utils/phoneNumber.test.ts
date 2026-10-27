@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { phoneSignInErrorMessage, withTypedDialCode } from "./phoneNumber"
+import { phoneOnOtherAccountMessage, phoneSignInErrorMessage, withTypedDialCode } from "./phoneNumber"
 
 describe("withTypedDialCode", () => {
     it("reads a number typed with its dial code but no plus", () => {
@@ -48,4 +48,15 @@ describe("phoneSignInErrorMessage", () => {
             expect(phoneSignInErrorMessage(code)).not.toMatch(/auth\/|firebase/i)
         }
     })
+})
+
+describe("phoneOnOtherAccountMessage", () => {
+    it("names how the account signs in", () => {
+        expect(phoneOnOtherAccountMessage("google")).toMatch(/signs in with Google/)
+        expect(phoneOnOtherAccountMessage("local")).toMatch(/email and password/)
+        expect(phoneOnOtherAccountMessage("email")).toMatch(/email and password/)
+    })
+
+    it("still makes sense when the method is unknown", () =>
+        expect(phoneOnOtherAccountMessage(undefined)).toMatch(/the way you signed up/))
 })
