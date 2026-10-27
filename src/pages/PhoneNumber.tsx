@@ -45,6 +45,37 @@ const VerifyCodeSchema: ZodType<{ code: string }> = z
         code: z.string().min(6, { message: "OTP should be 6 digits" }),
     })
 
+/** Seconds before "Resend code" can be used. Matches the mobile app. */
+const RESEND_AFTER_SECONDS = 59
+
+/**
+ * Sends a sign-in code by SMS. Each send gets its own invisible reCAPTCHA in
+ * an element of its own, removed afterwards. reCAPTCHA remembers every
+ * element it has rendered into, even after clear(), so reusing one threw
+ * "reCAPTCHA has already been rendered" and broke every retry and resend.
+ */
+const usePhoneCodeSender = () => {
+    const cleanups = useRef(new Set<() => void>())
+    useEffect(() => () => cleanups.current.forEach(clean => clean()), [])
+
+    return async (phoneNumber: string) => {
+        const host = document.createElement('div')
+        document.body.appendChild(host)
+        const verifier = new RecaptchaVerifier(auth, host, { 'size': 'invisible' })
+        const clean = () => {
+            verifier.clear()
+            host.remove()
+            cleanups.current.delete(clean)
+        }
+        cleanups.current.add(clean)
+        try {
+            return await signInWithPhoneNumber(auth, phoneNumber, verifier)
+        } finally {
+            clean()
+        }
+    }
+}
+
 const FillInPhoneNumber: React.FC<PhoneNumberPageProps> = ({ advance, key }) => {
     const phone_number = usePhoneNumberStore(state => state.phone_number)
     const setVerificationId = usePhoneNumberStore(state => state.setVerificationId)
@@ -65,32 +96,13 @@ const FillInPhoneNumber: React.FC<PhoneNumberPageProps> = ({ advance, key }) => 
     const setPhoneNumber = usePhoneNumberStore(state => state.setPhoneNumber)
     const updateAccountSetupUserData = useAccountSetupFormStore(state => state.updateUserData)
     const [requestError, setRequestError] = useState('')
-    // One verifier per attempt, each in a fresh element. reCAPTCHA remembers
-    // every element it has rendered into, even after clear(), so a second
-    // verifier in the same element throws ("reCAPTCHA has already been
-    // rendered"). That turned every retry into "Something Went Wrong".
-    const recaptchaRef = useRef<RecaptchaVerifier | null>(null)
-    const clearRecaptcha = () => {
-        recaptchaRef.current?.clear()
-        recaptchaRef.current = null
-    }
-    const newRecaptcha = () => {
-        const host = document.createElement('div')
-        document.getElementById('recaptcha')!.replaceChildren(host)
-        return new RecaptchaVerifier(auth, host, { 'size': 'invisible' })
-    }
-    useEffect(() => clearRecaptcha, [])
+    const sendCode = usePhoneCodeSender()
 
     const onFormSubmit = async (data: FormData) => {
         try {
             setLoading(true)
             setRequestError('')
-            recaptchaRef.current ??= newRecaptcha()
-            const confirmationResult = await signInWithPhoneNumber(
-                auth,
-                data.phone_number!,
-                recaptchaRef.current
-            );
+            const confirmationResult = await sendCode(data.phone_number!);
             setVerificationId(confirmationResult.verificationId)
             setConfirmationResult(confirmationResult)
             advance()
@@ -100,7 +112,6 @@ const FillInPhoneNumber: React.FC<PhoneNumberPageProps> = ({ advance, key }) => 
         } catch (err: unknown) {
             const code = err && typeof err === 'object' && 'code' in err ? String(err.code) : '';
             console.log('phone sign-in failed', code, err)
-            clearRecaptcha()
             setRequestError(phoneSignInErrorMessage(code))
         } finally { setLoading(false) }
 
@@ -122,7 +133,6 @@ const FillInPhoneNumber: React.FC<PhoneNumberPageProps> = ({ advance, key }) => 
                             </>
                         )}
                     />
-                    <div id="recaptcha"></div>
                     <Button loading={loading} className='auth-page__modal__form__button' text='Continue' />
                 </form>
             </div>
@@ -140,6 +150,38 @@ const FillInPhoneNumberOtp: React.FC<PhoneNumberPageProps> = ({ goBack, key }) =
     const [requestError, setRequestError] = useState('')
     // Set when the number is on an account that signs in another way.
     const [phoneOnOtherAccount, setPhoneOnOtherAccount] = useState(false)
+    const phone_number = usePhoneNumberStore(state => state.phone_number)
+    const setVerificationId = usePhoneNumberStore(state => state.setVerificationId)
+    const setConfirmationResult = usePhoneNumberStore(state => state.setConfirmationResult)
+    const sendCode = usePhoneCodeSender()
+    const [secondsLeft, setSecondsLeft] = useState(RESEND_AFTER_SECONDS)
+    const [resending, setResending] = useState(false)
+
+    // The "Resend code in Ns" countdown. It used to be fixed text that
+    // always said 20s, and Resend did nothing.
+    useEffect(() => {
+        if (secondsLeft <= 0) return
+        const tick = setTimeout(() => setSecondsLeft(s => s - 1), 1000)
+        return () => clearTimeout(tick)
+    }, [secondsLeft])
+
+    const onResend = async () => {
+        if (secondsLeft > 0 || resending) return
+        try {
+            setResending(true)
+            setRequestError('')
+            const result = await sendCode(phone_number)
+            setVerificationId(result.verificationId)
+            setConfirmationResult(result)
+            setSecondsLeft(RESEND_AFTER_SECONDS)
+        } catch (err: unknown) {
+            const code = err && typeof err === 'object' && 'code' in err ? String(err.code) : ''
+            console.log('resending the code failed', code, err)
+            setRequestError(phoneSignInErrorMessage(code))
+        } finally {
+            setResending(false)
+        }
+    }
     const navigate = useNavigate()
 
     const {
@@ -250,7 +292,14 @@ const FillInPhoneNumberOtp: React.FC<PhoneNumberPageProps> = ({ goBack, key }) =
                             </>
                         )}
                     />
-                    <p className="auth-page__modal__otp-input__notifier">Didn’t receive the code? <span className="auth-page__modal__otp-input__notifier__cta">Resend code</span> in 20s</p>
+                    <p className="auth-page__modal__otp-input__notifier">
+                        Didn’t receive the code?{' '}
+                        <button type="button" onClick={onResend} disabled={secondsLeft > 0 || resending}
+                            className={`auth-page__modal__otp-input__notifier__cta ${secondsLeft > 0 || resending ? 'disabled' : ''}`}>
+                            {resending ? 'Sending…' : 'Resend code'}
+                        </button>
+                        {secondsLeft > 0 && <> in {secondsLeft}s</>}
+                    </p>
                     <Button loading={loading} disabled={!isValid} className='auth-page__modal__form__button' text='Verify' />
                     {phoneOnOtherAccount && (
                         <p className='auth-page__modal__form__cta'>Signed up another way? <Link to="/auth/login" className='underline'>Go to log in</Link></p>
