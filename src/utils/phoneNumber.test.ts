@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { withTypedDialCode } from "./phoneNumber"
+import { phoneSignInErrorMessage, withTypedDialCode } from "./phoneNumber"
 
 describe("withTypedDialCode", () => {
     it("reads a number typed with its dial code but no plus", () => {
@@ -33,5 +33,19 @@ describe("withTypedDialCode", () => {
 
     it("leaves too-long digits that are not a number of their own", () => {
         expect(withTypedDialCode("+19999999999999")).toBe("+19999999999999")
+    })
+})
+
+describe("phoneSignInErrorMessage", () => {
+    it("explains a refused reCAPTCHA instead of saying sign-in is down", () => {
+        const message = phoneSignInErrorMessage("auth/invalid-app-credential")
+        expect(message).toMatch(/robot/)
+        expect(message).not.toMatch(/down/i)
+    })
+
+    it("gives every failure a plain message", () => {
+        for (const code of ["auth/invalid-phone-number", "auth/too-many-requests", "auth/quota-exceeded", "auth/network-request-failed", "", "auth/something-new"]) {
+            expect(phoneSignInErrorMessage(code)).not.toMatch(/auth\/|firebase/i)
+        }
     })
 })
