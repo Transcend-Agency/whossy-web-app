@@ -63,10 +63,13 @@
                 @apply text-[#8a8a8e] text-[1.8rem] mt-[1.6rem] text-center mb-[2.5rem] font-medium;
 
                 &__cta {
-                    @apply text-white underline cursor-pointer;
+                    @apply text-white underline cursor-pointer font-medium;
+                    font-size: inherit;
 
+                    // Waiting for the countdown, or sending: visibly not
+                    // ready yet.
                     &.disabled {
-                        @apply cursor-not-allowed;
+                        @apply cursor-not-allowed opacity-50;
                     }
                 }
             }
