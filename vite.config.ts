@@ -8,6 +8,9 @@ export default defineConfig({
   // Debug console.log calls (several print user ids and birth dates) are
   // dropped from production bundles; console.error and warn stay.
   esbuild: { pure: ['console.log', 'console.debug'] },
+  // 127.0.0.1, not localhost: Firebase refuses phone sign-in on the hostname
+  // "localhost". See src/main.tsx.
+  server: { host: '127.0.0.1' },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
