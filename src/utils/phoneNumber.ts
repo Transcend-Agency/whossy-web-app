@@ -66,3 +66,24 @@ export function phoneSignInErrorMessage(code: string): string {
             return "We couldn't send your code. Please try again."
     }
 }
+
+/** How an account signs in, from its `auth_provider`, for telling the user. */
+const SIGN_IN_METHOD_NAMES: Record<string, string> = {
+    google: "Google",
+    apple: "Apple",
+    facebook: "Facebook",
+    email: "your email and password",
+    local: "your email and password",
+}
+
+/**
+ * Shown when a verified phone number belongs to an account that signs in
+ * another way and has not linked the number. Naming the method is safe: the
+ * person just proved they own the number on that account.
+ */
+export function phoneOnOtherAccountMessage(authProvider: unknown): string {
+    const method = typeof authProvider === "string" ? SIGN_IN_METHOD_NAMES[authProvider] : undefined
+    return method
+        ? `This number is on an account that signs in with ${method}. Log in that way instead.`
+        : "This number is on an account that signs in another way. Log in the way you signed up."
+}
