@@ -4,7 +4,7 @@ import {
     collection, getDocs, query, where, doc, getDoc
 } from 'firebase/firestore'
 import { AnimatePresence, motion } from "framer-motion"
-import React, { useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 import OtpInput from 'react-otp-input'
 import PhoneInput, { isPossiblePhoneNumber } from "react-phone-number-input"
@@ -19,7 +19,7 @@ import { auth, db } from "@/firebase"
 import useAccountSetupFormStore from "../store/AccountSetup"
 import usePhoneNumberStore from "../store/PhoneNumberSignIn"
 import { FormData } from "../types/auth"
-import { withTypedDialCode } from "@/utils/phoneNumber"
+import { phoneSignInErrorMessage, withTypedDialCode } from "@/utils/phoneNumber"
 
 
 interface PhoneNumberProps {
@@ -65,14 +65,31 @@ const FillInPhoneNumber: React.FC<PhoneNumberPageProps> = ({ advance, key }) => 
     const setPhoneNumber = usePhoneNumberStore(state => state.setPhoneNumber)
     const updateAccountSetupUserData = useAccountSetupFormStore(state => state.updateUserData)
     const [requestError, setRequestError] = useState('')
+    // One verifier per attempt, each in a fresh element. reCAPTCHA remembers
+    // every element it has rendered into, even after clear(), so a second
+    // verifier in the same element throws ("reCAPTCHA has already been
+    // rendered"). That turned every retry into "Something Went Wrong".
+    const recaptchaRef = useRef<RecaptchaVerifier | null>(null)
+    const clearRecaptcha = () => {
+        recaptchaRef.current?.clear()
+        recaptchaRef.current = null
+    }
+    const newRecaptcha = () => {
+        const host = document.createElement('div')
+        document.getElementById('recaptcha')!.replaceChildren(host)
+        return new RecaptchaVerifier(auth, host, { 'size': 'invisible' })
+    }
+    useEffect(() => clearRecaptcha, [])
+
     const onFormSubmit = async (data: FormData) => {
         try {
             setLoading(true)
-            const recaptcha = new RecaptchaVerifier(auth, 'recaptcha', { 'size': 'invisible' })
+            setRequestError('')
+            recaptchaRef.current ??= newRecaptcha()
             const confirmationResult = await signInWithPhoneNumber(
                 auth,
                 data.phone_number!,
-                recaptcha
+                recaptchaRef.current
             );
             setVerificationId(confirmationResult.verificationId)
             setConfirmationResult(confirmationResult)
@@ -81,15 +98,10 @@ const FillInPhoneNumber: React.FC<PhoneNumberPageProps> = ({ advance, key }) => 
             updateAccountSetupUserData({ phone_number: data.phone_number! })
 
         } catch (err: unknown) {
-            const code = err && typeof err === 'object' && 'code' in err ? String(err.code) : undefined;
-            console.log(code)
-            if (code === 'auth/invalid-phone-number') {
-                setRequestError("Invalid Phone Number")
-            } else if (code === 'auth/invalid-app-credential') {
-                setRequestError("Phone Number Sign In Is Down")
-            } else {
-                setRequestError('Something Went Wrong')
-            }
+            const code = err && typeof err === 'object' && 'code' in err ? String(err.code) : '';
+            console.log('phone sign-in failed', code, err)
+            clearRecaptcha()
+            setRequestError(phoneSignInErrorMessage(code))
         } finally { setLoading(false) }
 
     }
