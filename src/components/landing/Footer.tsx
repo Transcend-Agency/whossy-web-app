@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import StoreBadges from "./StoreBadges";
 
 const FOOTER_LINKS = [
   { to: "/faq", label: "FAQ" },
@@ -43,14 +44,7 @@ const Footer = () => {
 
         <div className="flex flex-col space-y-[2.4rem] sm:col-span-2 lg:col-span-1">
           <h3 className="font-bold text-[14px] lg:text-[1.6rem]">DOWNLOAD OUR APP</h3>
-          <div className="flex flex-wrap gap-[1.6rem]">
-            <a href="#app-store">
-              <img src={'/assets/icons/AppleStore.svg'} alt="Download on the App Store" />
-            </a>
-            <a href="#play-store">
-              <img src={'/assets/icons/Play-Store.svg'} alt="Get it on Google Play" />
-            </a>
-          </div>
+          <StoreBadges captionClassName="text-white/80" />
         </div>
       </footer>
     </div>

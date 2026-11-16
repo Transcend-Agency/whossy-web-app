@@ -8,6 +8,8 @@ import Navbar from '../components/landing/Navbar';
 import Marquee from 'react-fast-marquee';
 import { Link } from 'react-router-dom';
 import useAccountEntry from '@/hooks/useAccountEntry';
+import { PLAY_STORE_URL } from '@/constants/stores';
+import { isIOSDevice } from '@/utils/platform';
 
 // The phone layout of the features: one card per feature, stacked. Sized
 // from the content and the screen width, never from the screen height, so a
@@ -244,6 +246,7 @@ const MarqueeImageSlider = () => {
 
 const Landing = () => {
     const { signedIn, appPath } = useAccountEntry();
+    const onIOS = isIOSDevice();
 
         return (
             <MotionConfig reducedMotion="user">
@@ -273,9 +276,22 @@ const Landing = () => {
                             </h1>
 
                             <div className='mt-[24px] w-full sm:w-auto'>
-                                <button className="w-full sm:min-w-[36rem] lg:min-w-[48rem] whitespace-nowrap rounded-[8px] cursor-pointer bg-[#F2243E] py-[14px] px-[32px] text-white text-[16px] lg:text-[1.8rem] font-medium active:scale-[0.98] transition-all duration-200 flex items-center justify-center">
-                                    Download Now
-                                </button>
+                                {/* The Android app is on Google Play; the iPhone app is not out yet,
+                                    so iPhone and iPad visitors are told so and pointed at the web app below. */}
+                                {onIOS ? (
+                                    <p className="w-full sm:min-w-[36rem] lg:min-w-[48rem] whitespace-nowrap rounded-[8px] bg-[#F2243E]/60 py-[14px] px-[32px] text-white text-[16px] lg:text-[1.8rem] font-medium text-center">
+                                        iPhone app coming soon
+                                    </p>
+                                ) : (
+                                    <a
+                                        href={PLAY_STORE_URL}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full sm:min-w-[36rem] lg:min-w-[48rem] whitespace-nowrap rounded-[8px] cursor-pointer bg-[#F2243E] py-[14px] px-[32px] text-white text-[16px] lg:text-[1.8rem] font-medium active:scale-[0.98] transition-all duration-200 flex items-center justify-center"
+                                    >
+                                        Download Now
+                                    </a>
+                                )}
                             </div>
 
                             {/* Whossy also runs in the browser; say so where people look first. */}
