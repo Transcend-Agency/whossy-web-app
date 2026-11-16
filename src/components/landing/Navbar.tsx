@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { pressable } from '@/utils/pressable';
 import useAccountEntry from '@/hooks/useAccountEntry';
+import { PLAY_STORE_URL } from '@/constants/stores';
+import StoreBadges from './StoreBadges';
 
 // Pages reachable from the public site's header. The footer links to these
 // too, plus the legal pages.
@@ -127,13 +129,8 @@ const Navbar = () => {
               </p>
             </div>
 
-            <div className="mt-auto pt-[32px] flex gap-[12px]">
-              <a href="#app-store" onClick={closeMobileNav}>
-                <img src={'/assets/icons/AppleStore.svg'} alt="Download on the App Store" />
-              </a>
-              <a href="#play-store" onClick={closeMobileNav}>
-                <img src={'/assets/icons/Play-Store.svg'} alt="Get it on Google Play" />
-              </a>
+            <div className="mt-auto pt-[32px]">
+              <StoreBadges captionClassName="text-gray" onNavigate={closeMobileNav} />
             </div>
           </motion.div>
         )}
@@ -211,10 +208,19 @@ const Navbar = () => {
 
           <div className="flex items-center text-[1.6rem] space-x-[1.6rem]">
             <p className="hidden xl:block">Download on</p>
-            <a href="#ios-download" aria-label="Download on the App Store">
-              <img src={'/assets/icons/apple.svg'} alt="" />
-            </a>
-            <a href="#android-download" aria-label="Get it on Google Play">
+            {/* No iPhone app yet: the Apple icon is dimmed and says so on hover or focus. */}
+            <span
+              tabIndex={0}
+              role="img"
+              aria-label="App Store: iPhone app coming soon"
+              className="group relative flex cursor-default outline-none"
+            >
+              <img src={'/assets/icons/apple.svg'} alt="" className="opacity-50" />
+              <span className="pointer-events-none absolute left-1/2 top-full mt-[1rem] -translate-x-1/2 whitespace-nowrap rounded-[0.6rem] bg-white px-[1rem] py-[0.4rem] text-[1.3rem] font-medium text-red opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                iPhone app coming soon
+              </span>
+            </span>
+            <a href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer" aria-label="Get it on Google Play">
               <img src={'/assets/icons/playstore.svg'} alt="" />
             </a>
           </div>
