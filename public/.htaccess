@@ -1,0 +1,26 @@
+# cPanel/Apache equivalent of vercel.json: single-page-app routing + headers.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(self), microphone=(), geolocation=(self), payment=(self)"
+  Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains"
+
+  # Hashed build files never change, so cache them hard.
+  <FilesMatch "\.(js|css|woff2?|png|jpe?g|svg|webp|gif|json)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  # index.html must always be revalidated so new releases show up.
+  <FilesMatch "^index\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
