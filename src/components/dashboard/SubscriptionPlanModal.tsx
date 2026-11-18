@@ -3,131 +3,55 @@ import DashboardSettingsModal from './DashboardSettingsModal'
 import toast from 'react-hot-toast';
 import { Oval } from 'react-loader-spinner';
 import { User } from '@/types/user';
-import { addCommasToNumber } from '@/constants';
 import { useCancelSubscription, useCreateTransaction } from '@/hooks/usePayments';
 
 
 interface SubscriptionPlanModalProps {
-  show: boolean, hide: () => void; advance?: (val: 'stripe-payment' | 'payment-detail') => void, refetchUserData?: () => void
+  show: boolean, hide: () => void; refetchUserData?: () => void
 }
 
-// type UserDetails = {name: string, phone: string, amount: number}
+// The monthly premium price in US dollars. Mirrors SUBSCRIPTION_PLANS.usd in
+// functions/src/payments.ts, which is what is actually charged.
+export const PREMIUM_PRICE_USD = 10;
 
-
-
-export const SubscriptionPlanModal: React.FC<SubscriptionPlanModalProps & { setCurrency: (currency: 'ngn' | 'kes' | 'usd') => void }> = ({ show, hide, advance, setCurrency}) => {
-
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'ngn' | 'kes' | 'usd'>('ngn');
+// Payments are in US dollars only, so there is nothing to choose: this
+// confirms the price and hands over to checkout.
+export const SubscriptionPlanModal: React.FC<SubscriptionPlanModalProps> = ({ show, hide }) => {
 
   const { mutate: createTransaction } = useCreateTransaction();
 
   const [ isLoading, setIsLoading ] = useState(false);
 
-  const handlePayment = async () => {
-    if ( advance && (selectedPaymentMethod === 'ngn' || selectedPaymentMethod === 'kes') ) {
-      setCurrency(selectedPaymentMethod);
-      advance( 'payment-detail' );
-    } else {
-      setIsLoading(true);
-      createTransaction(
-        { purpose: 'subscription', currency: 'usd' },
-        {
-          onSuccess: (data) => {
-            window.open(data.checkoutUrl, '_self');
-          },
-          onError: (err) => {
-            console.error(err);
-            setIsLoading(false);
-            toast.error("Couldn't start payment. Please try again.");
-          },
-        }
-      );
-    }
+  const handlePayment = () => {
+    setIsLoading(true);
+    createTransaction(
+      { purpose: 'subscription', currency: 'usd' },
+      {
+        onSuccess: (data) => {
+          window.open(data.checkoutUrl, '_self');
+        },
+        onError: (err) => {
+          console.error(err);
+          setIsLoading(false);
+          toast.error("Couldn't start payment. Please try again.");
+        },
+      }
+    );
   }
 
-
-
   return (
-    <DashboardSettingsModal showing={show} title="Select a payment option" hideModal={hide}>
+    <DashboardSettingsModal showing={show} title="Whossy Premium" hideModal={hide}>
       <div className="flex flex-col gap-y-4 ">
-        <div className='cursor-pointer text-[1.8rem] font-medium bg-[#FFFFFF] px-[1.8rem] py-[1.8rem] flex items-center gap-x-2 rounded-[0.8rem] hover:bg-[#fafafa] transition duration-300 hover:scale-[1.01] ' style={{border: '1px solid', borderColor: selectedPaymentMethod === 'ngn' ? '#f46a1afa' : '#ececec'}}
-          onClick={() => setSelectedPaymentMethod('ngn')}>
-            <div className={`size-[2rem] rounded-full transition-all duration-300 ${selectedPaymentMethod === 'ngn' ? 'bg-[#f46a1afa]' : 'bg-white'}`} style={{border: '1px solid #ececec'}}/>
-            <p className='text-center w-full text-[#8A8A8E]'>Pay using Naira (NGN)</p>
+        <div className='text-[1.8rem] font-medium bg-[#FFFFFF] px-[1.8rem] py-[1.8rem] rounded-[0.8rem] text-center' style={{border: '1px solid #f46a1afa'}}>
+            <p className='text-[2.4rem] font-semibold text-black'>${PREMIUM_PRICE_USD}<span className='text-[1.6rem] font-medium text-[#8A8A8E]'> /month</span></p>
+            <p className='text-[#8A8A8E] text-[1.4rem] mt-[0.4rem]'>Paid in US dollars (USD)</p>
         </div>
-        <div className='cursor-pointer text-[1.8rem] font-medium bg-[#FFFFFF] px-[1.8rem] py-[1.8rem] flex items-center gap-x-2 rounded-[0.8rem] hover:bg-[#fafafa] transition duration-300 hover:scale-[1.01] ' style={{border: '1px solid', borderColor: selectedPaymentMethod === 'kes' ? '#f46a1afa' : '#ececec'}}
-          onClick={() => setSelectedPaymentMethod('kes')}>
-            <div className={`size-[2rem] rounded-full transition-all duration-300 ${selectedPaymentMethod === 'kes' ? 'bg-[#f46a1afa]' : 'bg-white'}`} style={{border: '1px solid #ececec'}}/>
-            <p className='text-center w-full text-[#8A8A8E]'>Pay using Kenyan Shellings (KES)</p>
-        </div>
-        <div className='cursor-pointer text-[1.8rem] font-medium bg-[#FFFFFF] px-[1.8rem] py-[1.8rem] flex items-center gap-x-2 rounded-[0.8rem] hover:bg-[#fafafa] transition duration-300 hover:scale-[1.01] ' style={{border: '1px solid', borderColor: selectedPaymentMethod === 'usd' ? '#f46a1afa' : '#ececec'}}
-          onClick={() => setSelectedPaymentMethod('usd')}>
-            <div className={`size-[2rem] rounded-full transition-all duration-300 ${selectedPaymentMethod === 'usd' ? 'bg-[#f46a1afa]' : 'bg-white'}`} style={{border: '1px solid #ececec'}}/>
-            <p className='text-center w-full text-[#8A8A8E]'>Pay using Dollars (USD)</p>
-        </div>
-        <button className="bg-[#ff5e00f7] w-full py-[1.5rem] text-center flex justify-center rounded-[0.8rem] text-[1.8rem] text-white font-medium tracking-wide cursor-pointer hover:scale-[1.01] active:scale-[0.99] transition-all duration-300" onClick={
+        <button disabled={isLoading} className="bg-[#ff5e00f7] w-full py-[1.5rem] text-center flex justify-center rounded-[0.8rem] text-[1.8rem] text-white font-medium tracking-wide cursor-pointer hover:scale-[1.01] active:scale-[0.99] transition-all duration-300" onClick={
           handlePayment
-        }>{!isLoading ? 'Next' : <Oval color="#ffffff" secondaryColor="#fefefe" width={20} height={20} />}</button>
-        {/* <Oval color="#FFFFFF" secondaryColor="#FFFFFF" width={20} height={20} /> */}
+        }>{!isLoading ? 'Continue to payment' : <Oval color="#ffffff" secondaryColor="#fefefe" width={20} height={20} />}</button>
       </div>
     </DashboardSettingsModal>
   )
-}
-
-export const PaystackPaymentDetailsModal: React.FC<SubscriptionPlanModalProps & { currency: 'ngn' | 'kes' | 'usd', userData: User }> = ({ show, hide, currency, userData}) => {
-
-const { mutate: createTransaction } = useCreateTransaction();
-
-const [isLoading, setIsLoading] = useState(false);
-
-return (
-  <DashboardSettingsModal showing={show} title="Details" hideModal={hide}>
-    <form className="flex flex-col gap-y-6"
-      onSubmit= { (e) => {
-        e.preventDefault();
-        if (userData) {
-        setIsLoading(true);
-
-        if (currency === 'ngn') {
-          createTransaction({ purpose: 'subscription', currency: 'ngn' }, { onSuccess: (data) => {
-              // Same tab, and stay signed in: /payment-callback is behind
-              // auth and is what calls verifyTransaction.
-              window.open(data.checkoutUrl, '_self');
-          }, onError: () => { toast.error('Payment failed. Please try again'); setIsLoading(false); }});
-        }
-        else {
-          toast.error('Plan for kenyan shellings hasn\'t been created');
-          setIsLoading(false);
-        }
-
-        } else {
-            toast.error("Please fill in all fields");
-          }
-        }
-      }
-      >
-      <div className='flex flex-col space-y-2 text-[1.8rem]'>
-          <label htmlFor="name" className='text-[#666]'>Name</label>
-          <input id='name' type="text" value={(userData?.first_name as string) + ' ' + (userData?.last_name as string)} readOnly placeholder='Enter your full name' className='border py-4 px-4 outline-none border-[#ccc] rounded-lg placeholder:text-[#dad9d9]'/>
-      </div>
-      <div className='flex flex-col space-y-2 text-[1.8rem]'>
-          <label htmlFor="name" className='text-[#666]'>Phone Number</label>
-          <input id='name' type="text" value={(userData?.phone_number as string)} readOnly placeholder='Enter your phone number' className='border py-4 px-4 outline-none border-[#ccc] rounded-lg placeholder:text-[#dad9d9]'/>
-      </div>
-      <div className='flex flex-col space-y-2 text-[1.8rem]'>
-          <label htmlFor="name" className='text-[#666]'>Email</label>
-          <input id='name' type="email"  placeholder='Enter your email address' className='border py-4 px-4 outline-none border-[#ccc] rounded-lg placeholder:text-[#dad9d9]'
-          value={(userData?.email as string)} readOnly
-          />
-      </div>
-      <button 
-      className="bg-[#ff5e00f7] w-full py-[1.5rem] text-center flex justify-center items-center rounded-[0.8rem] text-[1.8rem] text-white font-medium tracking-wide cursor-pointer hover:scale-[1.01] active:scale-[0.99] transition-all duration-300" 
-      >{ !isLoading ? `Pay - ${currency === 'ngn' ? '₦' + addCommasToNumber(50000) : 'KES' + addCommasToNumber(2000) }` : <Oval color="#ffffff" secondaryColor="#f6f6f6" width={20} height={20} /> }</button>
-      {/* <PaystackButton text='Pay Now' className="paystack-button" email={userDetails.email}  amount={userDetails.amount} publicKey={publicKey} onSuccess={handleSuccessfulPayment}/> */}
-      {/* <button onClick={(e) => {alert('pay now'); e.preventDefault()}}>click</button> */}
-    </form>
-  </DashboardSettingsModal>
-)
 }
 
 // export const StripePaymentDetailsModal: React.FC<SubscriptionPlanModalProps> = ({ show, hide}) => {
