@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { PREMIUM_PRICE_USD } from '@/components/dashboard/SubscriptionPlanModal';
 import { useEffect, useState } from 'react';
 import DashboardPageContainer from '../../components/dashboard/DashboardPageContainer';
 import ProfilePlan from '../../components/dashboard/ProfilePlan';
@@ -136,7 +137,7 @@ const UserProfile = () => {
 
                 </div>
                 <section data-cy="subscription-modal" className='user-profile__plans'>
-                    <ProfilePlan planTitle='Whossy Premium Plan' pricePerMonth={30} benefits={['Chat Initiation', 'Rewind', 'Top Picks', 'Read Receipts']} type='premium' gradientSrc='/assets/images/dashboard/free.svg' goToPlansPage={() => { setCurrentPlan('free'); setActivePage('subscription-plans'); console.log(currentPlan) }} />
+                    <ProfilePlan planTitle='Whossy Premium Plan' pricePerMonth={PREMIUM_PRICE_USD} benefits={['Chat Initiation', 'Rewind', 'Top Picks', 'Read Receipts']} type='premium' gradientSrc='/assets/images/dashboard/free.svg' goToPlansPage={() => { setCurrentPlan('free'); setActivePage('subscription-plans'); console.log(currentPlan) }} />
                     <ProfilePlan planTitle='Whossy Free Plan' pricePerMonth={0} benefits={['Profile Browsing', 'Swipe And Match', 'See Who Likes You', 'Profile Boost']}  type='free' gradientSrc='/assets/images/dashboard/premium.svg' goToPlansPage={() => { setActivePage('subscription-plans'); setCurrentPlan('premium'); console.log(currentPlan) }} />
                 </section>
 

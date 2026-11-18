@@ -2,9 +2,8 @@ import { motion } from "framer-motion";
 import React, { useEffect, useState } from "react";
 import { PremiumPlansHeader } from "./PremiumPlans";
 import { FreePlanBenefit, PremiumPlanBenefit } from "@/components/dashboard/PlanBenefit";
-import { CancelPlanModal, PaystackPaymentDetailsModal, SubscriptionPlanModal } from "@/components/dashboard/SubscriptionPlanModal";
+import { CancelPlanModal, PREMIUM_PRICE_USD, SubscriptionPlanModal } from "@/components/dashboard/SubscriptionPlanModal";
 import { User } from "@/types/user";
-import { addCommasToNumber } from "@/constants";
 import { pressable } from '@/utils/pressable';
 // import { useVerify } from "@/hooks/usePaystack";
 // import { usePaystackStore } from "@/store/Paystack";
@@ -93,14 +92,12 @@ const  SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ activePage, clos
         setIsPremiumUser(userData?.is_premium);
       }, [userData])
 
-    const [ currency, setCurrency ] = useState<'ngn' | 'kes' | 'usd'>('ngn');
     
 
     return (
         <>
-            <SubscriptionPlanModal show={showPaymentOptionsModal === "plan"} hide={() => setShowPaymentOptionsModal('hidden')}  advance={ setShowPaymentOptionsModal } refetchUserData={refetchUserData} setCurrency={setCurrency}/>
-            <CancelPlanModal userData={ userData as User } show={showPaymentOptionsModal === "cancel-subscription"} hide={() => setShowPaymentOptionsModal('hidden')}  advance={ setShowPaymentOptionsModal } refetchUserData={refetchUserData}/>
-            <PaystackPaymentDetailsModal userData={ userData as User } show={showPaymentOptionsModal === "payment-detail"} hide={() => setShowPaymentOptionsModal('plan')} currency={currency}  />
+            <SubscriptionPlanModal show={showPaymentOptionsModal === "plan"} hide={() => setShowPaymentOptionsModal('hidden')} refetchUserData={refetchUserData}/>
+            <CancelPlanModal userData={ userData as User } show={showPaymentOptionsModal === "cancel-subscription"} hide={() => setShowPaymentOptionsModal('hidden')} refetchUserData={refetchUserData}/>
             {/* <StripePaymentDetailsModal show={showPaymentOptionsModal === "stripe-payment"} hide={() => setShowPaymentOptionsModal('plan')}  /> */}
             <motion.div onWheel={handleWheel} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} animate={activePage ? { x: "-100%", opacity: 1 } : { x: 0 }} transition={{ duration: 0.25 }} className="dashboard-layout__main-app__body__secondary-page edit-profile settings-page">
                 <div className="settings-page__container">
@@ -115,7 +112,7 @@ const  SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({ activePage, clos
                         <div className="w-full px-[2.4rem]">
                             <div className=" min-w-full px-[1.2rem] py-[1.6rem] text-[#FF5C00] bg-gradient-to-r from-[#ff5e0030] to-white  " style={{border: '1.5px solid #FF5C00', borderRadius: '1.2rem'}}>
                                 <h1 className="text-[2.4rem] font-bold ">Whossy Premium Plan</h1>
-                                <p className="flex gap-[0.4rem]"><span className="text-[1.6rem] font-semibold self-center">$</span><span className="text-[3.2rem] font-medium self-end">{addCommasToNumber(30)}</span><span className="text-[1.6rem] font-bold self-end">/month</span></p>
+                                <p className="flex gap-[0.4rem]"><span className="text-[1.6rem] font-semibold self-center">$</span><span className="text-[3.2rem] font-medium self-end">{PREMIUM_PRICE_USD}</span><span className="text-[1.6rem] font-bold self-end">/month</span></p>
                             </div>
                         </div>
                         <PremiumPlansHeader plan={plan === 'premium'}/>

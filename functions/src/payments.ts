@@ -27,19 +27,24 @@ const NOMBA_ACCOUNT_ID = "5909f326-c021-4fa9-b1d4-f5e5e83936f3";
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 const NOMBA_BASE_URL = "https://api.nomba.com";
 
+// Credit packs, priced in US dollars. Mirrors CREDIT_OPTIONS in
+// src/pages/dashboard/AddCredits.tsx; the client sends an index into this
+// list and the amount charged always comes from here.
 const CREDIT_OPTIONS = [
-  { credits: 50, usd: 10, ngn: 10000, kes: 800 },
-  { credits: 100, usd: 20, ngn: 20000, kes: 1600 },
-  { credits: 200, usd: 30, ngn: 30000, kes: 2400 },
-  { credits: 1000, usd: 40, ngn: 40000, kes: 3200 },
+  { credits: 5, usd: 1 },
+  { credits: 10, usd: 2 },
+  { credits: 50, usd: 10 },
+  { credits: 100, usd: 20 },
+  { credits: 200, usd: 30 },
+  { credits: 1000, usd: 40 },
 ] as const;
 
-// Mirrors SubscriptionPlanModal.tsx. KES has no plan yet (the client
-// currently shows "Plan for kenyan shellings hasn't been created" — same
-// restriction enforced here).
+// New payments are in US dollars only. The naira plan stays because
+// subscriptions already on it still renew through the Paystack webhook and
+// can be cancelled; nobody can start a new one.
 const SUBSCRIPTION_PLANS = {
   ngn: { amount: 50000, plan: "PLN_pmtergy4o4vv216" },
-  usd: { amount: 30 },
+  usd: { amount: 10 },
 } as const;
 
 type Currency = "ngn" | "kes" | "usd";
@@ -181,8 +186,8 @@ export const createTransaction = onCall<CreateTransactionRequest>(
     if (purpose !== "credits" && purpose !== "subscription") {
       throw new HttpsError("invalid-argument", "purpose must be 'credits' or 'subscription'.");
     }
-    if (currency !== "ngn" && currency !== "kes" && currency !== "usd") {
-      throw new HttpsError("invalid-argument", "currency must be 'ngn', 'kes', or 'usd'.");
+    if (currency !== "usd") {
+      throw new HttpsError("invalid-argument", "Payments are in US dollars only; currency must be 'usd'.");
     }
 
     const userSnap = await db().collection("users").doc(uid).get();
@@ -199,13 +204,10 @@ export const createTransaction = onCall<CreateTransactionRequest>(
     if (purpose === "credits") {
       const option = typeof creditOptionIndex === "number" ? CREDIT_OPTIONS[creditOptionIndex] : undefined;
       if (!option) throw new HttpsError("invalid-argument", "Invalid creditOptionIndex.");
-      amount = option[currency];
+      amount = option.usd;
       credits = option.credits;
     } else {
-      if (currency === "kes") {
-        throw new HttpsError("failed-precondition", "Plan for Kenyan shillings hasn't been created.");
-      }
-      amount = SUBSCRIPTION_PLANS[currency].amount;
+      amount = SUBSCRIPTION_PLANS.usd.amount;
     }
 
     const provider = providerFor(currency);
@@ -234,27 +236,8 @@ export const createTransaction = onCall<CreateTransactionRequest>(
       throw err;
     }
 
+    // New payments are all US dollars, which go through Nomba.
     async function startCheckout(): Promise<string> {
-
-      if (provider === "paystack") {
-        const initBody: Record<string, unknown> = {
-          email,
-          amount: amount * 100, // kobo/cents
-          currency: currency.toUpperCase(),
-          reference,
-          callback_url: callbackUrl,
-          metadata: { uid, purpose, ...(credits !== undefined ? { credits } : {}) },
-        };
-        if (purpose === "subscription" && currency === "ngn") {
-          initBody.plan = SUBSCRIPTION_PLANS.ngn.plan;
-        }
-        const result = await paystackFetch(currency, "/transaction/initialize", {
-          method: "POST",
-          body: JSON.stringify(initBody),
-        });
-        return result.data.authorization_url as string;
-      }
-
       const orderPath = purpose === "subscription" ? "/v1/checkout/tokenized-card-payment" : "/v1/checkout/order";
       const result = await nombaFetch(orderPath, {
         method: "POST",

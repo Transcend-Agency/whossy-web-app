@@ -13,38 +13,30 @@ type AddCreditProps = {
 
 interface CreditOption {
   credits: number;
-    usd: number;
-    ngn: number;
-    kes: number;
-  }
+  usd: number;
+}
 
-  // Mirrors CREDIT_OPTIONS in functions/src/payments.ts — the server is the
-  // actual source of truth for amounts, this is display-only. Index into
-  // this array is what's sent as `creditOptionIndex`.
-  const creditOptions: CreditOption[] = [
-    { credits: 50, usd: 10, ngn: 10000, kes: 800 },
-    { credits: 100, usd: 20, ngn: 20000, kes: 1600  },
-    { credits: 200, usd: 30, ngn: 30000, kes: 2400  },
-    { credits: 1000, usd: 40, ngn: 40000, kes: 3200  },
-  ];
-
-  const currency: string[] = [
-    "usd",
-    "ngn",
-    "kes",
-  ]
+// Mirrors CREDIT_OPTIONS in functions/src/payments.ts, which is what is
+// actually charged; this list is display-only. The index into it is what is
+// sent as `creditOptionIndex`, so the two lists must stay in the same order.
+const creditOptions: CreditOption[] = [
+  { credits: 5, usd: 1 },
+  { credits: 10, usd: 2 },
+  { credits: 50, usd: 10 },
+  { credits: 100, usd: 20 },
+  { credits: 200, usd: 30 },
+  { credits: 1000, usd: 40 },
+];
 
 const AddCredits: React.FC<AddCreditProps> = ({ activePage, closePage }) => {
     const [selectedCreditOptionIndex, setSelectedCreditOptionIndex] = useState<number | null>(null);
-
-    const [activeCurrency, setActiveCurrency] = useState<'usd' | 'ngn' | 'kes'>('usd')
 
     const { mutate: createTransaction, isPending } = useCreateTransaction();
 
     const handlePayment = () => {
       if (selectedCreditOptionIndex === null) return;
       createTransaction(
-        { purpose: "credits", currency: activeCurrency, creditOptionIndex: selectedCreditOptionIndex },
+        { purpose: "credits", currency: "usd", creditOptionIndex: selectedCreditOptionIndex },
         {
           onSuccess: (data) => {
             window.open(data.checkoutUrl, "_self");
@@ -77,18 +69,6 @@ const AddCredits: React.FC<AddCreditProps> = ({ activePage, closePage }) => {
           </p>
         </div>
 
-        <div className="mx-6 flex gap-x-6 items-center">
-          <p className="text-[1.8rem] font-medium">SELECT CURRENCY </p>
-          <div className="flex gap-x-4">
-            {currency.map((item, i) =>
-              <div key={i} className={`p-4 text-[1.4rem] rounded-2xl cursor-pointer ${activeCurrency === item && "bg-black text-white"}`} style={{ border: "1px solid #8A8A8A" }}
-              onClick={() => {setActiveCurrency(item as 'usd' | 'ngn' | 'kes'); setSelectedCreditOptionIndex(null)}}
-              >{item}</div>
-              )
-            }
-          </div>
-        </div>
-
         <div className="space-y-5 pb-[5rem]">
           {creditOptions.map((option, i) => (
             <label
@@ -101,7 +81,7 @@ const AddCredits: React.FC<AddCreditProps> = ({ activePage, closePage }) => {
             >
               <div className="space-y-3">
                 <div className="text-[1.6rem]">{option.credits} Credits</div>
-                <div className="text-[1.6rem] font-semibold">{activeCurrency === "usd" ? `$ ${option.usd}` : activeCurrency === "ngn" ? `₦ ${option.ngn}` : `KES ${option.kes}`} </div>
+                <div className="text-[1.6rem] font-semibold">${option.usd}</div>
               </div>
 
               <input
