@@ -35,6 +35,8 @@ const CREDIT_PACKS: Record<string, number> = {
   credits_20_usd: 20,
   credits_50_usd: 50,
   credits_100_usd: 100,
+  credits_200_usd: 200,
+  credits_1000_usd: 1000,
 };
 
 /** Subscription products sold on Google Play. */
