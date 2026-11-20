@@ -125,8 +125,13 @@ const ShareASnapshot: FC<OnboardingProps> = ({ advance, goBack }) => {
                 <h1 className="onboarding-page__header">Share a snapshot of you</h1>
                 <div className="onboarding-page__text">
                     <p className="w-fit">Add at least 2 recent photos of yourself 🤗</p>
-                    <p className="max-w-[400px] w-full mb-20">
+                    <p className="max-w-[400px] w-full">
                         Hint: Using your best photo could give a great first impression and the beginning of something great.
+                    </p>
+                    {/* Says up front that the photos are what the verification selfie is
+                        checked against. Deliberately does not say which photo. */}
+                    <p className="max-w-[400px] w-full mt-4 mb-20 font-semibold">
+                        Your photos will be used to verify that it's really you, so make sure your face is clearly visible. If you change them later, you may need to verify again.
                     </p>
                 </div>
                 <BigSnapshots />
