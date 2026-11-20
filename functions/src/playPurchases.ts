@@ -8,10 +8,9 @@
  * (never from the client), and grants it once per purchase token.
  *
  * Setup it needs (Play Console, once):
- *   Setup > API access: link a Google Cloud project, then grant the service
- *   account this function runs as (the project's default compute or App
- *   Engine service account, or one set in `serviceAccount` below) the
- *   permissions "View financial data" and "Manage orders and subscriptions".
+ *   Users and permissions: invite the service account this function runs as
+ *   (`PLAY_VERIFIER_SERVICE_ACCOUNT` below) with the permissions "View
+ *   financial data" and "Manage orders and subscriptions".
  * Until that is done the Play API answers 401/403 and every purchase is
  * refused with `unavailable`, which the app treats as "try again later".
  */
@@ -35,6 +34,8 @@ const CREDIT_PACKS: Record<string, number> = {
   credits_20_usd: 20,
   credits_50_usd: 50,
   credits_100_usd: 100,
+  credits_200_usd: 200,
+  credits_1000_usd: 1000,
 };
 
 /** Subscription products sold on Google Play. */
@@ -210,7 +211,12 @@ interface VerifyPlayPurchaseRequest {
   purchaseToken?: string;
 }
 
-export const verifyPlayPurchase = onCall<VerifyPlayPurchaseRequest>(async (request) => {
+// Runs as the service account that is invited in Play Console (Users and
+// permissions) with "View financial data" and "Manage orders and
+// subscriptions". The function uses its credentials with no key file.
+const PLAY_VERIFIER_SERVICE_ACCOUNT = "subscriptions-manager@whossy-app.iam.gserviceaccount.com";
+
+export const verifyPlayPurchase = onCall<VerifyPlayPurchaseRequest>({ serviceAccount: PLAY_VERIFIER_SERVICE_ACCOUNT }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Sign in to verify a purchase.");
 

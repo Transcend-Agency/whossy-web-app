@@ -27,6 +27,10 @@ const NOMBA_ACCOUNT_ID = "5909f326-c021-4fa9-b1d4-f5e5e83936f3";
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 const NOMBA_BASE_URL = "https://api.nomba.com";
 
+// Off until a web payment provider is set up: createTransaction refuses
+// every request. Flip to true to take web payments again.
+const WEB_PAYMENTS_ENABLED: boolean = false;
+
 // Credit packs, priced in US dollars. Mirrors CREDIT_OPTIONS in
 // src/pages/dashboard/AddCredits.tsx; the client sends an index into this
 // list and the amount charged always comes from here.
@@ -181,6 +185,16 @@ export const createTransaction = onCall<CreateTransactionRequest>(
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Sign in to pay.");
+
+    // Web payments are switched off until a payment provider is set up. No
+    // checkout can start, so no web payment can be recorded or settled;
+    // credits and Premium are bought in the Android app (verifyPlayPurchase).
+    if (!WEB_PAYMENTS_ENABLED) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Payments aren't available on the web yet. Buy credits or Premium in the Whossy app on Google Play."
+      );
+    }
 
     const { purpose, currency, creditOptionIndex } = request.data ?? {};
     if (purpose !== "credits" && purpose !== "subscription") {
