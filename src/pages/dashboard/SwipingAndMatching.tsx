@@ -14,7 +14,7 @@ import {
     query,
     QueryDocumentSnapshot,
     setDoc,
-    startAfter, updateDoc, deleteDoc,
+    startAfter, Timestamp, updateDoc, deleteDoc,
     where
 } from "firebase/firestore";
 import {
@@ -37,7 +37,8 @@ import {calculateAge} from "@/utils/age";
 import {distanceInMiles} from "@/utils/distance";
 import {milesToKm} from "@/utils/units";
 import {fetchProfilesWithinRadius} from "@/utils/geoProfiles";
-import {fetchSearchRadiusMiles} from "@/utils/searchRadius";
+import {fetchUserFilters, searchRadiusMiles} from "@/utils/searchRadius";
+import {AgeRange, activeAgeRange, birthDateBounds, isInAgeRange} from "@/utils/ageFilter";
 import {nearbyFirst, Ranked} from "@/utils/nearbyFirst";
 import {hidesOnlineStatus, isRecentlyOnline} from "@/utils/presence";
 import DiscoveryStateMessage from "@/components/dashboard/DiscoveryStateMessage";
@@ -666,6 +667,9 @@ const SwipingAndMatching = () => {
     // Everyone found in the radius on the last fresh load, so later pages
     // don't show them again.
     const nearbyIdsRef = useRef<Set<string>>(new Set());
+    // The age filter as it was on the last fresh load, so later pages use
+    // the same range as the first.
+    const ageRangeRef = useRef<AgeRange | null>(null);
 
     const fetchDiscoverableProfiles = async (reset: boolean) => {
         if (reset) {
@@ -715,7 +719,14 @@ const SwipingAndMatching = () => {
             const center: [number, number] | null =
                 typeof latitude === 'number' && typeof longitude === 'number' ? [latitude, longitude] : null;
 
+            // The saved settings, read once per fresh deck: the Distance Radius
+            // and the age filter (strict when on, like the mobile deck).
+            const searchFilters = reset ? await fetchUserFilters(user.uid as string) : null;
+            if (reset) ageRangeRef.current = activeAgeRange(searchFilters);
+            const ageRange = ageRangeRef.current;
+
             const isDiscoverable = (profile: User) =>
+                (!ageRange || isInAgeRange(profile.date_of_birth, ageRange)) &&
                 profile.is_banned !== true &&
                 profile.is_approved === true &&
                 profile.user_settings?.public_search === true &&
@@ -736,7 +747,7 @@ const SwipingAndMatching = () => {
                 nearbyIdsRef.current = new Set();
                 if (center) {
                     try {
-                        const radiusMiles = await fetchSearchRadiusMiles(user.uid as string, loggedUserData.distance ?? user.distance);
+                        const radiusMiles = searchRadiusMiles(searchFilters, loggedUserData.distance ?? user.distance);
                         const found = await fetchProfilesWithinRadius(audienceQuery, center, milesToKm(radiusMiles));
                         nearbyIdsRef.current = new Set(found.map(r => r.profile.uid as string));
                         nearby = found.map(r => r.profile).filter(isDiscoverable).map(rank);
@@ -748,14 +759,27 @@ const SwipingAndMatching = () => {
                 }
             }
 
-            // 2. Everyone else. If a page brings nobody new (all already
-            // liked, passed, or in the nearby group), fetch the next one, up
-            // to a few, so the deck doesn't look empty while more exist.
+            // 2. Everyone else (in the age range, if the filter is on). If a
+            // page brings nobody new (all already liked, passed, or in the
+            // nearby group), fetch the next one, up to a few, so the deck
+            // doesn't look empty while more exist.
             const everyoneElse: Ranked<User>[] = [];
             let cursor: QueryDocumentSnapshot | null = reset ? null : profilesCursor;
             let more = true;
+            // With the age filter on, the range goes in the query (ordered by
+            // date of birth, as Firestore needs); otherwise by sign-up date.
+            let everyoneQuery = query(audienceQuery, orderBy('created_at'));
+            if (ageRange) {
+                const { bornOnOrBefore, bornAfter } = birthDateBounds(ageRange);
+                everyoneQuery = query(
+                    audienceQuery,
+                    where('date_of_birth', '<=', Timestamp.fromDate(bornOnOrBefore)),
+                    where('date_of_birth', '>', Timestamp.fromDate(bornAfter)),
+                    orderBy('date_of_birth'),
+                );
+            }
             for (let page = 0; page < MAX_PAGES_PER_FETCH && more; page++) {
-                let pageQuery = query(audienceQuery, orderBy('created_at'), limit(PROFILES_PAGE_SIZE));
+                let pageQuery = query(everyoneQuery, limit(PROFILES_PAGE_SIZE));
                 if (cursor) pageQuery = query(pageQuery, startAfter(cursor));
                 const snapshot = await getDocs(pageQuery);
                 more = snapshot.docs.length === PROFILES_PAGE_SIZE;
