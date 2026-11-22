@@ -35,6 +35,10 @@ import Cat from "../../Cat.json";
 import {User} from "@/types/user";
 import {calculateAge} from "@/utils/age";
 import {distanceInMiles} from "@/utils/distance";
+import {milesToKm} from "@/utils/units";
+import {fetchProfilesWithinRadius} from "@/utils/geoProfiles";
+import {fetchSearchRadiusMiles} from "@/utils/searchRadius";
+import {nearbyFirst, Ranked} from "@/utils/nearbyFirst";
 import {hidesOnlineStatus, isRecentlyOnline} from "@/utils/presence";
 import DiscoveryStateMessage from "@/components/dashboard/DiscoveryStateMessage";
 import useSyncUserLikes from "@/hooks/useSyncUserLikes";
@@ -657,6 +661,11 @@ const SwipingAndMatching = () => {
     const [hasMoreProfiles, setHasMoreProfiles] = useState(true)
     const [fetchingMoreProfiles, setFetchingMoreProfiles] = useState(false)
     const PROFILES_PAGE_SIZE = 20;
+    // Most "everyone else" pages one fetch will read looking for someone new.
+    const MAX_PAGES_PER_FETCH = 5;
+    // Everyone found in the radius on the last fresh load, so later pages
+    // don't show them again.
+    const nearbyIdsRef = useRef<Set<string>>(new Set());
 
     const fetchDiscoverableProfiles = async (reset: boolean) => {
         if (reset) {
@@ -693,54 +702,76 @@ const SwipingAndMatching = () => {
                 throw new Error("Invalid meet value provided.");
             }
 
-            // C6: no geohash/radius bound — reach is unlimited by default, the
-            // distance preference only ranks results (below), never excludes.
-            finalQuery = query(finalQuery, orderBy('created_at'), limit(PROFILES_PAGE_SIZE));
-            if (!reset && profilesCursor) {
-                finalQuery = query(finalQuery, startAfter(profilesCursor));
-            }
+            // Nearby first, then everyone (same order as the mobile deck):
+            // 1. everyone within the viewer's Distance Radius, nearest first;
+            // 2. then everyone else, a page at a time by sign-up date, nearer
+            //    first within each page.
+            // Nobody is excluded for being far away or having no location;
+            // the radius only decides who comes first.
+            const audienceQuery = finalQuery;
 
-            const snapshot = await getDocs(finalQuery);
-            setHasMoreProfiles(snapshot.docs.length === PROFILES_PAGE_SIZE);
-            setProfilesCursor(snapshot.docs[snapshot.docs.length - 1] ?? null);
-
+            const latitude = loggedUserData.latitude ?? user.latitude;
+            const longitude = loggedUserData.longitude ?? user.longitude;
             const center: [number, number] | null =
-                typeof loggedUserData.latitude === 'number' && typeof loggedUserData.longitude === 'number'
-                    ? [loggedUserData.latitude, loggedUserData.longitude]
-                    : null;
+                typeof latitude === 'number' && typeof longitude === 'number' ? [latitude, longitude] : null;
 
-            const page: { profile: User; distanceMiles: number | null }[] = [];
-            for (const doc of snapshot.docs
-                .filter(doc => doc.get('is_banned') !== true)
-                .filter(doc => doc.get('is_approved') === true)
-                .filter(doc => {
-                    const userSettings = doc.get('user_settings');
-                    return userSettings && userSettings.public_search === true;
-                })
-            ) {
-                const docData = doc.data() as User;
-                if (
-                    userLikes.every(like => like.liked_id !== docData.uid) &&
-                    userDislikes.every(dislike => dislike.disliked_id !== docData.uid) &&
-                    !blockedUsers.includes(docData.uid as string) &&
-                    docData.uid !== user.uid
-                ) {
-                    const lat = doc.get('latitude');
-                    const lng = doc.get('longitude');
-                    const distanceMiles = center && typeof lat === 'number' && typeof lng === 'number'
-                        ? distanceInMiles(center, [lat, lng])
-                        : null;
-                    page.push({ profile: docData, distanceMiles });
+            const isDiscoverable = (profile: User) =>
+                profile.is_banned !== true &&
+                profile.is_approved === true &&
+                profile.user_settings?.public_search === true &&
+                userLikes.every(like => like.liked_id !== profile.uid) &&
+                userDislikes.every(dislike => dislike.disliked_id !== profile.uid) &&
+                !blockedUsers.includes(profile.uid as string) &&
+                profile.uid !== user.uid;
+            const rank = (profile: User): Ranked<User> => ({
+                profile,
+                distanceMiles: center && typeof profile.latitude === 'number' && typeof profile.longitude === 'number'
+                    ? distanceInMiles(center, [profile.latitude, profile.longitude])
+                    : null,
+            });
+
+            // 1. Nearby, loaded once per fresh deck.
+            let nearby: Ranked<User>[] = [];
+            if (reset) {
+                nearbyIdsRef.current = new Set();
+                if (center) {
+                    try {
+                        const radiusMiles = await fetchSearchRadiusMiles(user.uid as string, loggedUserData.distance ?? user.distance);
+                        const found = await fetchProfilesWithinRadius(audienceQuery, center, milesToKm(radiusMiles));
+                        nearbyIdsRef.current = new Set(found.map(r => r.profile.uid as string));
+                        nearby = found.map(r => r.profile).filter(isDiscoverable).map(rank);
+                    } catch (error) {
+                        // A failed area query (missing index, offline) falls back
+                        // to everyone rather than an empty deck.
+                        console.error("Couldn't load nearby profiles, showing everyone:", error);
+                    }
                 }
             }
-            // Nearer-first within the page (C6: a ranking signal, not a cut —
-            // profiles with unknown coordinates aren't excluded, just sorted
-            // after ones we can rank). Sorting is per-page rather than global
-            // across the whole result set, since the server-side cursor orders
-            // by created_at, not distance.
-            page.sort((a, b) => (a.distanceMiles ?? Infinity) - (b.distanceMiles ?? Infinity));
-            const newProfiles = page.map(p => p.profile);
 
+            // 2. Everyone else. If a page brings nobody new (all already
+            // liked, passed, or in the nearby group), fetch the next one, up
+            // to a few, so the deck doesn't look empty while more exist.
+            const everyoneElse: Ranked<User>[] = [];
+            let cursor: QueryDocumentSnapshot | null = reset ? null : profilesCursor;
+            let more = true;
+            for (let page = 0; page < MAX_PAGES_PER_FETCH && more; page++) {
+                let pageQuery = query(audienceQuery, orderBy('created_at'), limit(PROFILES_PAGE_SIZE));
+                if (cursor) pageQuery = query(pageQuery, startAfter(cursor));
+                const snapshot = await getDocs(pageQuery);
+                more = snapshot.docs.length === PROFILES_PAGE_SIZE;
+                cursor = snapshot.docs[snapshot.docs.length - 1] ?? cursor;
+
+                const fresh = snapshot.docs
+                    .map(d => d.data() as User)
+                    .filter(isDiscoverable)
+                    .filter(profile => !nearbyIdsRef.current.has(profile.uid as string));
+                everyoneElse.push(...fresh.map(rank));
+                if (fresh.length > 0 || nearby.length > 0) break;
+            }
+            setHasMoreProfiles(more);
+            setProfilesCursor(cursor);
+
+            const newProfiles = nearbyFirst(nearby, everyoneElse, nearbyIdsRef.current);
             setProfiles(prev => reset ? newProfiles : [...prev, ...newProfiles]);
         } catch (error) {
             console.error("Error fetching profiles:", error);
