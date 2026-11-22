@@ -5,7 +5,8 @@ import {User, UserFilters, UserProfile} from "@/types/user.ts";
 import useDashboardStore from "@/store/useDashboardStore.tsx";
 import {useAuthStore} from "@/store/UserId.tsx";
 import {RECENCY_WINDOW_MS} from "@/utils/presence.ts";
-import {NEW_MEMBER_WINDOW_DAYS, DEFAULT_DISCOVERY_RADIUS_MILES} from "@/constants";
+import {NEW_MEMBER_WINDOW_DAYS} from "@/constants";
+import {fetchSearchRadiusMiles} from "@/utils/searchRadius.ts";
 import {milesToKm} from "@/utils/units.ts";
 import {fetchProfilesWithinRadius} from "@/utils/geoProfiles.ts";
 import { fetchHiddenUserIds } from "@/utils/blocking";
@@ -149,7 +150,9 @@ function useProfileFetcher() {
 				if (typeof user?.latitude !== "number" || typeof user?.longitude !== "number") {
 					data = [];
 				} else {
-					const radiusKm = milesToKm(user.distance ?? DEFAULT_DISCOVERY_RADIUS_MILES);
+					// The Preferences radius (filters/{uid}). user.distance is only
+					// the onboarding value and isn't updated when Preferences changes.
+					const radiusKm = milesToKm(await fetchSearchRadiusMiles(user.uid as string, user.distance));
 					const results = await fetchProfilesWithinRadius(getUsers(user), [user.latitude, user.longitude], radiusKm);
 					data = results
 						.sort((a, b) => (b.profile.popularity_score_30d ?? 0) - (a.profile.popularity_score_30d ?? 0) || a.distanceKm - b.distanceKm)
