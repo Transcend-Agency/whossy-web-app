@@ -75,6 +75,14 @@ async function seed() {
 
     "deletePicQueue/old": { uid: "old" },
     "userchats/x": { chats: [] },
+
+    // The 20-40 age range every account was given at onboarding: switched off.
+    "filters/untouchedAge": { meet: 2, distance: 50, age_range: { min: 20, max: 40 } },
+    // Ranges someone chose: left alone. 20-40 chosen in the new apps carries
+    // saved_age_range; an age filter already off stays off.
+    "filters/chosenAge": { age_range: { min: 25, max: 35 } },
+    "filters/chosenTwentyForty": { age_range: { min: 20, max: 40 }, saved_age_range: { min: 20, max: 40 } },
+    "filters/ageOff": { age_range: null, saved_age_range: { min: 30, max: 40 } },
   };
   await Promise.all(Object.entries(docs).map(([path, data]) => db.doc(path).set(data)));
 }
@@ -100,7 +108,7 @@ test("a dry run reports the changes and writes nothing", async () => {
   // The two deferred steps are left out unless asked for by name.
   assert.deepEqual(summary, {
     defaults: 2, amountPaidShape: 2,
-    strayPremiumFlag: 1, malformedReactions: 4, chatParticipants: 1, stalePhotoQueue: 1,
+    strayPremiumFlag: 1, malformedReactions: 4, chatParticipants: 1, untouchedAgeRange: 1, stalePhotoQueue: 1,
   });
   assert.equal(everything.reverifyDeadline, 1);
   assert.equal(everything.paystackPayloads, 1);
@@ -159,6 +167,15 @@ test("applying repairs each known shape and leaves a healthy account untouched",
   assert.equal("participants" in (await get("chats/notapair")), false);
 
   assert.equal(await get("deletePicQueue/old"), undefined);
+});
+
+test("only the untouched 20-40 age range is switched off", async () => {
+  await run(db, { apply: true, only: ["untouchedAgeRange"], backupFile: backupPath() }, quiet);
+
+  assert.deepEqual(await get("filters/untouchedAge"), { meet: 2, distance: 50, age_range: null });
+  assert.deepEqual((await get("filters/chosenAge")).age_range, { min: 25, max: 35 });
+  assert.deepEqual((await get("filters/chosenTwentyForty")).age_range, { min: 20, max: 40 });
+  assert.deepEqual(await get("filters/ageOff"), { age_range: null, saved_age_range: { min: 30, max: 40 } });
 });
 
 test("a second run finds nothing left to do", async () => {
