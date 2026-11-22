@@ -10,9 +10,10 @@ const DistanceSearch: React.FC<OnboardingProps> = ({ advance, goBack }) => {
     <OnboardingPage>
       <h1 className="onboarding-page__header">Distance Search Results</h1>
       <p className="onboarding-page__text">
-        Use the slider below to set a radius of how far you want our system to
-        search for matches within your current location. You can always change
-        this later in the settings.
+        Set how far away someone can be to count as nearby. When you swipe, we
+        show people within this distance first, then people further away. The
+        "Popular in my area" filter in Explore only shows people within this
+        distance. You can change this later in Preferences.
       </p>
       <Slider />
       <div className="onboarding-page__section-one__buttons">
