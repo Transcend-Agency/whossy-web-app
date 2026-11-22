@@ -110,7 +110,10 @@ export type User = {
 };
 
 export type UserFilters = {
-  age_range?: { max: number; min: number };
+  // The age filter: on when age_range is set, off when it's null or missing.
+  // saved_age_range keeps the last range chosen (see utils/ageFilter.ts).
+  age_range?: { max: number; min: number } | null;
+  saved_age_range?: { max: number; min: number } | null;
   city?: string;
   distance?: number;
   communication_style?: number;

@@ -4,7 +4,7 @@ import { CitySettingsModal, CommunicationSettingsModal, CountrySettingsModal, Di
 import SettingsGroup from "../../components/dashboard/SettingsGroup";
 import SettingsInterest from "@/components/dashboard/SettingsInterests";
 import SettingsToggleItem from "@/components/dashboard/SettingsToggleItem";
-import DoubleSliderBar from "@/components/ui/DoubleSliderBar";
+import AgeFilterSettings from "@/components/dashboard/AgeFilterSettings";
 import SliderBar from "@/components/ui/SliderBar";
 import { communication_style, dietary, drinking, education, family_goal, love_language, marital_status, pets, preference, religion, smoking, workout, zodiac } from "@/constants";
 import { updateUserProfile } from "@/hooks/useUser";
@@ -38,14 +38,13 @@ const Preferences: React.FC<ProfileSettingsProps> = ({ activePage, closePage, on
     }, s).catch(notifyError("Couldn't save your changes. Please try again.")) }
     const updateUserPreferences = async (s: UserFilters) => { updateUserProfile("filters", auth?.uid as string, () => { hideModal(); refetchUserFilters() }, s).catch(notifyError("Couldn't save your preferences. Please try again.")) }
     const [toggle, setToggle] = useState({ similar_interest: userFilters?.similar_interest, has_bio: userFilters?.has_bio })
-    const [userValue, setUserValue] = useState({ distance: userFilters?.distance, age_range: userFilters?.age_range })
+    const [userValue, setUserValue] = useState({ distance: userFilters?.distance })
 
     useEffect(() => { setToggle({ similar_interest: userFilters?.similar_interest as boolean, has_bio: userFilters?.has_bio as boolean }) }, [userFilters?.similar_interest, userFilters?.has_bio])
-    useEffect(() => { setUserValue({ distance: userFilters?.distance as number, age_range: userFilters?.age_range }) }, [userFilters?.distance, userFilters?.age_range])
+    useEffect(() => { setUserValue({ distance: userFilters?.distance as number }) }, [userFilters?.distance])
 
 
     const [isSavingDistance, setIsSavingDistance] = useState(false)
-    const [isSavingAge, setIsSavingAge] = useState(false)
 
     return (
         <>
@@ -95,13 +94,8 @@ const Preferences: React.FC<ProfileSettingsProps> = ({ activePage, closePage, on
                                 radius (the swipe deck shows everyone by default, nearer first), a
                                 toggle promising to bypass a cap that no longer exists would be its
                                 own new instance of exactly the bug this plan exists to fix. */}
-                            <div className="px-5 pt-4">
-                                <div className="flex justify-between">
-                                    <div className="flex gap-x-4 items-center"> <p>Age range</p> <div className="bg-white py-2 px-3 rounded-[4px]">{userValue?.age_range?.min ?? 'NIL'} - {userValue?.age_range?.max ?? "NIL"}</div></div>
-                                    {JSON.stringify(userValue?.age_range) !== JSON.stringify(userFilters?.age_range) && <button className="modal__body__header__save-button" onClick={() => { setIsSavingAge(true); updateUserPreferences({ age_range: userValue.age_range }).catch(e => console.error(e)); setTimeout(() => setIsSavingAge(false), 1500)}}>{!isSavingAge ? 'Save' : <Oval color="#485FE6" secondaryColor="#485FE6" width={14} height={14} />}</button>}
-                                </div>
-                                <DoubleSliderBar val={[userValue?.age_range?.min as number ?? 18, userValue?.age_range?.max as number ?? 20]} getValue={(val) => setUserValue((prev) => ({ ...prev, age_range: { min: val[0], max: val[1] } }))} />
-                            </div>
+                            {/* Off by default; the same setting as Advanced Search's. */}
+                            <AgeFilterSettings />
                         </div>
 
                         <div>

@@ -243,6 +243,28 @@ const STEPS = {
     return changes;
   },
 
+  // Both apps used to give every new account an age range of 20-40 at
+  // onboarding without asking, and the mobile swipe deck applied it as a
+  // strict limit. The age filter now starts off, so an untouched 20-40 is
+  // switched off too (age_range null is "off" in every app version). A range
+  // chosen in the new apps also has saved_age_range, so it is never matched
+  // here; someone who picked exactly 20-40 in an old app can switch it back
+  // on in Preferences.
+  async untouchedAgeRange(db) {
+    return (await db.collection("filters").get()).docs
+      .filter((doc) => {
+        const range = doc.get("age_range");
+        return range && typeof range === "object" && Object.keys(range).length === 2
+          && range.min === 20 && range.max === 40 && doc.get("saved_age_range") === undefined;
+      })
+      .map((doc) => ({
+        path: doc.ref.path,
+        reason: "untouched default age range 20-40: age filter switched off",
+        before: [image(doc)],
+        write: (batch) => batch.update(doc.ref, { age_range: null }),
+      }));
+  },
+
   // Left behind by the old photo clean-up function, which did not clear its
   // queue when there was nothing to delete. A leftover entry stops the
   // clean-up ever firing again for that user.
