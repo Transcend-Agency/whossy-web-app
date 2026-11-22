@@ -84,6 +84,11 @@ const Preferences: React.FC<ProfileSettingsProps> = ({ activePage, closePage, on
                                     {userValue?.distance !== userFilters?.distance && <button className="modal__body__header__save-button" onClick={() => { setIsSavingDistance(true); updateUserPreferences({ distance: userValue.distance }).catch(e => console.error(e)); setTimeout(() => setIsSavingDistance(false), 1500) }}>{!isSavingDistance ? 'Save' : <Oval color="#485FE6" secondaryColor="#485FE6" width={14} height={14} />}</button>}
                                 </div>
                                 <SliderBar val={userValue?.distance} getValue={(val) => setUserValue((prev) => ({ ...prev, distance: val }))} />
+                                {/* Says what the radius does, so nobody takes it for a hard
+                                    limit on who they can see. Same wording as the mobile app. */}
+                                <p className="text-[1.2rem] text-gray mt-3">
+                                    When you swipe, people within this distance are shown first, then people further away. "Popular in my area" in Explore only shows people within this distance.
+                                </p>
                             </div>
                             {/* C6: "outreach" toggle removed — it was saved but never read by any
                                 query, and now that distance is a ranking signal rather than a hard
