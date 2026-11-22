@@ -6,9 +6,9 @@ import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import DashboardPageContainer from '../../components/dashboard/DashboardPageContainer';
 import ExploreGridProfile from '../../components/dashboard/ExploreGridProfile';
-import { AgeRangeModal, CountrySettingsModal, GenderSettingsModal, RelationshipPreferenceSettingsModal, ReligionSettingsModal } from '@/components/dashboard/EditProfileModals';
+import { CountrySettingsModal, GenderSettingsModal, RelationshipPreferenceSettingsModal, ReligionSettingsModal } from '@/components/dashboard/EditProfileModals';
 import SettingsGroup from '@/components/dashboard/SettingsGroup';
-import { filterOptions, preference, religion, NEW_MEMBER_WINDOW_DAYS } from '@/constants';
+import { AGE_RANGE_OPTION, filterOptions, preference, religion, NEW_MEMBER_WINDOW_DAYS } from '@/constants';
 import useSyncUserLikes from '@/hooks/useSyncUserLikes';
 import { getAdvancedSearchPreferences, updateAdvancedSearchPreferences } from '@/hooks/useUser';
 import { useAuthStore } from '@/store/UserId';
@@ -28,6 +28,7 @@ import useProfileFetcher from "@/hooks/useProfileFetcher.tsx";
 import SelectedProfileView from "@/components/dashboard/SelectedProfileView";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import AgeFilterSettings from '@/components/dashboard/AgeFilterSettings';
 
 interface SettingsDataItem {
     label: string;
@@ -122,10 +123,11 @@ const Explore = () => {
         console.log('This is being called');
         try {
             setResetLoading(true);
+            // Age isn't reset here: it's the Preferences age filter, shown on
+            // this page too, not an Advanced Search setting of its own.
             await updateAdvancedSearchPreferences(auth?.uid as string, () => refetchSearchPreferences() ,
                 {
                     gender: '',
-                    age_range: { min: 18, max: 100 },
                     country: '',
                     relationship_preference: null,
                     religion: null,
@@ -138,7 +140,6 @@ const Explore = () => {
 
     const settingsData: SettingsDataItem[] = [
         { label: 'Gender', value: advancedSearchPreferences.gender || 'Choose', onClick: () => setAdvancedSearchModalShowing('gender') },
-        { label: 'Age', value: `${advancedSearchPreferences.age_range?.min} - ${advancedSearchPreferences.age_range?.max} years old` || 'Choose', onClick: () => setAdvancedSearchModalShowing('age-range') },
         { label: 'Country of Residence', value: advancedSearchPreferences.country || 'Choose', onClick: () => setAdvancedSearchModalShowing('country') },
         { label: 'Relationship Preference', value: advancedSearchPreferences.relationship_preference !== null ? preference[advancedSearchPreferences.relationship_preference as number] : 'Choose', onClick: () => setAdvancedSearchModalShowing('relationship_preference') },
         { label: 'Religion', value: advancedSearchPreferences.religion !== null ? religion[advancedSearchPreferences.religion as number] : 'Choose', onClick: () => setAdvancedSearchModalShowing('religion') }
@@ -162,7 +163,7 @@ const Explore = () => {
             show={confirmReset}
             tone="primary"
             title="Reset your search filters?"
-            message="Gender, age range, country, relationship preference and religion go back to their defaults."
+            message="Gender, country, relationship preference and religion go back to their defaults. Your age filter is shared with Preferences and stays as it is."
             confirmLabel="Reset filters"
             onCancel={() => setConfirmReset(false)}
             onConfirm={() => { setConfirmReset(false); resetAdvancedSearch() }}
@@ -211,13 +212,23 @@ const Explore = () => {
                                         />
                                     }
 
+                                    {!exploreDataLoading && !exploreError && exploreEmptyReason === 'no-age-range' &&
+                                        <DiscoveryStateMessage
+                                            key="explore-no-age-range"
+                                            title="Choose an age range first"
+                                            subtitle="Set an age range to see people in it. You can switch the age filter back off afterwards and this filter will keep your range."
+                                            actionLabel="Set age range"
+                                            onAction={() => setAdvancedSearchShowing(true)}
+                                        />
+                                    }
+
                                     {noSearchResults(profiles) === 0 && !exploreDataLoading && !exploreError && !exploreEmptyReason &&
                                         <DiscoveryStateMessage
                                             key="no-search-result"
                                             title="No profiles match right now"
-                                            subtitle={selectedOption === 'Advanced Search' ? "Try widening your age range or relationship preference." : "Try a different filter, or check back soon as new people join every day."}
-                                            actionLabel={selectedOption === 'Advanced Search' ? "Adjust search" : selectedOption !== filterOptions[0] ? `Show ${filterOptions[0]}` : undefined}
-                                            onAction={() => selectedOption === 'Advanced Search' ? setAdvancedSearchShowing(true) : setSelectedOption(filterOptions[0])}
+                                            subtitle={selectedOption === 'Advanced Search' ? "Try widening your age range or relationship preference." : selectedOption === AGE_RANGE_OPTION ? "Try widening your age range." : "Try a different filter, or check back soon as new people join every day."}
+                                            actionLabel={selectedOption === 'Advanced Search' ? "Adjust search" : selectedOption === AGE_RANGE_OPTION ? "Adjust age range" : selectedOption !== filterOptions[0] ? `Show ${filterOptions[0]}` : undefined}
+                                            onAction={() => selectedOption === 'Advanced Search' || selectedOption === AGE_RANGE_OPTION ? setAdvancedSearchShowing(true) : setSelectedOption(filterOptions[0])}
                                         />
                                     }
 
@@ -340,7 +351,8 @@ const Explore = () => {
                         <div className="settings-page__title">
                             <button onClick={() => {
                                 setAdvancedSearchShowing(false);
-                                if (selectedOption == 'Advanced Search') {
+                                // Both use the age filter set on this page.
+                                if (selectedOption == 'Advanced Search' || selectedOption == AGE_RANGE_OPTION) {
                                     fetchProfilesBasedOnOption().catch((err) => console.error("An error occurred while trying to fetch profiles: ", err))
                                 }
                             }} className="settings-page__title__left">
@@ -354,12 +366,6 @@ const Explore = () => {
                                 hideModal={hideModal}
                                 userGender={advancedSearchPreferences?.gender as string}
                                 handleSave={async (gender) => await updateSearchPreferences({ gender })} />}
-
-                            <AgeRangeModal
-                                showing={advancedSearchModalShowing === 'age-range'}
-                                hideModal={hideModal} min={advancedSearchPreferences.age_range?.min as number}
-                                max={advancedSearchPreferences.age_range?.max as number}
-                                handleSave={async (age_range) => await updateSearchPreferences({ age_range })} />
 
                             <CountrySettingsModal
                                 showing={advancedSearchModalShowing === 'country'}
@@ -379,9 +385,9 @@ const Explore = () => {
                                 handleSave={async religion => await updateSearchPreferences({ religion })} />
 
                         </div>
-                        <div className="px-5 pt-4">
-                            <div className="flex justify-between">
-                            </div>
+                        {/* The Preferences age filter, so age is one setting in both places. */}
+                        <div className="bg-[#F6F6F6] py-2 mb-3">
+                            <AgeFilterSettings place="advanced-search" />
                         </div>
                         <SettingsGroup data={settingsData
                             .filter(item => !(user?.meet !== 2 && item.label === 'Gender'))

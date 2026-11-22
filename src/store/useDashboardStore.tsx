@@ -20,8 +20,10 @@ interface DashboardState {
 	setExploreError: (exploreError: string | null) => void;
 	// C2 — "Similar interest" with zero interests recorded used to silently
 	// fall through to showing everyone. null = ordinary empty results.
-	exploreEmptyReason: "no-interests" | null;
-	setExploreEmptyReason: (exploreEmptyReason: "no-interests" | null) => void;
+	// Why the current filter has nothing to show when it isn't simply "no
+	// matches": no interests on the profile, or no age range chosen yet.
+	exploreEmptyReason: "no-interests" | "no-age-range" | null;
+	setExploreEmptyReason: (exploreEmptyReason: "no-interests" | "no-age-range" | null) => void;
 	// C5 — whether another page of results exists for the current filter.
 	hasMoreProfiles: boolean;
 	setHasMoreProfiles: (hasMoreProfiles: boolean) => void;
@@ -81,7 +83,6 @@ const useDashboardStore = create<DashboardState>((set) => ({
 
 	advancedSearchPreferences: {
 		gender: '',
-		age_range: { min: 18, max: 100 },
 		country: '',
 		relationship_preference: null,
 		religion: null

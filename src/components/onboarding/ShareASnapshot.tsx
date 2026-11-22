@@ -80,9 +80,9 @@ const ShareASnapshot: FC<OnboardingProps> = ({ advance, goBack }) => {
                 }
             });
 
+            // No age_range: Advanced Search uses the Preferences age filter.
             await setDoc(doc(db, "advancedSearchPreferences", auth.uid as string), {
                 gender: '',
-                age_range: { min: 18, max: 100 },
                 country: '',
                 relationship_preference: null,
                 religion: null,

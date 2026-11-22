@@ -5,8 +5,9 @@ import {User, UserFilters, UserProfile} from "@/types/user.ts";
 import useDashboardStore from "@/store/useDashboardStore.tsx";
 import {useAuthStore} from "@/store/UserId.tsx";
 import {RECENCY_WINDOW_MS} from "@/utils/presence.ts";
-import {NEW_MEMBER_WINDOW_DAYS} from "@/constants";
-import {fetchSearchRadiusMiles} from "@/utils/searchRadius.ts";
+import {AGE_RANGE_OPTION, NEW_MEMBER_WINDOW_DAYS} from "@/constants";
+import {fetchSearchRadiusMiles, fetchUserFilters} from "@/utils/searchRadius.ts";
+import {activeAgeRange, birthDateBounds, myAgeRange} from "@/utils/ageFilter.ts";
 import {milesToKm} from "@/utils/units.ts";
 import {fetchProfilesWithinRadius} from "@/utils/geoProfiles.ts";
 import { fetchHiddenUserIds } from "@/utils/blocking";
@@ -19,25 +20,14 @@ import { fetchHiddenUserIds } from "@/utils/blocking";
 // "load more" for now (capped, not silently unbounded).
 const PROFILES_PAGE_SIZE = 24;
 const UNPAGINATED_BRANCH_LIMIT = 60;
+// Most pages of UNPAGINATED_BRANCH_LIMIT Advanced Search reads looking for matches.
+const ADVANCED_SEARCH_MAX_PAGES = 5;
 
 function useProfileFetcher() {
 	const { user } = useAuthStore()
 	const { profiles, blockedUsers, setBlockedUsers, setProfiles, selectedOption, setExploreDataLoading, setExploreError, setExploreEmptyReason, hasMoreProfiles, setHasMoreProfiles, advancedSearchPreferences} = useDashboardStore()
 	const cursorRef = useRef<QueryDocumentSnapshot | null>(null);
 	const [loadingMoreProfiles, setLoadingMoreProfiles] = useState(false);
-
-	const calculateDOBRange = (minAge: number, maxAge: number) => {
-		const today = new Date();
-		const currentYear = today.getFullYear();
-
-		const minDOB = new Date(currentYear - maxAge, today.getMonth(), today.getDate()); // For oldest age (e.g., 30)
-		const maxDOB = new Date(currentYear - minAge, today.getMonth(), today.getDate()); // For youngest age (e.g., 25)
-
-		return {
-			minDOB: Timestamp.fromDate(minDOB),
-			maxDOB: Timestamp.fromDate(maxDOB),
-		};
-	};
 
 	const fetchBlockedUsers = useCallback(async () => {
 		if (!user?.uid) return [];
@@ -96,29 +86,27 @@ function useProfileFetcher() {
 					});
 				}
 			} else if (selectedOption === "Advanced Search") {
-				// Every optional filter here (gender/age/country/preference/
-				// religion) is a distinct field combination Firestore needs its
-				// own composite index for — with 5 independent optional filters
-				// that's an impractical number of indexes to declare and keep in
-				// sync. Fetch the same base set as every other branch (server-
-				// side has_completed_onboarding + gender/meet, already indexed)
-				// and apply the fine-grained filters client-side, same pattern as
-				// "Similar interest" and "Outside my country" below.
-				const querySnapshot = await getDocs(query(getUsers(user), limit(UNPAGINATED_BRANCH_LIMIT)));
-				const fetched = querySnapshot.docs.map((doc) => doc.data() as User);
+				// Age is the Preferences age filter (one setting in both places),
+				// applied in the query when it's on. The other options here
+				// (gender/country/preference/religion) would each need their own
+				// composite index in combination, so they're checked client-side
+				// over pages of results, reading on until there are enough
+				// matches or nobody left. It used to stop after the first 60
+				// profiles, so a narrow search could come back almost empty.
+				const ageRange = activeAgeRange(await fetchUserFilters(user.uid));
+				let searchQuery = query(getUsers(user), orderBy("created_at"));
+				if (ageRange) {
+					const { bornOnOrBefore, bornAfter } = birthDateBounds(ageRange);
+					searchQuery = query(
+						getUsers(user),
+						where("date_of_birth", "<=", Timestamp.fromDate(bornOnOrBefore)),
+						where("date_of_birth", ">", Timestamp.fromDate(bornAfter)),
+						orderBy("date_of_birth")
+					);
+				}
 
-				const { minDOB, maxDOB } = advancedSearchPreferences.age_range?.min && advancedSearchPreferences.age_range?.max
-					? calculateDOBRange(advancedSearchPreferences.age_range.min, advancedSearchPreferences.age_range.max)
-					: { minDOB: null, maxDOB: null };
-
-				data = fetched.filter((u) => {
+				const matches = (u: User) => {
 					if (advancedSearchPreferences.gender && u.gender !== advancedSearchPreferences.gender) return false;
-
-					if (minDOB && maxDOB) {
-						const dob = u.date_of_birth;
-						const dobMillis = dob instanceof Timestamp ? dob.toMillis() : dob instanceof Date ? dob.getTime() : null;
-						if (dobMillis == null || dobMillis < minDOB.toMillis() || dobMillis > maxDOB.toMillis()) return false;
-					}
 
 					// The user document records this as `country_of_origin` — the
 					// filter preference's field is just named `country`.
@@ -133,7 +121,44 @@ function useProfileFetcher() {
 					if (advancedSearchPreferences.religion != null && u.religion !== advancedSearchPreferences.religion) return false;
 
 					return true;
-				});
+				};
+
+				const found: User[] = [];
+				let cursor: QueryDocumentSnapshot | null = null;
+				for (let page = 0; page < ADVANCED_SEARCH_MAX_PAGES && found.length < UNPAGINATED_BRANCH_LIMIT; page++) {
+					const pageQuery: Query = cursor
+						? query(searchQuery, startAfter(cursor), limit(UNPAGINATED_BRANCH_LIMIT))
+						: query(searchQuery, limit(UNPAGINATED_BRANCH_LIMIT));
+					const snapshot = await getDocs(pageQuery);
+					found.push(...snapshot.docs.map((d) => d.data() as User).filter(matches));
+					if (snapshot.docs.length < UNPAGINATED_BRANCH_LIMIT) break;
+					cursor = snapshot.docs[snapshot.docs.length - 1];
+				}
+				data = found;
+			} else if (selectedOption === AGE_RANGE_OPTION) {
+				// The viewer's age range, even while the age filter itself is off
+				// (the last range they chose). Without one there's nothing to
+				// show, and the empty state says how to set it.
+				const range = myAgeRange(await fetchUserFilters(user.uid));
+				if (!range) {
+					setExploreEmptyReason("no-age-range");
+					data = [];
+				} else {
+					const { bornOnOrBefore, bornAfter } = birthDateBounds(range);
+					const rangeQuery = query(
+						getUsers(user),
+						where("date_of_birth", "<=", Timestamp.fromDate(bornOnOrBefore)),
+						where("date_of_birth", ">", Timestamp.fromDate(bornAfter)),
+						orderBy("date_of_birth")
+					);
+					const pageQuery = append && cursorRef.current
+						? query(rangeQuery, startAfter(cursorRef.current), limit(PROFILES_PAGE_SIZE))
+						: query(rangeQuery, limit(PROFILES_PAGE_SIZE));
+					const querySnapshot = await getDocs(pageQuery);
+					data = querySnapshot.docs.map(doc => doc.data() as User);
+					nextCursor = querySnapshot.docs[querySnapshot.docs.length - 1] ?? null;
+					setHasMoreProfiles(querySnapshot.docs.length === PROFILES_PAGE_SIZE);
+				}
 			} else if (selectedOption === "Outside my country") {
 				const querySnapshot = await getDocs(query(queryParam, limit(UNPAGINATED_BRANCH_LIMIT)));
 				const userData = querySnapshot.docs.map(doc => doc.data() as User);
@@ -269,6 +294,12 @@ function useProfileFetcher() {
 				break;
 			case "Advanced Search":
 				fetchQuery = query(q)
+				break;
+			case AGE_RANGE_OPTION:
+				// Handled inside fetchBlockedAndFilteredProfiles: it needs the
+				// viewer's saved age range, read there.
+				fetchQuery = query(q);
+				paginated = true;
 				break;
 			default:
 				console.log("Option not recognized");
