@@ -23,7 +23,7 @@ import * as admin from "firebase-admin";
 import { FieldValue, Timestamp, type DocumentReference } from "firebase-admin/firestore";
 import nodemailer from "nodemailer";
 
-const SMTP_PASSWORD = defineSecret("SMTP_PASSWORD");
+export const SMTP_PASSWORD = defineSecret("SMTP_PASSWORD");
 
 export const SUPPORT_EMAIL = "support@whossy.com";
 const SMTP_HOST = "mail.whossy.com";
@@ -47,12 +47,12 @@ export type Mailer = (email: ContactEmail) => Promise<void>;
 // header, so anything beyond a plain local@domain.tld is left out of it.
 const PLAIN_ADDRESS = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
 
-const escapeHtml = (s: string) =>
+export const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
 // One line, no control characters, bounded: safe for a subject or a name.
 // eslint-disable-next-line no-control-regex -- matching control characters is the point
-const headerSafe = (s: string, max: number) => s.replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, max);
+export const headerSafe = (s: string, max: number) => s.replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, max);
 
 export function buildContactEmail(
   id: string,
@@ -137,7 +137,7 @@ export async function notifyContactMessage(ref: DocumentReference, send: Mailer,
   }
 }
 
-function smtpMailer(password: string): Mailer {
+export function smtpMailer(password: string, fromName = "Whossy contact form"): Mailer {
   const transport = nodemailer.createTransport({
     host: SMTP_HOST,
     port: SMTP_PORT,
@@ -149,7 +149,7 @@ function smtpMailer(password: string): Mailer {
   });
   return async (email) => {
     await transport.sendMail({
-      from: { name: "Whossy contact form", address: SUPPORT_EMAIL },
+      from: { name: fromName, address: SUPPORT_EMAIL },
       to: SUPPORT_EMAIL,
       replyTo: email.replyTo,
       subject: email.subject,
