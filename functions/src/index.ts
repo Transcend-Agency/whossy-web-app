@@ -45,6 +45,7 @@ export { markMessageSent } from "./messages";
 export { cleanUpProfilePictures, cleanUpFaceVerification } from "./cleanup";
 export { incrementPopularityOnLike, prunePopularityScores } from "./popularity";
 export { notifyOnContactMessage } from "./contact";
+export { notifyAdminOnSignup } from "./signup";
 export {
   createTransaction,
   verifyTransaction,

@@ -63,6 +63,7 @@ async function purgeUserData(uid: string, { profileAlreadyDeleted = false } = {}
     firestore.collection("filters").doc(uid).delete(),
     firestore.collection("advancedSearchPreferences").doc(uid).delete(),
     firestore.collection("deletePicQueue").doc(uid).delete(),
+    firestore.collection("signupNotifications").doc(uid).delete(),
   ]);
 
   const userRef = firestore.collection("users").doc(uid);
