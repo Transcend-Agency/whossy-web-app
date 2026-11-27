@@ -40,7 +40,7 @@ export const TakeASelfie: React.FC<OnboardingProps> = ({ goBack }) => {
 				if (auth?.has_completed_onboarding) {
 						navigate('/dashboard/explore');
 				}
-		}, [auth?.has_completed_onboarding]);
+		}, [auth?.has_completed_onboarding, navigate]);
 
 		useEffect(() => {
 				getRandomChallenge()

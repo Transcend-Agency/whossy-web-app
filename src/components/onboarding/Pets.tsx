@@ -12,6 +12,9 @@ const Pets = () => {
     updateOnboardingData({ pets: pets.indexOf(pet_name) });
   }
 
+  // Seed the selection from the store once, on mount only. Re-running when the
+  // store changes would overwrite what the user has picked on this step.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {setSelectedPet(data.pets ? pets[data.pets] : "")}, []);
   
   return (

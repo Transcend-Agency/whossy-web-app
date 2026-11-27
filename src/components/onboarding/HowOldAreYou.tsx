@@ -45,6 +45,9 @@ const HowOldAreYou: React.FC<OnboardingProps> = ({ advance, goBack }) => {
     } else {
       setActive(true);
     }
+    // Validate only when the date changes. showErrorToast is recreated every
+    // render, so listing it would re-run validation and re-toast on any render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [birth_date]);
 
   useEffect(() => {
@@ -61,6 +64,9 @@ const HowOldAreYou: React.FC<OnboardingProps> = ({ advance, goBack }) => {
         year: the_date.getFullYear().toString(),
       });
     }
+  // Seed the date fields from the store once, on mount only. Re-running when
+  // the store changes would overwrite what the user has typed on this step.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

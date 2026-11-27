@@ -24,7 +24,7 @@ const InterestTag: React.FC<InterestTagProps> = ({ text }) => {
     data.interests?.forEach((interest) => {
       if (interest === text) setSelected(text);
     });
-  }, [data.interests]);
+  }, [data.interests, text]);
   return (
     <div
       className="text-[1.6rem] inline-block mr-[1rem] w-fit rounded-md px-[0.6rem] py-[0.8rem] cursor-pointer transition-all duration-150"

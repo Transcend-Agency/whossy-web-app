@@ -21,6 +21,9 @@ const Switch: React.FC<SwitchProps> = ({
     if (setChecked) {
       setChecked(check)
     }
+    // Notify the parent only when `check` changes. setChecked is a prop and may be
+    // a new function on every parent render, which would re-fire this each time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [check])
 
   useEffect(() => {
