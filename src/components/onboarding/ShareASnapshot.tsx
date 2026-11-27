@@ -117,7 +117,7 @@ const ShareASnapshot: FC<OnboardingProps> = ({ advance, goBack }) => {
         };
 
         setPhotos(photoData);
-    }, [data]);
+    }, [data, setPhotos]);
 
     return (
         <OnboardingPage>

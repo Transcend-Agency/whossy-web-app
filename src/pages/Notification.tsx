@@ -84,6 +84,10 @@ const Notification = () => {
         return () => {
             unSub();
         };
+        // The notifications listener is subscribed per auth uid only. Adding
+        // user?.uid (a separate store field that can load later) would
+        // re-subscribe the Firestore listener when it changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loggedUserId]);
 
     const fetchUserData = async (userId: string) => {

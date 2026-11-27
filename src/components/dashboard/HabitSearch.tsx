@@ -65,6 +65,8 @@ const HabitSearch: React.FC<HabitProps> = ({ initData, setInitData }) => {
 
   useEffect(() => {
     setInitData(mutatedData);
+  // Push up only when the selection changes; callers pass setInitData as an inline arrow, so listing it would run this every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mutatedData]);
 
   useEffect(() => {

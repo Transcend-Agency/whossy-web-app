@@ -29,6 +29,8 @@ export const PhotoModal: React.FC<PhotoModalProps> = ({onModalClose, showing, ch
 		return () => {
 			document.removeEventListener("mousedown", handleClickOutside);
 		};
+	// Register the outside-click listener once on mount; onModalClose is a parent prop that may be a new function each render.
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
   return (
     <> 
@@ -97,6 +99,8 @@ export const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({onModalClose,
 		return () => {
 			document.removeEventListener("mousedown", handleClickOutside);
 		};
+	// Register the outside-click listener once on mount; onModalClose is a parent prop that may be a new function each render.
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
   return (
     <> 

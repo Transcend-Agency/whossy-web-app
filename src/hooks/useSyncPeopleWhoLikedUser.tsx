@@ -54,7 +54,7 @@ function useSyncPeopleWhoLikedUser() {
 
         // Cleanup the listener on component unmount
         return () => unsubscribe();
-    }, [user?.uid, blockedUsers]);
+    }, [user?.uid, blockedUsers, setPeopleWhoLiked]);
 
     return { peopleWhoLiked, loading };
 }

@@ -97,7 +97,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
 
     useEffect(() => {
         setPage('user-profile')
-    }, []);
+    }, [setPage]);
 
     const fetchLoggedUserData = async () => {
         const data = await getUserProfile("users", auth?.uid as string) as User;
@@ -169,7 +169,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
     useEffect(() => {
         nextCardOpacityValue.set(0)
         setNextCardOpacity(nextCardOpacityValue)
-    }, [profiles.length])
+    }, [profiles.length, nextCardOpacityValue, setNextCardOpacity])
 
     const addLike = async () => {
         // const db = getFirestore();
@@ -340,7 +340,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                 setExpanded(false)
             }
 
-        }, [currentImage])
+        }, [currentImage, item.photos?.length])
 
     useEffect(() => {
         window.addEventListener('keydown', handleShortcuts)
@@ -518,7 +518,7 @@ const SwipingAndMatching = () => {
 
     useEffect(() => {
         setPage('user-profile')
-    }, []);
+    }, [setPage]);
 
     useEffect(() => {
         if (!auth?.uid) return;
@@ -553,6 +553,10 @@ const SwipingAndMatching = () => {
             }
             setActionType(null);
         }
+        // Fires the swipe once per (swipedUser, actionType) change.
+        // likeProfile/cancelProfile are rebuilt every render; listing them
+        // would re-run this effect (and its swipe animation) every render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [swipedUser, actionType]);
 
 
@@ -841,6 +845,9 @@ const SwipingAndMatching = () => {
         if (profilesLoading && !likesLoading && !dislikesLoading) {
             fetchDiscoverableProfiles(true).catch((err: unknown) => console.log(err))
         }
+        // Fetches only on these loading-flag transitions. fetchDiscoverableProfiles
+        // is rebuilt every render; listing it would refetch on every render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [profilesLoading, dislikesLoading, likesLoading])
 
     // C5 — top up the deck before it runs dry rather than waiting for it to
@@ -849,6 +856,10 @@ const SwipingAndMatching = () => {
         if (!profilesLoading && hasMoreProfiles && !fetchingMoreProfiles && profiles.length > 0 && profiles.length <= 3) {
             fetchDiscoverableProfiles(false).catch((err: unknown) => console.log(err))
         }
+        // Tops up only when the deck size or paging flags change.
+        // fetchDiscoverableProfiles is rebuilt every render; listing it would
+        // trigger extra page fetches on unrelated renders.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [profiles.length, profilesLoading, hasMoreProfiles, fetchingMoreProfiles])
 
     useEffect(() => {
@@ -863,6 +874,9 @@ const SwipingAndMatching = () => {
         } else {
             console.log("Geolocation is not supported by this browser.");
         }
+        // Mount-only: one location read per visit. saveUserLocationToFirebase is
+        // rebuilt every render; listing it would re-request location each render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
     return (
         <>

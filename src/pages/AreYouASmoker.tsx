@@ -19,6 +19,9 @@ const AreYouASmoker: React.FC<OnboardingProps> = ({ advance, goBack }) => {
     ) {
       setActive(data["smoking-preference"]);
     }
+    // Mount-only: restores the saved answer once; re-running on store changes
+    // would overwrite the option the user is picking.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

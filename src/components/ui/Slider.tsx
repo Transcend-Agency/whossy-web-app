@@ -15,6 +15,9 @@ const Slider: React.FC<SliderProps> = ({ getDistance }) => {
     if (data["distance-search"]) {
       setDistance(data["distance-search"]);
     }
+  // Seed the slider from the store once, on mount only. Every drag writes to the
+  // store, so depending on it would re-run this on each drag for nothing.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

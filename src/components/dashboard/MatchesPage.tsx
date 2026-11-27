@@ -30,7 +30,7 @@ const MatchesPage = () => {
 
     useEffect(() => {
         setPage('user-profile')
-    }, []);
+    }, [setPage]);
 
     const fetchUserData = async () => {
         try {
@@ -51,7 +51,9 @@ const MatchesPage = () => {
             console.log("I am getting here, profile:", selectedProfile)
             return () => setSelectedProfile(null)
         }
-    }, [])
+    // Mount/unmount only: fetchUserData is rebuilt every render and selectedProfile is only logged; re-running would refetch and clear the selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [setSelectedProfile])
 
     const LikedByEmptyState = () => {
         return (

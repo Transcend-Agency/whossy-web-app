@@ -84,6 +84,8 @@ const ChatInterface: FC = () => {
 
     useEffect(() => {
         fetchLoggedUserData().catch((err) => console.error(err));
+    // Fetch the logged-in user's profile once on mount; fetchLoggedUserData is rebuilt every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -158,6 +160,9 @@ const ChatInterface: FC = () => {
             isMounted = false;
             unSub();
         };
+    // Resubscribe only when the user changes. The snapshot callback deliberately keeps the `chats`/getUnreadChats
+    // captured at subscribe time; adding them would resubscribe on every snapshot (setChats) and change the unread count.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUserId]);
 
     return (
