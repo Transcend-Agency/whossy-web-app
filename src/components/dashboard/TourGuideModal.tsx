@@ -43,6 +43,9 @@ export const TourGuideModal = () => {
 				};
 				window.addEventListener("resize", handleResize);
 				return () => window.removeEventListener("resize", handleResize);
+				// Mount-only: fetchUserData is rebuilt every render, so listing it
+				// would refetch the user and re-add the resize listener each render.
+				// eslint-disable-next-line react-hooks/exhaustive-deps
 		}, []);
 
 		useEffect(() => {
@@ -71,6 +74,9 @@ export const TourGuideModal = () => {
 				}else{
 						setTourIsOpen(false)
 				}
+				// Runs on route change only. Adding userData would re-run this when the
+				// profile fetch lands and could open the tour a second time.
+				// eslint-disable-next-line react-hooks/exhaustive-deps
 		}, [location.pathname, setTourIsOpen]);
 
 		const handleSkip = () => {

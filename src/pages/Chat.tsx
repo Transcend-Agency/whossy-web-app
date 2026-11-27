@@ -82,7 +82,11 @@ const ChatPage = () => {
         setPage('user-profile')
         fetchLoggedUserData();
         return () => setSelectedProfile(null)
-    }, []);
+        // Mount-only. setSelectedProfile/setPage are stable store actions;
+        // fetchLoggedUserData is rebuilt every render, so listing it would
+        // refetch (and reset the chat id) on every render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [setSelectedProfile, setPage]);
 
     useEffect(() => {
         if (currentUserId) {

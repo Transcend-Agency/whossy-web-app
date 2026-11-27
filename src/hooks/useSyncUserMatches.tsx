@@ -105,6 +105,10 @@ const useSyncUserMatches = (userId: string) => {
             unsubscribeUser1();
             unsubscribeUser2();
         };
+        // The match listeners are subscribed per user only. Adding blockedUsers
+        // would tear down and re-subscribe both Firestore listeners every time
+        // the blocked list changes; the list is read as it was at subscribe time.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
 
     return { matches, loading }; // Return both matches and loading state

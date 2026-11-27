@@ -76,6 +76,9 @@ const UserProfile = () => {
     useEffect(() => {
         fetchUserData().catch(err => console.log(err));
         fetchUserFilters().catch(err => console.log(err));
+        // Mount-only: both fetchers are rebuilt every render (and reused by the
+        // refetch handlers below), so listing them would refetch every render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const refetchUserData = async () => { await fetchUserData() }
