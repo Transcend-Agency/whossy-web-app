@@ -340,6 +340,31 @@ test("R9: a client cannot hand itself an open chat", async () => {
   await assertFails(updateDoc(doc(as("alice"), `chats/${id}`), { is_unlocked: true }));
 });
 
+test("each participant can set only their own read marker, and only to the server time", async () => {
+  await seedUser("alice"); await seedUser("bob");
+  const id = chatIdOf("alice", "bob");
+  await seed(`chats/${id}`, { participants: ["alice", "bob"], status: "sent", last_read_at: { bob: inPast() } });
+  const chat = (uid) => doc(as(uid), `chats/${id}`);
+
+  // Your own entry, stamped by the server: allowed, including when moving it on.
+  await assertSucceeds(updateDoc(chat("alice"), { "last_read_at.alice": serverTimestamp() }));
+  await assertSucceeds(updateDoc(chat("alice"), { "last_read_at.alice": serverTimestamp() }));
+  // Someone else's entry, a time you choose, or a malformed field: refused.
+  await assertFails(updateDoc(chat("alice"), { "last_read_at.bob": serverTimestamp() }));
+  await assertFails(updateDoc(chat("alice"), { "last_read_at.alice": inFuture() }));
+  await assertFails(updateDoc(chat("alice"), { "last_read_at.alice": serverTimestamp(), "last_read_at.bob": serverTimestamp() }));
+  await assertFails(updateDoc(chat("alice"), { last_read_at: "never" }));
+  await assertFails(updateDoc(chat("alice"), { last_read_at: deleteField() }));
+  // Not a participant at all.
+  await seedUser("mallory");
+  await assertFails(updateDoc(chat("mallory"), { "last_read_at.mallory": serverTimestamp() }));
+  // Marking read leaves the read receipt (status) alone and alongside it.
+  await assertSucceeds(updateDoc(chat("bob"), { "last_read_at.bob": serverTimestamp(), status: "seen" }));
+  // A new chat shell can't arrive with read markers already in it.
+  const other = chatIdOf("alice", "carol");
+  await assertFails(setDoc(doc(as("alice"), `chats/${other}`), { participants: ["alice", "carol"], last_read_at: { carol: inPast() } }));
+});
+
 test("messages flow once the server has opened the chat, and stop when the window closes", async () => {
   await seedUser("alice"); await seedUser("bob");
   const id = chatIdOf("alice", "bob");

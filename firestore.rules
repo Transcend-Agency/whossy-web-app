@@ -266,6 +266,18 @@ service cloud.firestore {
                 'credit_held', 'expiration_time', 'is_unlocked', 'unlock_time'];
       }
 
+      // Each participant's own "read up to" marker: when they last viewed
+      // the chat, kept whether or not their read receipts are on (the
+      // read receipt is `status`, which the other side sees). A participant
+      // may set only their own entry, and only to the server's clock.
+      function ownReadMarkerOnly() {
+        let before = resource.data.get('last_read_at', {});
+        let after = request.resource.data.last_read_at;
+        return after is map
+          && after.diff(before).affectedKeys().hasOnly([request.auth.uid])
+          && after[request.auth.uid] == request.time;
+      }
+
       function participantsMatchId(data) {
         return data.participants is list
           && data.participants.size() == 2
@@ -284,14 +296,16 @@ service cloud.firestore {
       allow create: if isChatMember(chatId)
         && participantsMatchId(request.resource.data)
         && !request.resource.data.keys().hasAny(
-             ['credit_status', 'initiator_id', 'hold_placed_at', 'connected_at', 'credit_held', 'unlock_time'])
+             ['credit_status', 'initiator_id', 'hold_placed_at', 'connected_at', 'credit_held', 'unlock_time',
+              'last_read_at'])
         && request.resource.data.get('is_unlocked', false) == false
         && request.resource.data.get('expiration_time', null) == null;
 
       allow update: if isChatMember(chatId)
         && !changedKeys().hasAny(creditKeys())
         // Mobile rewrites participants on every send, in its own order.
-        && (!('participants' in changedKeys()) || participantsMatchId(request.resource.data));
+        && (!('participants' in changedKeys()) || participantsMatchId(request.resource.data))
+        && (!('last_read_at' in changedKeys()) || ownReadMarkerOnly());
 
       allow delete: if false;
 
