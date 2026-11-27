@@ -12,6 +12,15 @@
       "collectionGroup": "users",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "search_prefixes", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "has_completed_onboarding", "order": "ASCENDING" },
+        { "fieldPath": "is_approved", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "has_completed_onboarding", "order": "ASCENDING" },
         { "fieldPath": "gender", "order": "ASCENDING" },
         { "fieldPath": "status.lastSeen", "order": "ASCENDING" }
