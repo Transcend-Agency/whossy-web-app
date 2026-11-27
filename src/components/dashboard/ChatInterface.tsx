@@ -11,6 +11,7 @@ import { getUserProfile } from '@/hooks/useUser';
 import {ChatListItem} from "@/components/dashboard/ChatListItem.tsx";
 import {createOrFetchChat, getLastValidMessage} from "@/utils/chatService.ts";
 import {isChatWindowActive} from "@/utils/chatCreditState";
+import {isChatUnread} from "@/utils/chatUnread";
 import {hidesOnlineStatus, isRecentlyOnline} from "@/utils/presence";
 import { pressable } from '@/utils/pressable';
 
@@ -61,25 +62,16 @@ const ChatInterface: FC = () => {
         }
     };
 
-    const getUnreadChats = async (sortedChats: Chat[], currentUserUid: string) => {
-        const unreadChatsCount = await Promise.all(
+    const getUnreadChats = async (sortedChats: ChatDataWithUserData[], currentUserUid: string) => {
+        const unread = await Promise.all(
             sortedChats.map(async (chat) => {
-                // Get the last valid message for each chat
-                const lastMessage = await getLastValidMessage(chat, currentUserUid) as Messages;
-
-                // If there is no valid message or the last message's sender is blocked, don't count the chat
-                if (!lastMessage || lastMessage.sender_id_blocked) {
-                    return false;
-                }
-
-                // Check if the chat is sent, unlocked (or not if user is not premium), and not the user's own chat
-                return chat.status === "sent" && chat.last_sender_id !== auth?.uid && !isChatWindowActive(chat);
+                // Looked up exactly as each ChatListItem does, so the count
+                // matches the rows marked "Unread".
+                const lastMessage = await getLastValidMessage(chat, chat.user?.uid as string) as Messages;
+                return isChatUnread(chat, lastMessage, currentUserUid);
             })
         );
-
-        // Filter only the valid unread chats
-        const unreadChats = unreadChatsCount.filter((isUnread) => isUnread);
-        setUnreadChats(unreadChats.length);  // Set the unread chats count
+        setUnreadChats(unread.filter(Boolean).length);
     };
 
     useEffect(() => {
@@ -151,7 +143,9 @@ const ChatInterface: FC = () => {
             if (isMounted) {
 
                 setChats(sortedChats);
-                getUnreadChats(chats as Chat[], currentUserId as string)
+                // Count from the list just built: `chats` here is the state
+                // captured when this listener subscribed, usually still [].
+                getUnreadChats(sortedChats, currentUserId as string)
             }
             setIsLoadingChats(false);
         });
@@ -160,9 +154,6 @@ const ChatInterface: FC = () => {
             isMounted = false;
             unSub();
         };
-    // Resubscribe only when the user changes. The snapshot callback deliberately keeps the `chats`/getUnreadChats
-    // captured at subscribe time; adding them would resubscribe on every snapshot (setChats) and change the unread count.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUserId]);
 
     return (

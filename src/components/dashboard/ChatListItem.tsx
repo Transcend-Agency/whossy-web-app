@@ -4,7 +4,8 @@ import {Chat, Messages} from "@/types/chat.ts";
 import { FC, useEffect, useState} from "react";
 import {useAuthStore} from "@/store/UserId.tsx";
 import {getLastValidMessage} from "@/utils/chatService.ts";
-import {deriveChatCreditState, isChatWindowActive} from "@/utils/chatCreditState";
+import {deriveChatCreditState} from "@/utils/chatCreditState";
+import {isChatUnread} from "@/utils/chatUnread";
 import { pressable } from '@/utils/pressable';
 
 interface ChatListItemProps {
@@ -27,7 +28,6 @@ export const ChatListItem: FC<ChatListItemProps> = ({profileImage, contactName, 
     useEffect(() => {
         const fetchLastMessage = async () => {
             const message = await getLastValidMessage(chat as Chat, userData?.uid as string) as Messages;
-            const messageStatus = await getMessageStatus(chat as Chat, userData?.uid as string) as boolean
             if(message != null){
                 if(message.message == null) {
                     setLastMessage('Image')
@@ -35,26 +35,11 @@ export const ChatListItem: FC<ChatListItemProps> = ({profileImage, contactName, 
                     setLastMessage(message.message as string);
                 }
             }
-            setMessageStatus(messageStatus)
+            setMessageStatus(isChatUnread(chat, message, auth?.uid))
         };
 
         fetchLastMessage();
-    // Refetch only when the chat or recipient changes; getMessageStatus is rebuilt every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [chat, userData?.uid]);
-
-    const getMessageStatus = async (chat: Chat, currentUserUid: string) => {
-        const lastMessage = await getLastValidMessage(chat, currentUserUid) as Messages;
-
-        if (!lastMessage) {
-            return false;
-        }
-
-        return (
-            chat.status === "sent" ||
-            (!isChatWindowActive(chat) && userData?.is_premium === false)
-        ) && lastMessage.sender_id_blocked === false && lastMessage.sender_id !== auth?.uid;
-    };
+    }, [chat, userData?.uid, auth?.uid]);
 
     // Reply-Gated Credits: state-aware sub-label for locked/pending chats.
     const creditState = deriveChatCreditState(chat, auth?.uid as string);
