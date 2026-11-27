@@ -42,6 +42,13 @@ const accounts = [
   profile("carol", "carol@example.test", "Carol", { gender: "Female" }),
   profile("shorty", "shorty@example.test", "Shorty", { photos: [photo("shorty1")] }),
   profile("legacy", "legacy@example.test", "Legacy", { face_verification: { retake_photo: false, photo: photo("legacys") } }),
+  // Varied names for trying the Explore name search. Search returns only
+  // these and the accounts above, never the signed-in user.
+  profile("adaeze", "adaeze@example.test", "Adaeze", { last_name: "Okafor", gender: "Female" }),
+  profile("ada", "ada@example.test", "Ada", { last_name: "Bello", gender: "Female" }),
+  profile("tunde", "tunde@example.test", "Tunde", { last_name: "Adams" }),
+  profile("chiamaka", "chiamaka@example.test", "Chiamaka", { last_name: "Obi", gender: "Female" }),
+  profile("hidden", "hidden@example.test", "Hidden", { last_name: "Okafor", user_settings: { online_status: true, public_search: false, read_receipts: true } }),
   { uid: "fresh", email: "fresh@example.test", first_name: "Fresh", last_name: "Test", auth_provider: "local",
     phone_number: "+15550000001", gender: "Male", country_of_origin: "Nigeria",
     has_completed_account_creation: true, has_completed_onboarding: false, is_approved: false, created_at: Timestamp.now() },
