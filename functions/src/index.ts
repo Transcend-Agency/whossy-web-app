@@ -46,6 +46,7 @@ export { cleanUpProfilePictures, cleanUpFaceVerification } from "./cleanup";
 export { incrementPopularityOnLike, prunePopularityScores } from "./popularity";
 export { notifyOnContactMessage } from "./contact";
 export { indexUserSearchName, searchUsers } from "./search";
+export { notifyAdminOnSignup } from "./signup";
 export {
   createTransaction,
   verifyTransaction,
