@@ -20,7 +20,7 @@ process.env.FIREBASE_DATABASE_EMULATOR_HOST =
 
 const app = admin.initializeApp({
   projectId: process.env.GCLOUD_PROJECT,
-  databaseURL: `http://${process.env.FIREBASE_DATABASE_EMULATOR_HOST}?ns=${process.env.GCLOUD_PROJECT}-default-rtdb`,
+  databaseURL: `http://${process.env.FIREBASE_DATABASE_EMULATOR_HOST}?ns=${process.env.GCLOUD_PROJECT}`,
 });
 const db = app.firestore();
 const rtdb = app.database();

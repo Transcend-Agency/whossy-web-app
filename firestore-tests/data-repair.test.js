@@ -105,7 +105,7 @@ test("a dry run reports the changes and writes nothing", async () => {
   const everything = await run(db, { apply: false, only: ALL_STEPS }, quiet);
 
   assert.deepEqual(await snapshotAll(), before);
-  // The two deferred steps are left out unless asked for by name.
+  // The deferred steps are left out unless asked for by name.
   assert.deepEqual(summary, {
     defaults: 2, amountPaidShape: 2,
     strayPremiumFlag: 1, malformedReactions: 4, chatParticipants: 1, untouchedAgeRange: 1, stalePhotoQueue: 1,
@@ -215,11 +215,30 @@ test("the report lists what needs a human decision and changes nothing", async (
   assert.deepEqual(await snapshotAll(), before);
 });
 
-test("without --only, the two deferred steps do not run even when applying", async () => {
+test("searchPrefixes indexes named profiles once and leaves unnamed ones alone", async () => {
+  await db.doc("users/named").set({ uid: "named", first_name: "Adaeze", last_name: "Obi" });
+  await db.doc("users/indexed").set({ uid: "indexed", first_name: "Bo", search_prefixes: ["bo"] });
+  await db.doc("users/renamed").set({ uid: "renamed", first_name: "Cy", search_prefixes: ["ol", "old"] });
+
+  const summary = await run(db, { apply: true, only: ["searchPrefixes"], backupFile: backupPath() }, quiet);
+
+  assert.equal(summary.searchPrefixes, 2);
+  assert.deepEqual((await get("users/named")).search_prefixes,
+    ["ad", "ada", "adae", "adaez", "adaeze", "ob", "obi"]);
+  assert.deepEqual((await get("users/renamed")).search_prefixes, ["cy"]);
+  // Seeded accounts with no name get no field at all.
+  assert.equal("search_prefixes" in (await get("users/ok")), false);
+
+  const again = await run(db, { apply: true, only: ["searchPrefixes"], backupFile: backupPath() }, quiet);
+  assert.equal(again.searchPrefixes, 0);
+});
+
+test("without --only, the deferred steps do not run even when applying", async () => {
   const summary = await run(db, { apply: true, backupFile: backupPath() }, quiet);
 
   assert.equal("paystackPayloads" in summary, false);
   assert.equal("reverifyDeadline" in summary, false);
+  assert.equal("searchPrefixes" in summary, false);
   assert.ok((await get("users/rawPayload")).paystack.charge_success);
   assert.equal("reverify_by" in (await get("users/approvedNoSelfie")), false);
 });

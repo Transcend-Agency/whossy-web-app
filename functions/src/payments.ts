@@ -28,8 +28,10 @@ const PAYSTACK_BASE_URL = "https://api.paystack.co";
 const NOMBA_BASE_URL = "https://api.nomba.com";
 
 // Off until a web payment provider is set up: createTransaction refuses
-// every request. Flip to true to take web payments again.
-const WEB_PAYMENTS_ENABLED: boolean = false;
+// every request. Set WEB_PAYMENTS_ENABLED=true in functions/.env.<project> to
+// take web payments again; anything else, including unset, keeps them off.
+// Read per call so the emulator tests can exercise the checkout.
+const webPaymentsEnabled = (): boolean => process.env.WEB_PAYMENTS_ENABLED === "true";
 
 // Credit packs, priced in US dollars. Mirrors CREDIT_OPTIONS in
 // src/pages/dashboard/AddCredits.tsx; the client sends an index into this
@@ -189,7 +191,7 @@ export const createTransaction = onCall<CreateTransactionRequest>(
     // Web payments are switched off until a payment provider is set up. No
     // checkout can start, so no web payment can be recorded or settled;
     // credits and Premium are bought in the Android app (verifyPlayPurchase).
-    if (!WEB_PAYMENTS_ENABLED) {
+    if (!webPaymentsEnabled()) {
       throw new HttpsError(
         "failed-precondition",
         "Payments aren't available on the web yet. Buy credits or Premium in the Whossy app on Google Play."

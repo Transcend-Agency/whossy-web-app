@@ -18,10 +18,11 @@
 // document the repair created. A run with --apply and no backup file refuses
 // to start.
 //
-// paystackPayloads and reverifyDeadline are DEFERRED: they only run when
-// named in --only. The first must wait until the new web app is live (the old
-// site reads the data it moves) and the second until the new apps that show
-// the deadline are out.
+// paystackPayloads, reverifyDeadline and searchPrefixes are DEFERRED: they
+// only run when named in --only. The first must wait until the new web app is
+// live (the old site reads the data it moves), the second until the new apps
+// that show the deadline are out, and the third until indexUserSearchName is
+// deployed (otherwise a name changed in between keeps stale prefixes).
 //
 // Against the emulator it needs only FIRESTORE_EMULATOR_HOST. Against the
 // real project it needs GOOGLE_APPLICATION_CREDENTIALS and, with --apply,
@@ -34,7 +35,11 @@ const path = require("node:path");
 const admin = require("../functions/node_modules/firebase-admin");
 const { FieldValue, Timestamp, GeoPoint, DocumentReference } = admin.firestore;
 
-const DEFERRED = new Set(["paystackPayloads", "reverifyDeadline"]);
+// Built from functions/src/searchIndex.ts, so the backfill and the
+// indexUserSearchName trigger can't disagree. Needs `npm --prefix functions run build`.
+const { searchPrefixes, needsReindex } = require("../functions/lib/searchIndex.js");
+
+const DEFERRED = new Set(["paystackPayloads", "reverifyDeadline", "searchPrefixes"]);
 
 // Firestore values that JSON would flatten, tagged so restore can rebuild them.
 function encode(value) {
@@ -275,6 +280,24 @@ const STEPS = {
       before: [image(doc)],
       write: (batch) => batch.delete(doc.ref),
     }));
+  },
+
+  // Name search (functions/src/search.ts) only finds profiles that carry
+  // search_prefixes. The trigger fills it in on every profile write from now
+  // on; this fills it in for everyone who hasn't written since.
+  async searchPrefixes(db) {
+    const changes = [];
+    for (const doc of (await db.collection("users").get()).docs) {
+      const next = searchPrefixes(doc.get("first_name"), doc.get("last_name"));
+      if (!needsReindex(doc.get("search_prefixes"), next)) continue;
+      changes.push({
+        path: doc.ref.path,
+        reason: `index name for search (${next.length} prefixes)`,
+        before: [image(doc)],
+        write: (batch) => batch.update(doc.ref, { search_prefixes: next }),
+      });
+    }
+    return changes;
   },
 };
 
