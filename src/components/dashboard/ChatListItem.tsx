@@ -39,6 +39,8 @@ export const ChatListItem: FC<ChatListItemProps> = ({profileImage, contactName, 
         };
 
         fetchLastMessage();
+    // Refetch only when the chat or recipient changes; getMessageStatus is rebuilt every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [chat, userData?.uid]);
 
     const getMessageStatus = async (chat: Chat, currentUserUid: string) => {

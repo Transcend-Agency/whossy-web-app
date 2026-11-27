@@ -77,6 +77,8 @@ function App() {
 
   useEffect(() => {
     fetchProfilesBasedOnOption().catch((err) => console.error("An error occurred while trying to fetch profiles: ", err))
+  // Refetch only when the filter or block list changes; fetchProfilesBasedOnOption is rebuilt every render, so listing it would refetch on every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOption, blockedUsers]);
 
   useEffect(() => {
@@ -97,7 +99,7 @@ function App() {
   //
   useEffect(() => {
     setSelectedProfile(null); // Reset selectedProfile on route change
-  }, [location.pathname]);
+  }, [location.pathname, setSelectedProfile]);
 
   const updateUser = async (s: User) => {
     updateUserProfile("users", auth?.uid as string, () => {}, s, false)

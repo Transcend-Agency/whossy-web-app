@@ -23,6 +23,8 @@ const DashboardSettingsModal: FC<DashboardSettingsModalProps> = ({ showing, chil
 		return () => {
 			document.removeEventListener("mousedown", handleClickOutside);
 		};
+	// Register the outside-click listener once on mount; hideModal is a parent prop that may be a new function each render.
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
     return <>

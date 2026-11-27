@@ -30,6 +30,8 @@ const Habits: React.FC<HabitsProps> = ({ path, closePage }) => {
 
   useEffect(() => {
     fetchInterests().catch((err) => console.error("An error occurred while fetching interest", err));
+  // Refetch only when the path changes; fetchInterests is rebuilt every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path]);
 
   const arraysAreEqual = (arr1: string[], arr2: string[]) => {
