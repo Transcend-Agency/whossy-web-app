@@ -15,6 +15,9 @@ const WhoDoYouWantToMeet: React.FC<OnboardingProps> = ({ advance, goBack }) => {
     if (data["gender-preference"] !== null) {
       setActive(data["gender-preference"]);
     }
+  // Seed the local selection from the store once, on mount only. Re-running when
+  // the store changes would overwrite what the user has picked on this step.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
     <OnboardingPage>

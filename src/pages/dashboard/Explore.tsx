@@ -75,7 +75,7 @@ const Explore = () => {
 
     useEffect(() => {
         setPage('user-profile')
-    }, []);
+    }, [setPage]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -101,6 +101,9 @@ const Explore = () => {
         fetchLikes().catch((err) => console.error("An error occurred while trying to fetch Likes: ", err))
         fetchProfilesBasedOnOption().catch((err) => console.error("An error occurred while trying to fetch profiles: ", err))
         fetchSearchPreferences().catch(e => console.log(e))
+        // Refetch only when the filter or blocked list changes. These fetchers
+        // are rebuilt every render, so listing them would refetch every render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedOption, blockedUsers]);
 
     const isNewUserFromDate = (timestampDate: string) => {

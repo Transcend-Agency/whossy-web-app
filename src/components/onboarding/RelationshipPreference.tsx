@@ -14,6 +14,9 @@ const RelationshipPreference: React.FC<OnboardingProps> = ({ advance }) => {
     if (data["relationship-preference"] !== null) {
       setActive(data["relationship-preference"]);
     }
+  // Seed the local selection from the store once, on mount only. Re-running when
+  // the store changes would overwrite what the user has picked on this step.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
     <OnboardingPage>

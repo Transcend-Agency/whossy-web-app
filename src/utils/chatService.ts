@@ -1,6 +1,6 @@
 import {collection, doc, getDoc, getDocs, orderBy, query, setDoc} from "firebase/firestore";
 import { db } from "@/firebase";
-import {checkIfUserBlocked} from "@/components/dashboard/SelectedChat.tsx";
+import {checkIfUserBlocked} from "@/components/dashboard/selectedChatUtils.ts";
 import {Chat, Messages} from "@/types/chat.ts";
 import {User} from "@/types/user.ts";
 import {isChatWindowActive} from "@/utils/chatCreditState";

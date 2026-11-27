@@ -157,6 +157,8 @@ const Photos: FC<{ refetchUserData: () => void }> = ({ refetchUserData }) => {
     finalizePhotos();
   };
 
+  // Fetch photos once on mount; fetchUserPhotos is rebuilt every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchUserPhotos().catch(err => console.log("Error occurred while fetching photos: ", err)) }, [])
   useEffect(() => { setPhoto(photo); setMutatedPhoto(photo) }, [photo])
 

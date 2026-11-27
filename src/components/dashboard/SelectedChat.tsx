@@ -40,6 +40,7 @@ import ReportModal from "@/components/dashboard/ReportModal.tsx";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
 import { notifyError } from '@/utils/notifyError';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import {checkIfUserBlocked} from "@/components/dashboard/selectedChatUtils";
 
 interface SelectedChatProps {
     activePage: string
@@ -47,21 +48,6 @@ interface SelectedChatProps {
     updateChatId: (newChatId: string) => void;
     currentUser: User;
 }
-
-export const checkIfUserBlocked = async (userId: string, targetUserId: string): Promise<boolean> => {
-    try {
-        const userDoc = await getDoc(doc(db, "users", userId));
-        if (userDoc.exists()) {
-            const data = userDoc.data() as User
-            const blockedList: string[] = data.blockedIds || [];
-
-            return blockedList.includes(targetUserId);
-        }
-    } catch (error) {
-        console.error(`Error checking block status between ${userId} and ${targetUserId}:`, error);
-    }
-    return false;
-};
 
 const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,currentUser}) => {
     const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -137,7 +123,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         if(state?.recipientUser){
             setRecipientUser(state.recipientUser as User)
         }
-    }, [state]);
+    }, [state, setChatId]);
 
     // Live chat-doc subscription: credit_status/expiration changes (written by
     // the Cloud Functions) reach the UI without a refresh (AC 2.4).
@@ -215,6 +201,10 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         return () => {
             isMounted = false;
         };
+        // Runs only when the recipient changes. updateChatDocument and
+        // handleReadReceipts are rebuilt every render, so listing them would
+        // re-run the chat-doc write and read-receipt check on every render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [recipientUserId]);
 
     useEffect(() => {
@@ -283,6 +273,11 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         };
 
 
+        // The messages listener is re-subscribed only when the open chat or
+        // page changes. Listing currentUser fields or debounceUpdateChatId
+        // (rebuilt every render) would tear it down and re-subscribe, and the
+        // cleanup can reset the chat id to "nil" when that happens.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activePage, chatId]);
 
     const updateUserChat = async (

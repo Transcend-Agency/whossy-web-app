@@ -148,7 +148,6 @@ const ViewProfile: React.FC<ViewProfileProps> = (
     useEffect(() => {
         if (user?.uid && userData?.uid) {
             setIsBlockLoading(true)
-            hasUserBeenLiked()
             checkIfBlocked(user.uid, userData.uid).then((blockedStatus) => {
                 setIsBlocked(blockedStatus);
                 setIsBlockLoading(false);

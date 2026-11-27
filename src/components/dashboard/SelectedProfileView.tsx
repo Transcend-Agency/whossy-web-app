@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { getUserProfile } from "@/hooks/useUser.ts";
 import useDashboardStore from "@/store/useDashboardStore.tsx";
@@ -25,11 +25,16 @@ const SelectedProfileView: FC<SelectedProfileViewProps> = ({ onBackClick, onBloc
 
     const [fetched, setFetched] = useState<User | null>(null);
     const [failed, setFailed] = useState(false);
+    // Latest onBackClick, so the "failed" effect below fires only when
+    // `failed` changes, not whenever the parent passes a new callback.
+    const onBackClickRef = useRef(onBackClick);
+    onBackClickRef.current = onBackClick;
 
+    const isListed = Boolean(listed);
     useEffect(() => {
         setFetched(null);
         setFailed(false);
-        if (!selectedProfile || listed) return;
+        if (!selectedProfile || isListed) return;
 
         let cancelled = false;
         getUserProfile("users", selectedProfile as string).then((user) => {
@@ -38,12 +43,12 @@ const SelectedProfileView: FC<SelectedProfileViewProps> = ({ onBackClick, onBloc
             else setFailed(true);
         });
         return () => { cancelled = true; };
-    }, [selectedProfile, Boolean(listed)]);
+    }, [selectedProfile, isListed]);
 
     useEffect(() => {
         if (!failed) return;
         toast("Unable to fetch user data", { id: "selected-profile-missing" });
-        onBackClick();
+        onBackClickRef.current();
     }, [failed]);
 
     const userData = listed ?? fetched;

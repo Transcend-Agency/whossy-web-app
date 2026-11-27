@@ -149,6 +149,9 @@ const FillInCountries: React.FC<AccountSetupFormPage> = ({ advance, goBack, page
             setSelected(Object.keys(en)[selectedCountryIndex])
         }
         console.log()
+        // Mount-only: seeds the selected country from the stored value once;
+        // later store changes come from this form and must not reset it.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
 

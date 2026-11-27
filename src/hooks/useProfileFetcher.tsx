@@ -39,7 +39,7 @@ function useProfileFetcher() {
 			console.error("Error fetching blocked users:", error);
 			return [];
 		}
-	}, [user?.uid]);
+	}, [user?.uid, setBlockedUsers]);
 
 	const filterBlockedAndCurrentUser = (userData: User[], blockedUsers: string[]) => {
 		return userData.filter(u => !blockedUsers.includes(u.uid as string) && u.uid !== user?.uid);
@@ -220,6 +220,10 @@ function useProfileFetcher() {
 		} catch (error) {
 			console.error("Error refreshing profiles:", error);
 		}
+		// fetchProfilesBasedOnOption is rebuilt every render; listing it would
+		// give refreshProfiles a new identity each render. Kept as is so its
+		// identity (and the fetch it calls) only changes with fetchBlockedUsers.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [fetchBlockedUsers]);
 
 	const getUsers = (user?: User) => {
