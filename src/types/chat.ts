@@ -25,6 +25,10 @@ export type Chat = {
     hold_placed_at?: { seconds: number, nanoseconds: number } | null;
     connected_at?: { seconds: number, nanoseconds: number } | null;
     credit_held?: boolean;
+
+    /** When each participant last viewed the chat, by uid. Kept whether or
+     *  not their read receipts are on; each writes only their own entry. */
+    last_read_at?: Record<string, FieldValue | { seconds: number, nanoseconds: number } | null>;
 };
 
 export type Messages = {

@@ -26,6 +26,7 @@ import {
     deriveChatCreditState,
     initiateChat,
 } from "@/utils/chatCreditState";
+import { readMarkerBehind } from "@/utils/chatUnread";
 import ChatStateBanner from "@/components/dashboard/ChatStateBanner.tsx";
 import { useVerificationGate } from "@/hooks/useVerificationGate.tsx";
 import {formatFirebaseTimestampToTime, formatServerTimeStamps} from "@/constants";
@@ -230,6 +231,14 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
             if (chatDocSnap.exists()) {
                 const chatData: Chat = chatDocSnap.data() as Chat;
                 const last_sender_id = chatData.last_sender_id;
+
+                // Move this user's own read marker on, whatever their read
+                // receipts setting: it only decides what counts as unread for
+                // them, and the other side never sees it.
+                if (last_sender_id !== currentUser.uid && readMarkerBehind(chatData, currentUser.uid as string)) {
+                    await updateDoc(chatDocRef, { [`last_read_at.${currentUser.uid}`]: serverTimestamp() })
+                        .catch((err) => console.error(`Error marking chat ${chatId} read:`, err));
+                }
 
                 // Check if the current user is not the last sender and the chat is open
                 if (markSeen && last_sender_id !== currentUser.uid && chatData.status !== "seen" && activePage === "selected-chat") {
