@@ -39,7 +39,7 @@ const SettingsMobile: React.FC<ProfileSettingsProps> = ({ activePage, closePage,
 
                         <SettingsToggleItem title="Hide verification badge" subtext="This will hide the verification badge on your profile." isActive={profileSettings.hide_verification_badge} onButtonToggle={() => setProfileSettings({ ...profileSettings, hide_verification_badge: !profileSettings.hide_verification_badge })} />
 
-                        <SettingsToggleItem title="Public search" subtext="Other users will be able to find your profile online when they search the internet." isActive={profileSettings.public_search} onButtonToggle={() => setProfileSettings({ ...profileSettings, public_search: !profileSettings.public_search })} />
+                        <SettingsToggleItem title="Public search" subtext="Others can see your profile in Explore and swiping, and find it by searching your name." isActive={profileSettings.public_search} onButtonToggle={() => setProfileSettings({ ...profileSettings, public_search: !profileSettings.public_search })} />
 
                         <SettingsToggleItem title="Read receipts" subtext="Matches won’t be able to see when you have read their messages and you won’t be able to see theirs." isActive={profileSettings.read_receipts} onButtonToggle={() => setProfileSettings({ ...profileSettings, read_receipts: !profileSettings.read_receipts })} />
 

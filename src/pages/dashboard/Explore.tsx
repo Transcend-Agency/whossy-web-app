@@ -29,6 +29,8 @@ import SelectedProfileView from "@/components/dashboard/SelectedProfileView";
 import {useNavigationStore} from "@/store/NavigationStore.tsx";
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import AgeFilterSettings from '@/components/dashboard/AgeFilterSettings';
+import { ExploreSearchBar, ExploreSearchResults } from '@/components/dashboard/ExploreSearch';
+import useUserSearch from '@/hooks/useUserSearch';
 
 interface SettingsDataItem {
     label: string;
@@ -62,6 +64,11 @@ const Explore = () => {
     const [confirmReset, setConfirmReset] = useState(false)
 
     const [advancedSearchShowing, setAdvancedSearchShowing] = useState(false)
+    // Global name search. Kept here (Explore stays mounted while a profile is
+    // open) so going back from a result returns to the same search.
+    const [searchTerm, setSearchTerm] = useState('')
+    const userSearch = useUserSearch(searchTerm)
+    const searching = searchTerm.trim().length > 0
     const [advancedSearchModalShowing, setAdvancedSearchModalShowing] = useState('hidden')
     const hideModal = () => setAdvancedSearchModalShowing('hidden')
     const { setActivePage: setPage } = useNavigationStore()
@@ -173,6 +180,20 @@ const Explore = () => {
                 {
                     !advancedSearchShowing && <DashboardPageContainer className='explore-page h-screen lg:h-auto flex flex-col' span={2}>
                         <div className='explore flex-grow'>
+                            <ExploreSearchBar value={searchTerm} onChange={setSearchTerm} />
+                            {searching &&
+                                <div className='explore-grid-container'>
+                                    <ExploreSearchResults
+                                        term={searchTerm}
+                                        status={userSearch.status}
+                                        results={userSearch.results}
+                                        error={userSearch.error}
+                                        onOpenProfile={(uid) => setSelectedProfile(uid)}
+                                        hasBeenLiked={hasUserBeenLiked}
+                                    />
+                                </div>
+                            }
+                            {!searching && <>
                             <div className='filter'>
                                 <div className='filter__left'>
                                     {filterOptions.map(item => <div key={item} {...pressable(() => setSelectedOption(item))} aria-pressed={selectedOption == item} className={`filter__item ${selectedOption == item && 'filter__item--active'}`}>{item}</div>)}
@@ -342,6 +363,7 @@ const Explore = () => {
                                     </div>
                                 }
                             </div>
+                            </>}
                         </div>
                     </DashboardPageContainer>
                 }

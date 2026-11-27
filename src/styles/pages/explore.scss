@@ -25,6 +25,27 @@
         }
     }
 
+    .explore-search {
+        @apply w-full max-w-[90rem] flex items-center gap-x-[1rem] bg-[#F6F6F6] rounded-full px-[1.6rem] h-[4.4rem] mb-[1.6rem]
+            border border-transparent focus-within:border-[#485FE6] focus-within:bg-white transition-colors duration-200;
+        &__icon {
+            @apply w-[1.6rem] h-[1.6rem] shrink-0;
+        }
+        &__input {
+            @apply flex-1 min-w-0 bg-transparent outline-none text-[16px] text-black placeholder:text-[#8A8A8E];
+            // The clear button below replaces the browser's own.
+            &::-webkit-search-cancel-button { display: none; }
+        }
+        &__clear {
+            @apply shrink-0 size-[2.8rem] -mr-[0.6rem] flex items-center justify-center rounded-full text-[#8A8A8E]
+                hover:bg-[#eeeeee] active:scale-95 transition-all duration-200;
+            svg { @apply size-[1.6rem]; }
+        }
+        &__count {
+            @apply text-[14px] text-[#8A8A8E] mb-[1.2rem];
+        }
+    }
+
     .filter {
         @apply w-full flex justify-between relative;
         img {

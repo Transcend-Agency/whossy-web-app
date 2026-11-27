@@ -161,7 +161,7 @@ const ProfileSettings: FC<ProfileSettingsProps> = ({ activePage, closePage, user
                         {/*    }}*/}
                         {/*    isPremium={!currentUser?.is_premium as boolean} />*/}
 
-                        <SettingsToggleItem title="Public search" subtext="Other users will be able to find your profile online when they search the internet." isActive={profileSettings.public_search as boolean}
+                        <SettingsToggleItem title="Public search" subtext="Others can see your profile in Explore and swiping, and find it by searching your name." isActive={profileSettings.public_search as boolean}
                         onButtonToggle={() => {
                             const updatedValue = !profileSettings.public_search;
                             setProfileSettings({

@@ -95,6 +95,20 @@ test("R2: premium, plan and expiry fields are not client-writable", async () => 
   await assertFails(updateDoc(me, { reverify_by: inFuture() }));
 });
 
+test("name search: the search index is server-written, but renaming yourself still works", async () => {
+  await seedUser("alice", { first_name: "Alice", search_prefixes: ["al", "ali", "alic", "alice"] });
+  const me = doc(as("alice"), "users/alice");
+  // Planting prefixes would make an account match searches for other names.
+  await assertFails(updateDoc(me, { search_prefixes: ["bo", "bob"] }));
+  await assertFails(updateDoc(me, { search_prefixes: deleteField() }));
+  await assertSucceeds(updateDoc(me, { first_name: "Alicia" }));
+  await assertFails(setDoc(doc(as("new"), "users/new"), { uid: "new", is_approved: false, has_completed_onboarding: false, search_prefixes: ["ad"] }));
+  // The search rate counter lives under private/: not even its owner reads it.
+  await seed("users/alice/private/search_rate", { minute_count: 1 });
+  await assertFails(getDoc(doc(me, "private/search_rate")));
+  await assertFails(setDoc(doc(me, "private/search_rate"), { minute_count: 0 }));
+});
+
 test("a user cannot push back or remove their own re-verification deadline", async () => {
   await seedUser("late", { reverify_by: inPast() });
   await assertFails(updateDoc(doc(as("late"), "users/late"), { reverify_by: inFuture() }));
