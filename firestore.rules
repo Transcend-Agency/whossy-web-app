@@ -2,7 +2,7 @@ rules_version = '2';
 
 // Whossy Firestore rules.
 //
-// NOT YET DEPLOYED. Rules apply instantly and to every installed build with
+// Deployed to whossy-app. Rules apply instantly and to every installed build with
 // no gradual rollout; the only rollback is redeploying the previous version,
 // so save that from the console first. Run `npm test` in firestore-tests/
 // before any deploy.
