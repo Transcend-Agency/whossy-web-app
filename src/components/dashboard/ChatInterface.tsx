@@ -1,6 +1,6 @@
-import { useEffect, useState, FC } from 'react';
+import { useEffect, useRef, useState, FC } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { collection, doc, getDoc, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { useAuthStore } from '@/store/UserId';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +12,7 @@ import {ChatListItem} from "@/components/dashboard/ChatListItem.tsx";
 import {createOrFetchChat, getLastValidMessage} from "@/utils/chatService.ts";
 import {isChatWindowActive} from "@/utils/chatCreditState";
 import {isChatUnread} from "@/utils/chatUnread";
+import {needsDeliveryAck} from "@/utils/chatDelivery";
 import {hidesOnlineStatus, isRecentlyOnline} from "@/utils/presence";
 import { pressable } from '@/utils/pressable';
 
@@ -80,6 +81,10 @@ const ChatInterface: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // The latest message, per chat, this device has already acknowledged, so
+    // each new message is acknowledged once.
+    const deliveryAckedFor = useRef(new Map<string, string>());
+
     useEffect(() => {
         let isMounted = true;
         setIsLoadingChats(true);
@@ -89,6 +94,18 @@ const ChatInterface: FC = () => {
         // Firestore rules (A6) since a rule can't field-mask a broad listen.
         const unSub = onSnapshot(query(collection(db, 'chats'), where('participants', 'array-contains', currentUserId)), async (snapshot) => {
             if (!isMounted) return;
+
+            // Tell senders their messages reached this device (two grey
+            // ticks). This drawer is mounted on every dashboard page, so it
+            // covers the whole time the web app is open.
+            for (const chatDoc of snapshot.docs) {
+                const chat = chatDoc.data() as Chat;
+                if (!needsDeliveryAck(chat, currentUserId)) continue;
+                if (deliveryAckedFor.current.get(chatDoc.id) === chat.last_message_id) continue;
+                deliveryAckedFor.current.set(chatDoc.id, chat.last_message_id);
+                updateDoc(chatDoc.ref, { [`delivered_at.${currentUserId}`]: serverTimestamp() })
+                    .catch((err) => console.error(`Error marking chat ${chatDoc.id} delivered:`, err));
+            }
 
             const chatIds: string[] = snapshot.docs.map((doc) => doc.id);
 

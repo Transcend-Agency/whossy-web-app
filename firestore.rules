@@ -278,6 +278,18 @@ service cloud.firestore {
           && after[request.auth.uid] == request.time;
       }
 
+      // Each participant's own "delivered up to" time: when their device
+      // last received the chat's messages. The sender sees two grey ticks
+      // on everything sent up to then. Same shape as the read marker: only
+      // your own entry, only to the server's clock.
+      function ownDeliveredMarkerOnly() {
+        let before = resource.data.get('delivered_at', {});
+        let after = request.resource.data.delivered_at;
+        return after is map
+          && after.diff(before).affectedKeys().hasOnly([request.auth.uid])
+          && after[request.auth.uid] == request.time;
+      }
+
       function participantsMatchId(data) {
         return data.participants is list
           && data.participants.size() == 2
@@ -297,7 +309,7 @@ service cloud.firestore {
         && participantsMatchId(request.resource.data)
         && !request.resource.data.keys().hasAny(
              ['credit_status', 'initiator_id', 'hold_placed_at', 'connected_at', 'credit_held', 'unlock_time',
-              'last_read_at'])
+              'last_read_at', 'delivered_at'])
         && request.resource.data.get('is_unlocked', false) == false
         && request.resource.data.get('expiration_time', null) == null;
 
@@ -305,7 +317,8 @@ service cloud.firestore {
         && !changedKeys().hasAny(creditKeys())
         // Mobile rewrites participants on every send, in its own order.
         && (!('participants' in changedKeys()) || participantsMatchId(request.resource.data))
-        && (!('last_read_at' in changedKeys()) || ownReadMarkerOnly());
+        && (!('last_read_at' in changedKeys()) || ownReadMarkerOnly())
+        && (!('delivered_at' in changedKeys()) || ownDeliveredMarkerOnly());
 
       allow delete: if false;
 
