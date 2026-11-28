@@ -2,8 +2,8 @@ import DashboardPageContainer from '@/components/dashboard/DashboardPageContaine
 import { db } from '@/firebase';
 import {motion} from 'framer-motion';
 import { useAuthStore } from '@/store/UserId';
-import {collection, doc, getDoc, onSnapshot, updateDoc} from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import {collection, doc, getDoc, onSnapshot, writeBatch} from 'firebase/firestore';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Notifications } from '@/types/notification';
 import useDashboardStore from "@/store/useDashboardStore.tsx";
@@ -31,6 +31,43 @@ const subjectUserId = (notification: Notifications, viewerUid?: string | null): 
     }
 };
 
+// Profiles of the people notifications are about. Ten notifications from the
+// same sender used to mean ten reads of the same profile, run one after the
+// other, every time the list changed. Cached at module level so reopening
+// the page reuses them; the TTL bounds how long a since-banned profile can
+// keep showing.
+const USER_CACHE_TTL_MS = 5 * 60 * 1000;
+const userCache = new Map<string, { at: number; promise: Promise<User | null> }>();
+
+const readUser = async (userId: string): Promise<User | null> => {
+    try {
+        const snap = await getDoc(doc(db, "users", userId));
+        if (snap.exists()) return snap.data() as User;
+        console.warn("No user found for userId:", userId);
+        return null;
+    } catch (error) {
+        console.error("Error fetching user data for userId:", userId, error);
+        return null;
+    }
+};
+
+const fetchUserCached = (userId: string): Promise<User | null> => {
+    const hit = userCache.get(userId);
+    if (hit && Date.now() - hit.at < USER_CACHE_TTL_MS) return hit.promise;
+    const promise = readUser(userId);
+    userCache.set(userId, { at: Date.now(), promise });
+    // A failed read shouldn't stick for five minutes.
+    promise.then((u) => { if (!u) userCache.delete(userId); });
+    return promise;
+};
+
+// Last list shown per viewer, so reopening the page paints straight away
+// instead of flashing the skeleton while the live listener catches up.
+const lastShown = new Map<string, Notifications[]>();
+
+// Firestore caps a write batch at 500 operations.
+const BATCH_LIMIT = 500;
+
 const Notification = () => {
     const {auth} = useAuthStore();
     const navigate = useNavigate();
@@ -39,41 +76,83 @@ const Notification = () => {
     const { refreshProfiles } = useProfileFetcher()
     const { user } = useAuthStore()
     const loggedUserId = auth?.uid as string;
-    const [loading, setLoading] = useState<boolean>(false);
 
-    const [notifications, setNotifications] = useState<Notifications[]>([]);
+    const [notifications, setNotifications] = useState<Notifications[]>(() => lastShown.get(loggedUserId) ?? []);
+    const [loading, setLoading] = useState<boolean>(() => !lastShown.has(loggedUserId));
+    // Notifications that were unread when this visit saw them. Opening the
+    // page marks everything read (which clears the bell badge), but the dot
+    // stays on these until the user leaves so they can still tell what's new.
+    const [newIds, setNewIds] = useState<Set<string>>(() => new Set());
+    const markingRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
-        setLoading(true); // Start loading
+        if (!loggedUserId) return;
+        let cancelled = false;
+        // Each snapshot starts an async filter pass; only the newest one may
+        // write state, or a slow older pass can overwrite a newer list.
+        let latestRun = 0;
+
+        // Everything unread is marked read as soon as the page sees it,
+        // including notifications filtered out of the list (banned/blocked
+        // subjects) — the bell counts those too, so tapping one by one could
+        // never clear it.
+        const markAllSeen = (all: Notifications[]) => {
+            const unseen = all.filter((n) => !n.seen && !markingRef.current.has(n.id));
+            if (unseen.length === 0) return;
+            setNewIds((prev) => {
+                const next = new Set(prev);
+                unseen.forEach((n) => next.add(n.id));
+                return next;
+            });
+            for (let i = 0; i < unseen.length; i += BATCH_LIMIT) {
+                const chunk = unseen.slice(i, i + BATCH_LIMIT);
+                const batch = writeBatch(db);
+                chunk.forEach((n) => {
+                    markingRef.current.add(n.id);
+                    batch.update(doc(db, `users/${loggedUserId}/notifications`, n.id), { seen: true });
+                });
+                batch.commit().catch((error) => {
+                    console.error("Error marking notifications seen:", error);
+                    // Let the next snapshot retry them.
+                    chunk.forEach((n) => markingRef.current.delete(n.id));
+                });
+            }
+        };
+
         const notificationRef = collection(db, `users/${loggedUserId}/notifications`);
         const unSub = onSnapshot(
             notificationRef,
             async (snapshot) => {
-                const notifications = snapshot.docs.map((doc) => ({
-                    id: doc.id,
-                    ...doc.data(),
+                const run = ++latestRun;
+                const all = snapshot.docs.map((d) => ({
+                    id: d.id,
+                    ...d.data(),
                 })) as Notifications[];
 
-                const filteredNotifications = [];
-                for (const notification of notifications) {
-                    try {
-                        const userId = subjectUserId(notification, user?.uid);
-                        if (!userId) {
-                            // 'verification' (or a malformed doc with neither) — always shown.
-                            if (notification.type === 'verification') filteredNotifications.push(notification);
-                            continue;
-                        }
-                        const userData = await fetchUserData(userId);
-                        const currentUser = await fetchUserData(user?.uid as string)
-                        if (userData && userData.is_approved && currentUser && !currentUser.blockedIds?.includes(userId)) {
-                            filteredNotifications.push(notification);
-                        }
-                    } catch (error) {
-                        console.error("Error fetching user data for notification:", notification.id, error);
+                markAllSeen(all);
+
+                // One fresh read of the viewer for their block list (it can
+                // change while the page is open), and the subjects in
+                // parallel from the cache.
+                const currentUserPromise = readUser(loggedUserId);
+                const results = await Promise.all(all.map(async (notification) => {
+                    const userId = subjectUserId(notification, loggedUserId);
+                    if (!userId) {
+                        // 'verification' (or a malformed doc with neither) — always shown.
+                        return notification.type === 'verification' ? notification : null;
                     }
-                }
-                filteredNotifications.sort((a, b) => b.timestamp?.toMillis?.() - a.timestamp?.toMillis?.());
-                setNotifications(filteredNotifications);
+                    const [userData, currentUser] = await Promise.all([fetchUserCached(userId), currentUserPromise]);
+                    if (userData && userData.is_approved && currentUser && !currentUser.blockedIds?.includes(userId)) {
+                        return notification;
+                    }
+                    return null;
+                }));
+                if (cancelled || run !== latestRun) return;
+
+                const filtered = results.filter((n): n is Notifications => n !== null);
+                filtered.sort((a, b) => (b.timestamp?.toMillis?.() ?? 0) - (a.timestamp?.toMillis?.() ?? 0));
+                lastShown.set(loggedUserId, filtered);
+                setNotifications(filtered);
                 setLoading(false);
             },
             (err) => {
@@ -81,42 +160,16 @@ const Notification = () => {
                 setLoading(false);
             }
         );
+
         return () => {
+            cancelled = true;
             unSub();
         };
-        // The notifications listener is subscribed per auth uid only. Adding
-        // user?.uid (a separate store field that can load later) would
-        // re-subscribe the Firestore listener when it changes.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loggedUserId]);
 
-    const fetchUserData = async (userId: string) => {
-        if (!userId) {
-            return null;
-        }
-
-        try {
-            const userDocRef = doc(db, "users", userId);
-            const userDocSnap = await getDoc(userDocRef);
-            if (userDocSnap.exists()) {
-                return userDocSnap.data() as User;
-            } else {
-                console.warn("No user found for userId:", userId);
-                return null;
-            }
-        } catch (error) {
-            console.error("Error fetching user data for userId:", userId, error);
-            return null;
-        }
-    };
-
-    const markSeen = async (notificationId: string) => {
-        const userDocRef = doc(db, `users/${loggedUserId}/notifications`, notificationId);
-        await updateDoc(userDocRef, {seen: true})
-    };
+    const isNew = (notification: Notifications) => !notification.seen || newIds.has(notification.id);
 
     const openNotification = async (notification: Notifications) => {
-        await markSeen(notification.id);
         switch (notification.type) {
             case 'like':
                 setSelectedProfile(notification.likerId as string);
@@ -126,7 +179,7 @@ const Notification = () => {
                 return;
             case 'message': {
                 if (!notification.chatId || !notification.senderId) return;
-                const senderData = await fetchUserData(notification.senderId);
+                const senderData = await fetchUserCached(notification.senderId);
                 if (!senderData) return;
                 setChatId(notification.chatId);
                 navigate(`/dashboard/chat?recipient-user-id=${notification.senderId}`, {
@@ -176,7 +229,7 @@ const Notification = () => {
                                 >
                                     <div className='space-y-[1.2rem]'>
                                         <h1 className='text-[2rem] font-bold flex items-center gap-x-2'>
-                                            New Like {!notification.seen &&
+                                            New Like {isNew(notification) &&
                                             <div className='size-[0.8rem] bg-[#F2243E] rounded-full'/>}
                                         </h1>
                                         <p className='text-[1.6rem] text-[#8A8A8E]'>
@@ -196,7 +249,7 @@ const Notification = () => {
                                         <h1 className='text-[2rem] font-bold flex items-center gap-x-2'>
                                             You've matched
                                             with {notification.user2_name === user?.first_name ? notification.user1_name : notification.user2_name}{' '}
-                                            {!notification.seen &&
+                                            {isNew(notification) &&
                                                 <div className='size-[0.8rem] bg-[#F2243E] rounded-full'/>}
                                         </h1>
                                         <p className='text-[1.6rem] text-[#8A8A8E]'>
@@ -223,7 +276,7 @@ const Notification = () => {
                                 >
                                     <div className='space-y-[1.2rem]'>
                                         <h1 className='text-[2rem] font-bold flex items-center gap-x-2'>
-                                            {notification.senderName ? `Message from ${notification.senderName}` : 'New Message'} {!notification.seen &&
+                                            {notification.senderName ? `Message from ${notification.senderName}` : 'New Message'} {isNew(notification) &&
                                             <div className='size-[0.8rem] bg-[#F2243E] rounded-full'/>}
                                         </h1>
                                         <p className='text-[1.6rem] text-[#8A8A8E]'>
@@ -246,7 +299,7 @@ const Notification = () => {
                                 >
                                     <div className='space-y-[1.2rem]'>
                                         <h1 className='text-[2rem] font-bold flex items-center gap-x-2'>
-                                            {notification.title} {!notification.seen &&
+                                            {notification.title} {isNew(notification) &&
                                             <div className='size-[0.8rem] bg-[#F2243E] rounded-full'/>}
                                         </h1>
                                         <p className='text-[1.6rem] text-[#8A8A8E]'>
