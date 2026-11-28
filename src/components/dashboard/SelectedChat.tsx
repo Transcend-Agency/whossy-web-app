@@ -698,7 +698,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                             </button>
                         </header>
                           <section className="text-[1.6rem] text-[#121212] flex-1 px-8 flex flex-col overflow-y-scroll pb-20 no-scrollbar">
-                              <section ref={messageListRef} className="messages flex flex-col gap-y-6 h-[calc(100vh-32.4rem)] overflow-y-scroll no-scrollbar relative">
+                              <section ref={messageListRef} className="messages flex flex-col gap-y-6 pb-[3.2rem] h-[calc(100vh-32.4rem)] overflow-y-scroll no-scrollbar relative">
                                   {/* Paywall overlay only over empty chats — once history exists it
                                       stays readable (AC 4.4); the banner + disabled composer gate sending. */}
                                   {!isLoading &&

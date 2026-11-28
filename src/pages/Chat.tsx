@@ -205,7 +205,11 @@ const ChatPage = () => {
                     <motion.div
                         animate={activePage === 'chats' ? { scale: 1, opacity: 1 } : { scale: 0.9, opacity: 0 }}
                         transition={{ duration: 0.25 }}
-                        className="user-profile space-y-10 flex-1 lg:h-full"
+                        // Out of the layout while a chat is open: faded but
+                        // still in flow, the list pushed the open chat a full
+                        // page down, below the visible area. Kept mounted so
+                        // going back doesn't reload it.
+                        className={`user-profile space-y-10 flex-1 lg:h-full ${activePage === 'chats' ? '' : 'hidden'}`}
                     >
                         <section className="space-y-[1.6rem] px-[1.6rem]">
                             <h1 className="text-[16px] font-medium">Likes and Matches</h1>
