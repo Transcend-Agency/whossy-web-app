@@ -2,7 +2,7 @@ import {ChangeEvent, FC, useEffect, useRef, useState} from "react";
 import {AnimatePresence, motion, motion as m} from "framer-motion";
 import Skeleton from "react-loading-skeleton";
 import EmojiPicker from "emoji-picker-react";
-import {IoCheckmarkDone} from "react-icons/io5";
+import {IoArrowUndo, IoClose} from "react-icons/io5";
 import {
     arrayRemove, arrayUnion,
     collection,
@@ -27,6 +27,9 @@ import {
     initiateChat,
 } from "@/utils/chatCreditState";
 import { readMarkerBehind } from "@/utils/chatUnread";
+import { deliveredAt, tickStateFor } from "@/utils/chatDelivery";
+import { parseReplyTo, quoteOf } from "@/utils/chatReply";
+import { MessageTicks, ReplyQuote } from "@/components/dashboard/ChatMessageParts";
 import ChatStateBanner from "@/components/dashboard/ChatStateBanner.tsx";
 import { useVerificationGate } from "@/hooks/useVerificationGate.tsx";
 import {formatFirebaseTimestampToTime, formatServerTimeStamps} from "@/constants";
@@ -70,6 +73,9 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
     const [readReceiptDisabledAt, setReadReceiptDisabledAt] = useState<Date | null>(null);
     const [openEmoji, setOpenEmoji] = useState(false);
     const [chats, setChats] = useState<Messages[]>([]);
+    // The message being replied to, shown above the input until sent.
+    const [replyingTo, setReplyingTo] = useState<Messages | null>(null);
+    const messageInputRef = useRef<HTMLInputElement | null>(null);
     const [recipientDetails, setRecipientDetails] = useState<{
         name: string | null,
         profilePicture: string | null,
@@ -135,6 +141,18 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         }, (err) => console.error("chat doc listener:", err));
         return unSub;
     }, [chatId]);
+
+    // A reply belongs to the chat it was started in.
+    useEffect(() => { setReplyingTo(null); }, [chatId]);
+
+    const startReply = (message: Messages) => {
+        setReplyingTo(message);
+        messageInputRef.current?.focus();
+    };
+
+    /** "You", or the other person's name, for a quote. */
+    const quoteName = (senderId: string) =>
+        senderId === currentUser?.uid ? "You" : recipientDetails.name || "Them";
 
     // One-time transition moments: hold captured (connected 🎉) / hold refunded.
     const prevCreditState = useRef<typeof creditState>();
@@ -433,6 +451,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         };
 
         const recipientBlockedCurrentUser = await checkIfUserBlocked(state.recipientUser.uid as string, currentUser.uid as string);
+        const replyTo = replyingTo ? quoteOf(replyingTo) : null;
         // Create optimistic message object with a placeholder for image if it's being uploaded
         const optimisticMessage: Messages = {
             id: messageId,
@@ -442,6 +461,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
             photo: image.file ? 'loading_image_placeholder' : null, // Placeholder for image
             timestamp: temporaryTimestamp,
             status: 'sent',
+            ...(replyTo ? { reply_to: replyTo } : {}),
         };
 
         // Optimistically add the message to the chat array
@@ -450,8 +470,10 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         // Clear input fields (kept so a failed send can put the draft back)
         const sentText = text;
         const sentImage = image;
+        const sentReplyingTo = replyingTo;
         setText('');
         setImage({ file: null, url: null });
+        setReplyingTo(null);
 
         try {
             if (image.file) {
@@ -475,7 +497,8 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                 message: text !== '' ? text : null,
                 photo: imgUrl ?? null,
                 timestamp: serverTimestamp(),
-                status: "sent"
+                status: "sent",
+                ...(replyTo ? { reply_to: replyTo } : {}),
             });
 
             // {
@@ -494,6 +517,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
             setChats(prevChats => prevChats.filter(chat => chat.id !== optimisticMessage.id));
             setText(current => current || sentText);
             setImage(current => current.file || current.url ? current : sentImage);
+            setReplyingTo(current => current ?? sentReplyingTo);
             toast.error("Message not sent. Check your connection and try again.");
         }
     };
@@ -702,30 +726,49 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                   )}
                                 {chats && Array.isArray(chats) && chats?.filter((message: Messages) => {
                                     return !(message.sender_id_blocked && message.sender_id !== currentUser.uid)
-                                }).map((message: Messages, i: number) =>
-                                    <div className={`max-w-[70%] flex ${message.sender_id === currentUser?.uid ? " flex-col self-end our_message" : ' gap-x-2 items-start flex-col their_message'}`} key={i}>
+                                }).map((message: Messages, i: number) => {
+                                    const isOwn = message.sender_id === currentUser?.uid;
+                                    const quote = parseReplyTo(message.reply_to);
+                                    const quoteBlock = quote && (
+                                        <ReplyQuote quote={quote} name={quoteName(quote.sender_id)} isOwn={quote.sender_id === currentUser?.uid} className="mb-[0.8rem]" />
+                                    );
+                                    const showRead = readReceipt && !(readReceiptDisabledAt && !(message.timestamp instanceof FieldValue) &&
+                                        new Date(message.timestamp.seconds * 1000) < readReceiptDisabledAt);
+                                    return (
+                                    <div className={`group relative max-w-[70%] flex ${isOwn ? " flex-col self-end our_message" : ' gap-x-2 items-start flex-col their_message'}`} key={message.id ?? i}>
+                                        <button
+                                            type="button"
+                                            aria-label="Reply"
+                                            title="Reply"
+                                            data-testid="reply-button"
+                                            onClick={() => startReply(message)}
+                                            className={`absolute top-1/2 -translate-y-1/2 ${isOwn ? '-left-[4rem]' : '-right-[4rem]'} grid place-items-center size-[3.2rem] rounded-full bg-[#f6f6f6] text-black opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity cursor-pointer`}
+                                        >
+                                            <IoArrowUndo size={16} />
+                                        </button>
                                         <div className="flex flex-col">
+                                            {quoteBlock && !message.message && (
+                                                <div className={`${isOwn ? 'bg-[#E5F2FF] self-end' : 'bg-[#f6f6f6]'} p-[0.8rem] pb-0 rounded-[1.2rem] mt-4 w-fit max-w-full`}>{quoteBlock}</div>
+                                            )}
                                             {message.photo && message.photo !== 'loading_image_placeholder' ?
                                                 <img className='mr-2 max-h-[30rem] w-full object-contain ' src={message.photo as string} alt="profile picture" /> : message.photo === 'loading_image_placeholder' && <Skeleton width="30rem" height="30rem" /> }
 
-                                            {message.message && <p className={`${message.sender_id === currentUser?.uid ? 'bg-[#E5F2FF]  self-end' : 'bg-[#f6f6f6]'} py-[1.6rem] px-[1.2rem] mt-4 w-fit`} style={{ borderTopLeftRadius: '1.2rem', borderTopRightRadius: '1.2rem', borderBottomLeftRadius: message.sender_id === currentUser?.uid ? '1.2rem' : '0.4rem', borderBottomRightRadius: message.sender_id === currentUser?.uid ? '0.4rem' : '1.2rem' }}>{message.message}</p>}
+                                            {message.message && <div className={`${isOwn ? 'bg-[#E5F2FF]  self-end' : 'bg-[#f6f6f6]'} py-[1.6rem] px-[1.2rem] mt-4 w-fit max-w-full`} style={{ borderTopLeftRadius: '1.2rem', borderTopRightRadius: '1.2rem', borderBottomLeftRadius: isOwn ? '1.2rem' : '0.4rem', borderBottomRightRadius: isOwn ? '0.4rem' : '1.2rem' }}>
+                                                {quoteBlock}
+                                                <p className="whitespace-pre-wrap break-words">{message.message}</p>
+                                            </div>}
                                         </div>
-                                        <p className="flex justify-end mt-2 text-[#cfcfcf]">
-                                            {message.sender_id === currentUser?.uid && (
-                                                <IoCheckmarkDone
-                                                    color={!readReceipt
-                                                        ? "#cfcfcf" : (readReceiptDisabledAt && !(message.timestamp instanceof FieldValue) &&
-                                                        new Date(message.timestamp.seconds * 1000) < readReceiptDisabledAt)
-                                                        ? "#cfcfcf" : message.status === "seen" ? "#2747d8" : "#cfcfcf"
-                                                    }
-                                                />)}
+                                        <p className="flex justify-end items-center gap-x-2 mt-2 text-[#cfcfcf]">
+                                            {isOwn && (
+                                                <MessageTicks state={tickStateFor(message, deliveredAt(currentChat, recipientUserId), showRead)} />
+                                            )}
                                             <span>
                                               {message.timestamp &&
                                                 formatFirebaseTimestampToTime(message.timestamp as { seconds: number, nanoseconds: number })}
                                             </span>
                                         </p>
-                                    </div>)
-                                }
+                                    </div>);
+                                })}
                                 <div ref={endRef} />
                             </section>
                         </section>
@@ -748,6 +791,21 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                     </button>
                                 </div>
                             )
+                        )}
+                        {replyingTo && (!currentChat?.user_blocked?.[0] || isLoading) && (
+                            <div className="mx-6 mb-3" data-testid="reply-bar">
+                                <ReplyQuote
+                                    quote={quoteOf(replyingTo)}
+                                    name={replyingTo.sender_id === currentUser?.uid ? "Replying to yourself" : `Replying to ${recipientDetails.name || "them"}`}
+                                    isOwn={replyingTo.sender_id === currentUser?.uid}
+                                    className="bg-[#F6F6F6]"
+                                    trailing={
+                                        <button type="button" aria-label="Cancel reply" title="Cancel reply" onClick={() => setReplyingTo(null)} className="px-4 text-[#66666B] cursor-pointer">
+                                            <IoClose size={20} />
+                                        </button>
+                                    }
+                                />
+                            </div>
                         )}
                         {!currentChat?.user_blocked?.[0] || isLoading ? <footer className=" flex justify-between text-[1.6rem] bg-white items-center gap-x-4 mx-6">
                                 <div className="flex-1 flex gap-x-4">
@@ -777,12 +835,17 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                         )}
 
                                         <input
+                                            ref={messageInputRef}
                                             type="text"
                                             className={`bg-inherit outline-none w-full`}
                                             placeholder="Say something nice"
                                             value={text} // Keep only the `text` value
                                             onChange={(e) => setText(e.target.value)}
                                             onKeyDown={(e) => {
+                                                if (e.key === 'Escape' && replyingTo) {
+                                                    setReplyingTo(null);
+                                                    return;
+                                                }
                                                 if (e.key === 'Enter' && (text || image.url)) {
                                                     handleSendMessage()
                                                         .catch(notifyError("Message not sent. Check your connection and try again."));

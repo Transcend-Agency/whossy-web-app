@@ -29,6 +29,21 @@ export type Chat = {
     /** When each participant last viewed the chat, by uid. Kept whether or
      *  not their read receipts are on; each writes only their own entry. */
     last_read_at?: Record<string, FieldValue | { seconds: number, nanoseconds: number } | null>;
+
+    /** When each participant's device last received this chat's messages, by
+     *  uid. Every message sent up to then counts as delivered (two grey
+     *  ticks). Each participant writes only their own entry. */
+    delivered_at?: Record<string, FieldValue | { seconds: number, nanoseconds: number } | null>;
+};
+
+/** The message a reply answers, copied onto the reply when it is sent.
+ *  Written in the same shape by the mobile app. */
+export type ReplyTo = {
+    id: string;
+    sender_id: string;
+    /** The quoted text, cut to 200 characters; absent for a photo alone. */
+    message?: string;
+    has_photo: boolean;
 };
 
 export type Messages = {
@@ -38,5 +53,8 @@ export type Messages = {
     sender_id: string;
     sender_id_blocked: boolean;
     timestamp: FieldValue | { seconds: number, nanoseconds: number };
-    status: 'sent' | 'seen'
+    /** 'undelivered' is written by the mobile app for a message sent while
+     *  offline; the server turns it into 'sent' once it arrives. */
+    status: 'sent' | 'seen' | 'undelivered';
+    reply_to?: ReplyTo | null;
 }

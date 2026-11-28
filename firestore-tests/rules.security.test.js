@@ -340,6 +340,31 @@ test("R9: a client cannot hand itself an open chat", async () => {
   await assertFails(updateDoc(doc(as("alice"), `chats/${id}`), { is_unlocked: true }));
 });
 
+test("each participant can set only their own delivered time, and only to the server time", async () => {
+  await seedUser("alice"); await seedUser("bob");
+  const id = chatIdOf("alice", "bob");
+  await seed(`chats/${id}`, { participants: ["alice", "bob"], status: "sent", delivered_at: { bob: inPast() } });
+  const chat = (uid) => doc(as(uid), `chats/${id}`);
+
+  // Your own entry, stamped by the server: allowed, including when moving it on.
+  await assertSucceeds(updateDoc(chat("alice"), { "delivered_at.alice": serverTimestamp() }));
+  await assertSucceeds(updateDoc(chat("alice"), { "delivered_at.alice": serverTimestamp() }));
+  // Someone else's entry, a time you choose, or a malformed field: refused.
+  await assertFails(updateDoc(chat("alice"), { "delivered_at.bob": serverTimestamp() }));
+  await assertFails(updateDoc(chat("alice"), { "delivered_at.alice": inFuture() }));
+  await assertFails(updateDoc(chat("alice"), { "delivered_at.alice": serverTimestamp(), "delivered_at.bob": serverTimestamp() }));
+  await assertFails(updateDoc(chat("alice"), { delivered_at: "never" }));
+  await assertFails(updateDoc(chat("alice"), { delivered_at: deleteField() }));
+  // Not a participant at all.
+  await seedUser("mallory");
+  await assertFails(updateDoc(chat("mallory"), { "delivered_at.mallory": serverTimestamp() }));
+  // Delivered and read markers can move together.
+  await assertSucceeds(updateDoc(chat("bob"), { "delivered_at.bob": serverTimestamp(), "last_read_at.bob": serverTimestamp() }));
+  // A new chat shell can't arrive with delivery times already in it.
+  const other = chatIdOf("alice", "carol");
+  await assertFails(setDoc(doc(as("alice"), `chats/${other}`), { participants: ["alice", "carol"], delivered_at: { carol: inPast() } }));
+});
+
 test("each participant can set only their own read marker, and only to the server time", async () => {
   await seedUser("alice"); await seedUser("bob");
   const id = chatIdOf("alice", "bob");
