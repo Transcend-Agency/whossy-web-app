@@ -86,7 +86,6 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
 
     const imageRef = useRef<HTMLInputElement | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const endRef = useRef<HTMLDivElement>(null);
     const { chatId, setChatId } = useChatIdStore();
     const { fetchMatches } = useMatchStore()
     const navigate = useNavigate()
@@ -171,7 +170,14 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [creditState]);
 
-    useEffect(() => { if (endRef.current) { endRef.current.scrollIntoView({ behavior: 'auto' }); } }, [chats])
+    // Scroll only the message list. scrollIntoView also scrolls every
+    // scrollable ancestor (the dashboard and the window), which pushed the
+    // chat header — picture, name, online status — out of view.
+    const messageListRef = useRef<HTMLElement>(null);
+    useEffect(() => {
+        const list = messageListRef.current;
+        if (list) list.scrollTop = list.scrollHeight;
+    }, [chats])
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -692,7 +698,7 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                             </button>
                         </header>
                           <section className="text-[1.6rem] text-[#121212] flex-1 px-8 flex flex-col overflow-y-scroll pb-20 no-scrollbar">
-                              <section className="messages flex flex-col gap-y-6 h-[calc(100vh-32.4rem)] overflow-y-scroll no-scrollbar relative">
+                              <section ref={messageListRef} className="messages flex flex-col gap-y-6 h-[calc(100vh-32.4rem)] overflow-y-scroll no-scrollbar relative">
                                   {/* Paywall overlay only over empty chats — once history exists it
                                       stays readable (AC 4.4); the banner + disabled composer gate sending. */}
                                   {!isLoading &&
@@ -769,7 +775,6 @@ const SelectedChat: FC<SelectedChatProps> = ({activePage,closePage,updateChatId,
                                         </p>
                                     </div>);
                                 })}
-                                <div ref={endRef} />
                             </section>
                         </section>
                         <AnimatePresence>
